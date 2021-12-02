@@ -18,6 +18,9 @@ namespace praas::control_plane {
 
     while(!_ending) {
       sockpp::tcp_socket conn = _listen.accept();
+
+      if(_ending)
+        break;
       if (!conn)
         spdlog::error("Error accepting incoming connection: {}", _listen.last_error_str());
 
