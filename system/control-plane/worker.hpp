@@ -22,6 +22,7 @@ namespace praas::control_plane {
 
     conn->write("hello client", 13);
 
+    conn->close();
     delete conn;
   }
 
