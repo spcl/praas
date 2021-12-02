@@ -7,11 +7,11 @@
 namespace praas::control_plane {
 
   Server::Server(Options & options):
-    _listen(options.port),
     _pool(options.threads),
     _redis(new sw::redis::Redis{options.redis_addr}),
     _ending(false)
   {
+    _listen.open(options.port);
   }
 
   Server::~Server()
