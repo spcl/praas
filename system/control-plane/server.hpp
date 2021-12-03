@@ -8,10 +8,17 @@
 
 namespace praas::control_plane {
 
+  enum class FunctionBackend {
+    LOCAL = 0,
+    AWS
+  };
+
   struct Options {
     std::string redis_addr;
     int threads;
     int port;
+    FunctionBackend backend;
+    std::string local_server;
     bool verbose;
   };
   Options opts(int, char**);
