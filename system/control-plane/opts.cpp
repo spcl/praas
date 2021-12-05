@@ -10,6 +10,7 @@ namespace praas::control_plane {
   {
     cxxopts::Options options("rfaas-executor-manager", "Handle client connections and allocation of executors.");
     options.add_options()
+      ("a,address", "IP address used by this server.",  cxxopts::value<std::string>())
       ("p,port", "TCP port to listen on.",  cxxopts::value<int>()->default_value("8080"))
       ("r,redis", "Redis address to use.",  cxxopts::value<std::string>())
       ("t,threads", "Number of processing threads.",  cxxopts::value<int>()->default_value("1"))
@@ -20,16 +21,17 @@ namespace praas::control_plane {
     auto parsed_options = options.parse(argc, argv);
 
     Options result;
+    result.ip_address = parsed_options["address"].as<std::string>();
     result.port = parsed_options["port"].as<int>();
     result.threads = parsed_options["threads"].as<int>();
     result.redis_addr = parsed_options["redis"].as<std::string>();
     result.verbose = parsed_options["verbose"].as<bool>();
     std::string backend = parsed_options["backend"].as<std::string>();
     if(backend == "local") {
-      result.backend = FunctionBackend::LOCAL;
+      result.backend = FunctionBackendType::LOCAL;
       result.local_server = parsed_options["local-server"].as<std::string>();
     } else if(backend == "aws")
-      result.backend = FunctionBackend::AWS;
+      result.backend = FunctionBackendType::AWS;
     else {
       spdlog::error("Incorrect choice of function backend {}", backend);
       exit(1);

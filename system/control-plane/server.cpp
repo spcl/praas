@@ -8,15 +8,18 @@ namespace praas::control_plane {
 
   Server::Server(Options & options):
     _pool(options.threads),
-    _redis(new sw::redis::Redis{options.redis_addr}),
+    _redis(options.redis_addr),
+    _backend(backend::Backend::construct(options)),
     _ending(false)
   {
     _listen.open(options.port);
+    Workers::init(_redis, _resources, *_backend);
   }
 
   Server::~Server()
   {
-    delete _redis;
+    Workers::free();
+    delete _backend;
   }
 
   void Server::start()
@@ -35,7 +38,7 @@ namespace praas::control_plane {
       // Ugly fix around the fact that our pool uses std::function
       // std::function cannot accept a non-copyable object :-(
       // And our lambda must be movable only due to dependence on socket.
-      _pool.push_task(worker, new sockpp::tcp_socket{std::move(conn)}, _redis);
+      _pool.push_task(Worker::worker, new sockpp::tcp_socket{std::move(conn)});
     }
   }
 

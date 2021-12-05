@@ -6,9 +6,12 @@
 #include <thread_pool.hpp>
 #include <redis++.h>
 
+#include "resources.hpp"
+#include "backend.hpp"
+
 namespace praas::control_plane {
 
-  enum class FunctionBackend {
+  enum class FunctionBackendType {
     LOCAL = 0,
     AWS
   };
@@ -16,8 +19,9 @@ namespace praas::control_plane {
   struct Options {
     std::string redis_addr;
     int threads;
+    std::string ip_address;
     int port;
-    FunctionBackend backend;
+    FunctionBackendType backend;
     std::string local_server;
     bool verbose;
   };
@@ -27,7 +31,9 @@ namespace praas::control_plane {
   {
     sockpp::tcp_acceptor _listen;
     thread_pool _pool;
-    sw::redis::Redis* _redis;
+    sw::redis::Redis _redis;
+    Resources _resources;
+    backend::Backend* _backend;
     bool _ending;
 
     Server(Options &);
