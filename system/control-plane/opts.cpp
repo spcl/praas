@@ -15,7 +15,8 @@ namespace praas::control_plane {
       ("r,redis", "Redis address to use.",  cxxopts::value<std::string>())
       ("t,threads", "Number of processing threads.",  cxxopts::value<int>()->default_value("1"))
       ("backend", "Backend allocating functions. Options: [local, aws].",  cxxopts::value<std::string>())
-      ("local-server", "Address of the local server",  cxxopts::value<std::string>())
+      ("local-server", "Address of the local server.",  cxxopts::value<std::string>())
+      ("read-timeout", "Read timeout for TCP sockets [ms].",  cxxopts::value<int>()->default_value("1000"))
       ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
     ;
     auto parsed_options = options.parse(argc, argv);
@@ -26,6 +27,7 @@ namespace praas::control_plane {
     result.threads = parsed_options["threads"].as<int>();
     result.redis_addr = parsed_options["redis"].as<std::string>();
     result.verbose = parsed_options["verbose"].as<bool>();
+    result.read_timeout = parsed_options["read-timeout"].as<int>();
     std::string backend = parsed_options["backend"].as<std::string>();
     if(backend == "local") {
       result.backend = FunctionBackendType::LOCAL;

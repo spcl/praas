@@ -23,7 +23,7 @@ namespace praas::control_plane {
 
   void Worker::resize(ssize_t size)
   {
-    if(payload_buffer_len < size) {
+    if(payload_buffer_len < size || !payload_buffer) {
       payload_buffer_len = size;
       payload_buffer.reset(new int8_t[payload_buffer_len]);
     }
@@ -102,39 +102,52 @@ namespace praas::control_plane {
 
   void Worker::worker(sockpp::tcp_socket * conn)
   {
+    auto thread_id = std::hash<std::thread::id>{}(std::this_thread::get_id());
+    spdlog::debug("Worker {} begins processing a request", thread_id);
     Worker& worker = Workers::get(std::this_thread::get_id());
 
     ssize_t recv_data = conn->read(worker.header.data, Header::BUF_SIZE);
+    // EOF
     if(recv_data == 0) {
       spdlog::debug("End of file on connection with {}.", conn->peer_address().to_string());
       conn->close();
       delete conn;
-      return;
     }
-
-    std::unique_ptr<MessageType> msg = worker.header.parse(recv_data);
-    if(!msg) {
-      spdlog::error(
-        "Incorrect message of size {} received, closing connection with {}.",
-        recv_data, conn->peer_address().to_string()
-      );
-      conn->close();
-      delete conn;
-      return;
-    }
-
-    if(msg.get()->type() == MessageType::Type::CLIENT) {
-      worker.process_client(conn, dynamic_cast<ClientMessage*>(msg.get()));
-      conn->close();
-      delete conn;   
-    } else if(msg.get()->type() == MessageType::Type::PROCESS) {
-      worker.process_process(conn, dynamic_cast<ProcessMessage*>(msg.get()));
-    } else {
-      // FIXME: implement handling sessions
-      spdlog::error("Unknown type of request!");
+    // Incorrect read
+    else if(recv_data == -1) {
+      spdlog::debug("Closing connection with {}.", conn->peer_address().to_string());
       conn->close();
       delete conn;
     }
+    // Correctly received request
+    else {
+
+      std::unique_ptr<MessageType> msg = worker.header.parse(recv_data);
+      if(!msg) {
+        spdlog::error(
+          "Incorrect message of size {} received, closing connection with {}.",
+          recv_data, conn->peer_address().to_string()
+        );
+        conn->close();
+        delete conn;
+        return;
+      }
+
+      if(msg.get()->type() == MessageType::Type::CLIENT) {
+        worker.process_client(conn, dynamic_cast<ClientMessage*>(msg.get()));
+        conn->close();
+        delete conn;
+      } else if(msg.get()->type() == MessageType::Type::PROCESS) {
+        worker.process_process(conn, dynamic_cast<ProcessMessage*>(msg.get()));
+      } else {
+        // FIXME: implement handling sessions
+        spdlog::error("Unknown type of request!");
+        conn->close();
+        delete conn;
+      }
+
+    }
+    spdlog::debug("Worker {} ends processing a request", thread_id);
   }
 
   std::unordered_map<std::thread::id, Worker*> Workers::_workers;

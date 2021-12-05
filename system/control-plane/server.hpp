@@ -21,6 +21,7 @@ namespace praas::control_plane {
     int threads;
     std::string ip_address;
     int port;
+    int read_timeout;
     FunctionBackendType backend;
     std::string local_server;
     bool verbose;
@@ -34,6 +35,7 @@ namespace praas::control_plane {
     sw::redis::Redis _redis;
     Resources _resources;
     backend::Backend* _backend;
+    int _read_timeout;
     bool _ending;
 
     Server(Options &);

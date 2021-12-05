@@ -1,4 +1,5 @@
 
+#include <chrono>
 #include <spdlog/spdlog.h>
 
 #include "server.hpp"
@@ -10,6 +11,7 @@ namespace praas::control_plane {
     _pool(options.threads),
     _redis(options.redis_addr),
     _backend(backend::Backend::construct(options)),
+    _read_timeout(options.read_timeout),
     _ending(false)
   {
     _listen.open(options.port);
@@ -29,6 +31,9 @@ namespace praas::control_plane {
 
     while(!_ending) {
       sockpp::tcp_socket conn = _listen.accept();
+      conn.read_timeout(std::chrono::microseconds(_read_timeout * 1000));
+      if(conn.is_open())
+        spdlog::debug("Accepted new connection from {}", conn.peer_address().to_string());
 
       if(_ending)
         break;
@@ -47,6 +52,7 @@ namespace praas::control_plane {
     _ending = true;
     spdlog::info("Closing control plane.");
     _listen.shutdown();
+    spdlog::info("Closed control plane.");
   }
 
 }
