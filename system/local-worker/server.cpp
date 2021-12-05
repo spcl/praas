@@ -34,7 +34,7 @@ namespace praas::local_worker {
     if (!_listen)
       spdlog::error("Incorrect socket initialization! {}", _listen.last_error_str());
 
-    spdlog::error("Local worker starts listening!");
+    spdlog::info("Local worker starts listening on port {}!", _port);
     Request req;
     while(!_ending) {
       sockpp::tcp_socket conn = _listen.accept();
