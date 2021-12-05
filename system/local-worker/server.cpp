@@ -11,7 +11,7 @@
 namespace praas::local_worker {
 
   Server::Server(Options & options):
-    _processes(new praas::process::Process*[options.processes]()),
+    _processes(new std::optional<praas::process::Process>[options.processes]()),
     _threads(new std::thread*[options.processes]()),
     _max_processes(options.processes),
     _port(options.port),
@@ -23,7 +23,6 @@ namespace praas::local_worker {
   Server::~Server()
   {
     for(int i = 0; i < _max_processes; ++i) {
-      delete _processes[i];
       delete _threads[i];
     }
     delete[] _processes;
@@ -35,6 +34,7 @@ namespace praas::local_worker {
     if (!_listen)
       spdlog::error("Incorrect socket initialization! {}", _listen.last_error_str());
 
+    spdlog::error("Local worker starts listening!");
     Request req;
     while(!_ending) {
       sockpp::tcp_socket conn = _listen.accept();
@@ -46,38 +46,59 @@ namespace praas::local_worker {
 
       // Start a new process
       ssize_t n = conn.read(req.buf, Request::REQUEST_BUF_SIZE);
-      if(n != Request::REQUEST_BUF_SIZE) {
-        spdlog::error("Incorrect data size received {}", n);
+      if(n == 0) {
+        spdlog::debug("End of file on connection with {}.", conn.peer_address().to_string());
+        conn.close();
+        continue;
+      }
+      // Incorrect payload
+      if(n != Request::REQUEST_BUF_SIZE) { spdlog::error("Incorrect data size received {} from {}", n, conn.peer_address().to_string());
         int ret = 2;
         conn.write(&ret, sizeof(ret));
         conn.close();
-      } else {
-
-        auto it = std::find(_processes, _processes + _max_processes, nullptr);
-        int ret;
-        if(it == _processes + _max_processes) {
-          ret = 1;
-          spdlog::error("Achieved max number of processes! Can't scale more.");
-        } else {
-          // Allocate a new process
-          ret = 0;
-          auto pos = static_cast<int32_t>(std::distance(_processes, it));
-          int port = _port + pos + 1;
-          *it = new praas::process::Process{port, req.max_sessions()};
-          _threads[pos] = new std::thread(&praas::process::Process::start, *it);
-
-          spdlog::debug(
-            "Allocate new process with max sessions {} on port {}",
-            req.max_sessions(),
-            port
-          );
-        }
-        // 0 -> success, 1 -> exhausted resources
-        conn.write(&ret, sizeof(ret));
-        conn.close();
+        continue;
       }
-    }
 
+      auto* free_process = std::find_if(
+        _processes, _processes + _max_processes,
+        [](std::optional<praas::process::Process> & p) {
+          return !p.has_value();
+        }
+      );
+      int ret;
+      if(free_process == _processes + _max_processes) {
+        ret = 1;
+        spdlog::error("Achieved max number of processes! Can't scale more.");
+      } else {
+        // Allocate a new process
+        auto pos = static_cast<int32_t>(std::distance(_processes, free_process));
+        //auto process = praas::process::Process::create(req.ip_address(), req.port(), req.max_sessions());
+        //free_process->swap(process);
+        *free_process = praas::process::Process::create(req.ip_address(), req.port(), req.max_sessions());
+        if(free_process->has_value()) {
+          _threads[pos] = new std::thread(&praas::process::Process::start, &free_process->value());
+          spdlog::debug(
+            "Allocate new process with max sessions {}, connect to {}:{}",
+            req.max_sessions(),
+            req.ip_address(),
+            req.port()
+          );
+          ret = 0;
+        } else {
+          spdlog::error(
+            "Failed to allocate a new process with max sessions {}, connect to {}:{}",
+            req.max_sessions(),
+            req.ip_address(),
+            req.port()
+          );
+          ret = 2;
+        }
+      }
+      // 0 -> success, 1 -> exhausted resources, 2 -> another error
+      conn.write(&ret, sizeof(ret));
+      conn.close();
+    }
+    spdlog::error("Local worker stops listening!");
   }
 
   void Server::shutdown()
@@ -87,10 +108,8 @@ namespace praas::local_worker {
     _listen.shutdown();
 
     for(int i = 0; i < _max_processes; ++i) {
-      spdlog::info("{} {} {}", i, fmt::ptr(_processes[i]), fmt::ptr(_threads[i]));
       if(_processes[i]) {
         _processes[i]->shutdown();
-        spdlog::info("Join thread");
         _threads[i]->join();
       }
     }

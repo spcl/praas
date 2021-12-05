@@ -2,8 +2,10 @@
 #ifndef __LOCAL_WORKER_SERVER_HPP__
 #define __LOCAL_WORKER_SERVER_HPP__
 
-#include <sockpp/tcp_acceptor.h>
 #include <thread>
+#include <optional>
+
+#include <sockpp/tcp_acceptor.h>
 
 namespace praas::process {
   struct Process;
@@ -20,7 +22,7 @@ namespace praas::local_worker {
 
   struct Server
   {
-    praas::process::Process** _processes;
+    std::optional<praas::process::Process>* _processes;
     std::thread** _threads;
     int _max_processes;
     int _port;
