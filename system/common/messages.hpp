@@ -88,8 +88,6 @@ namespace praas::common {
     {
       memset(data, 0, REQUEST_BUF_SIZE);
     }
-
-    ssize_t fill_session_allocation(std::string session_id, int32_t max_functions, int32_t memory_size);
   };
 
   struct ProcessRequest : Request {
