@@ -62,19 +62,19 @@ namespace praas::control_plane::backend {
   }
 
   void LocalBackend::allocate_process(
-    std::string process_name, int16_t max_sessions
+    std::string process_name, std::string process_id, int16_t max_sessions
   )
   {
-    req.fill(max_sessions, controller_port, controller_ip_address);
-    connection.write(req.buf, req.REQUEST_BUF_SIZE);
+    ssize_t size = req.fill(max_sessions, controller_port, controller_ip_address, process_id);
+    connection.write(req.data, size);
     spdlog::debug(
-      "Allocating a new process with max sessions {}, process will talk to {}:{}",
-      max_sessions, controller_ip_address, controller_port
+      "Allocating a new process {} with max sessions {}, process will talk to {}:{}",
+      process_id, max_sessions, controller_ip_address, controller_port
     );
   }
 
   void AWSBackend::allocate_process(
-    std::string process_name, int16_t max_sessions
+    std::string process_name, std::string process_id, int16_t max_sessions
   )
   {
     // FIXME

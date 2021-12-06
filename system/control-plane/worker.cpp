@@ -29,7 +29,7 @@ namespace praas::control_plane {
     }
   }
 
-  void Worker::process_client(sockpp::tcp_socket * conn, ClientMessage* msg)
+  void Worker::process_client(sockpp::tcp_socket * conn, praas::common::ClientMessage* msg)
   {
     std::string process_name = msg->process_name();
     std::string function_name = msg->function_name();
@@ -61,9 +61,9 @@ namespace praas::control_plane {
     // Allocate a new process.
     // FIXME: multiple sessions per the same process.
     else {
-      spdlog::info("Allocate new process!");
-      std::string id = uuids::to_string(uuid_generator());
-      redis_conn.set(process_name + "_" + id, "session");
+      // FIXME: proc name + proc id from the user
+      std::string id = uuids::to_string(uuid_generator()).substr(0, 16);
+      spdlog::info("Allocate new process worker: {}!", id);
 
       Process process;
       process.process_id = id;
@@ -72,13 +72,12 @@ namespace praas::control_plane {
       process.allocations.push_back(std::move(alloc));
       resources.add_process(std::move(process));
 
-      // FIXME: proc name + proc id
-      backend.allocate_process("", 1);
+      backend.allocate_process(process_name, id, 1);
     }
 
   }
 
-  void Worker::process_process(sockpp::tcp_socket * conn, ProcessMessage* msg)
+  void Worker::process_process(sockpp::tcp_socket * conn, praas::common::ProcessMessage* msg)
   {
     std::string process_id = msg->process_id();
     spdlog::debug(
@@ -96,7 +95,11 @@ namespace praas::control_plane {
     proc->connection = std::move(*conn);
 
     // Allocate sessions!
+    std::string session_id = uuids::to_string(uuid_generator());
+
     // Add sessions to Redis.
+    //redis_conn.set(process_name + "_" + id, "session");
+    // FIXME: wait for confirmation
 
   }
 
@@ -106,7 +109,7 @@ namespace praas::control_plane {
     spdlog::debug("Worker {} begins processing a request", thread_id);
     Worker& worker = Workers::get(std::this_thread::get_id());
 
-    ssize_t recv_data = conn->read(worker.header.data, Header::BUF_SIZE);
+    ssize_t recv_data = conn->read(worker.header.data, praas::common::Header::BUF_SIZE);
     // EOF
     if(recv_data == 0) {
       spdlog::debug("End of file on connection with {}.", conn->peer_address().to_string());
@@ -122,7 +125,7 @@ namespace praas::control_plane {
     // Correctly received request
     else {
 
-      std::unique_ptr<MessageType> msg = worker.header.parse(recv_data);
+      std::unique_ptr<praas::common::MessageType> msg = worker.header.parse(recv_data);
       if(!msg) {
         spdlog::error(
           "Incorrect message of size {} received, closing connection with {}.",
@@ -133,12 +136,12 @@ namespace praas::control_plane {
         return;
       }
 
-      if(msg.get()->type() == MessageType::Type::CLIENT) {
-        worker.process_client(conn, dynamic_cast<ClientMessage*>(msg.get()));
+      if(msg.get()->type() == praas::common::MessageType::Type::CLIENT) {
+        worker.process_client(conn, dynamic_cast<praas::common::ClientMessage*>(msg.get()));
         conn->close();
         delete conn;
-      } else if(msg.get()->type() == MessageType::Type::PROCESS) {
-        worker.process_process(conn, dynamic_cast<ProcessMessage*>(msg.get()));
+      } else if(msg.get()->type() == praas::common::MessageType::Type::PROCESS) {
+        worker.process_process(conn, dynamic_cast<praas::common::ProcessMessage*>(msg.get()));
       } else {
         // FIXME: implement handling sessions
         spdlog::error("Unknown type of request!");

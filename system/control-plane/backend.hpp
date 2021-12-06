@@ -7,7 +7,7 @@
 
 #include <sockpp/tcp_connector.h>
 
-#include "../local-worker/request.hpp"
+#include "../common/messages.hpp"
 
 namespace praas::control_plane {
 
@@ -20,28 +20,28 @@ namespace praas::control_plane {
       int32_t controller_port;
 
       virtual void allocate_process(
-        std::string process_name, int16_t max_sessions
+        std::string process_name, std::string process_id, int16_t max_sessions
       ) = 0;
       static Backend* construct(Options &);
     };
 
     struct LocalBackend: Backend {
       sockpp::tcp_connector connection;
-      praas::local_worker::Request req;
+      praas::common::ProcessRequest req;
 
       using Backend::controller_ip_address;
       using Backend::controller_port;
 
       LocalBackend(sockpp::tcp_connector &&);
       void allocate_process(
-        std::string process_name, int16_t max_sessions
+        std::string process_name, std::string process_id, int16_t max_sessions
       ) override;
       static LocalBackend* create(std::string local_server_addr);
     };
 
     struct AWSBackend: Backend {
       void allocate_process(
-        std::string process_name, int16_t max_sessions
+        std::string process_name, std::string process_id, int16_t max_sessions
       ) override;
     };
 

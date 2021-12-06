@@ -11,7 +11,7 @@
 #include <sockpp/tcp_socket.h>
 #include <uuid.h>
 
-#include "messages.hpp"
+#include "../common/messages.hpp"
 
 namespace sw::redis {
   struct Redis;
@@ -26,7 +26,7 @@ namespace praas::control_plane {
 
   struct Worker
   {
-    Header header;
+    praas::common::Header header;
     std::unique_ptr<int8_t[]> payload_buffer;
     ssize_t payload_buffer_len;
     std::random_device rd;
@@ -39,8 +39,8 @@ namespace praas::control_plane {
     Worker(sw::redis::Redis& redis, Resources& resources, backend::Backend& backend);
 
     void resize(ssize_t size);
-    void process_client(sockpp::tcp_socket * conn, ClientMessage*);
-    void process_process(sockpp::tcp_socket * conn, ProcessMessage*);
+    void process_client(sockpp::tcp_socket * conn, praas::common::ClientMessage*);
+    void process_process(sockpp::tcp_socket * conn, praas::common::ProcessMessage*);
     static void worker(sockpp::tcp_socket * conn);
   };
 
