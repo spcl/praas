@@ -65,14 +65,21 @@ namespace praas::control_plane {
       std::string id = uuids::to_string(uuid_generator()).substr(0, 16);
       spdlog::info("Allocate new process worker: {}!", id);
 
+      // Allocate process objects.
       Process process;
       process.process_id = id;
       process.allocated_sessions = 0;
-      PendingAllocation alloc{std::move(payload_buffer), function_name, session_id};
-      process.allocations.push_back(std::move(alloc));
-      resources.add_process(std::move(process));
+      Process & process_ref = resources.add_process(std::move(process));
+
+      // Allocate session objects.
+      std::string session_id = uuids::to_string(uuid_generator()).substr(0, 16);
+      PendingAllocation alloc{std::move(payload_buffer), payload_size, function_name};
+      Session & session = resources.add_session(process_ref, session_id);
+      session.allocations.push_back(std::move(alloc));
 
       backend.allocate_process(process_name, id, 1);
+
+      // FIXME: add to Redis
     }
 
   }
@@ -95,29 +102,79 @@ namespace praas::control_plane {
     // Store process connection
     proc->connection = std::move(*conn);
 
-    // Allocate sessions!
-    std::string session_id = uuids::to_string(uuid_generator()).substr(0, 16);
+    // Check if we have unallocated session
     praas::common::SessionRequest req;
-    // FIXME: user parameters - pass them
-    ssize_t size = req.fill(session_id, 4, 4);
-    // Send allocation request
-    proc->connection.write(req.data, size);
-    // Wait for reply
-    int32_t ret = 0;
-    ssize_t bytes = proc->connection.read(&ret, sizeof(ret));
-    if(bytes != sizeof(ret) || ret) {
-      spdlog::error(
-        "Incorrect allocation of sesssion {}, received {} bytes, error code {}",
-        session_id, bytes, ret
-      );
-    } else {
-      spdlog::debug("Succesful allocation of sesssion {}", session_id);
-      resources.add_session(*proc, session_id);
+    for(Session * session : proc->sessions) {
+      if(!session->allocated) {
+        std::string session_id = session->session_id;
+        // FIXME: user parameters - pass them
+        ssize_t size = req.fill(session_id, 4, 4);
+        // Send allocation request
+        proc->connection.write(req.data, size);
+        // Wait for reply
+        int32_t ret = 0;
+        ssize_t bytes = proc->connection.read(&ret, sizeof(ret));
+        if(bytes != sizeof(ret) || ret) {
+          spdlog::error(
+            "Incorrect allocation of sesssion {}, received {} bytes, error code {}",
+            session_id, bytes, ret
+          );
+        }
+        spdlog::debug("Succesful allocation of sesssion {}", session_id);
+        session->allocated = true;
+      }
     }
 
     // Add sessions to Redis.
     //redis_conn.set(process_name + "_" + id, "session");
     // FIXME: wait for confirmation
+
+  }
+
+  void Worker::process_session(sockpp::tcp_socket * conn, praas::common::SessionMessage* msg)
+  {
+    std::string session_id = msg->session_id();
+    spdlog::debug(
+      "Received connection from a session {}",
+      session_id
+    );
+    Session* session = resources.get_session(session_id);
+    if(!session) {
+      spdlog::error("Incorrect session identification! Incorrect session {}!", session_id);
+      // FIXME: send error message to client?
+      conn->close();
+      delete conn;
+      return;
+    }
+    // Store process connection
+    session->connection = std::move(*conn);
+    spdlog::debug(
+      "Succesful connection of sesssion {} from {}.",
+      session_id, session->connection.peer_address().to_string()
+    );
+
+    // Process invocations
+    auto & allocations = session->allocations;
+    praas::common::FunctionRequest req;
+    while(!allocations.empty()) {
+
+      auto& item = allocations.front();
+
+      // Invoke function  
+      req.fill(item.function_name, item.payload_size);
+      // Send function header
+      session->connection.write(req.data, req.MSG_SIZE);
+      // Send function payload
+      session->connection.write(item.payload.get(), item.payload_size);
+
+      spdlog::debug(
+        "Invoking function {} on session {}, sending {} bytes.",
+        item.function_name, session_id, item.payload_size
+      );
+
+      allocations.pop_front();
+    }
+
 
   }
 
@@ -160,6 +217,8 @@ namespace praas::control_plane {
         delete conn;
       } else if(msg.get()->type() == praas::common::MessageType::Type::PROCESS) {
         worker.process_process(conn, dynamic_cast<praas::common::ProcessMessage*>(msg.get()));
+      } else if(msg.get()->type() == praas::common::MessageType::Type::SESSION) {
+        worker.process_session(conn, dynamic_cast<praas::common::SessionMessage*>(msg.get()));
       } else {
         // FIXME: implement handling sessions
         spdlog::error("Unknown type of request!");

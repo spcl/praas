@@ -41,6 +41,7 @@ namespace praas::control_plane {
     void resize(ssize_t size);
     void process_client(sockpp::tcp_socket * conn, praas::common::ClientMessage*);
     void process_process(sockpp::tcp_socket * conn, praas::common::ProcessMessage*);
+    void process_session(sockpp::tcp_socket * conn, praas::common::SessionMessage*);
     static void worker(sockpp::tcp_socket * conn);
   };
 

@@ -14,13 +14,15 @@ namespace praas::control_plane {
 
   struct PendingAllocation {
     std::unique_ptr<int8_t[]> payload;
+    int32_t payload_size;
     std::string function_name;
-    std::string session_id;
   };
 
   struct Session {
     sockpp::tcp_socket connection;
     std::string session_id;
+    std::deque<PendingAllocation> allocations;
+    bool allocated;
 
     Session(std::string);
   };
@@ -30,22 +32,22 @@ namespace praas::control_plane {
     int16_t allocated_sessions;
     sockpp::tcp_socket connection;
     std::vector<Session*> sessions;
-    std::deque<PendingAllocation> allocations;
   };
 
   struct Resources {
 
-    // process_id;session_id -> session
-    std::unordered_map<std::string, Session*> sessions;
+    // session_id -> session
+    std::unordered_map<std::string, Session> sessions;
     // process_id -> process resources
     std::unordered_map<std::string, Process> processes;
     std::mutex mutex;
 
     ~Resources();
 
-    void add_process(Process &&);
+    Process& add_process(Process &&);
     Process* get_process(std::string process_id);
-    void add_session(Process &, std::string session_id);
+    Session& add_session(Process &, std::string session_id);
+    Session* get_session(std::string session_id);
   };
 
 }
