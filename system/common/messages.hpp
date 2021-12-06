@@ -10,7 +10,7 @@ namespace praas::common {
 
   struct MessageType
   {
-    enum class Type {
+    enum class Type : int16_t {
       CLIENT = 0,
       PROCESS = 1,
       SESSION = 2
@@ -74,6 +74,18 @@ namespace praas::common {
     Type type() const override;
   };
 
+  struct SessionMessage: MessageType {
+    static constexpr uint16_t EXPECTED_LENGTH = 18;
+    int8_t* buf;
+
+    SessionMessage(int8_t* buf):
+      buf(buf)
+    {}
+
+    std::string session_id();
+    Type type() const override;
+  };
+
   struct Request {
     enum class Type : int16_t {
       PROCESS_ALLOCATION = 11,
@@ -130,6 +142,22 @@ namespace praas::common {
     std::string session_id();
 
     ssize_t fill(std::string session_id, int32_t max_functions, int32_t memory_size);
+  };
+
+  struct FunctionRequest : Request {
+
+    // Session Allocation
+    // 2 bytes of identifier
+    // 4 bytes payload size
+    // 16 bytes of function id
+    // 22 bytes
+
+    using Request::REQUEST_BUF_SIZE;
+    using Request::data;
+
+    static constexpr uint16_t MSG_SIZE = 22;
+
+    ssize_t fill(std::string function_name, int32_t payload_size);
   };
 
 }

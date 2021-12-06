@@ -8,10 +8,15 @@ namespace praas::common {
   std::unique_ptr<MessageType> Header::parse(ssize_t data_size)
   {
     int16_t type = *reinterpret_cast<int16_t*>(data);
-    if(data_size == ClientMessage::EXPECTED_LENGTH && type == 0) {
+    if(data_size == ClientMessage::EXPECTED_LENGTH
+        && type == static_cast<int16_t>(MessageType::Type::CLIENT)) {
       return std::make_unique<ClientMessage>(data + 2);
-    } else if (data_size == ProcessMessage::EXPECTED_LENGTH && type == 1) {
+    } else if (data_size == ProcessMessage::EXPECTED_LENGTH
+        && type == static_cast<int16_t>(MessageType::Type::PROCESS)) {
       return std::make_unique<ProcessMessage>(data + 2);
+    } else if (data_size == SessionMessage::EXPECTED_LENGTH
+        && type == static_cast<int16_t>(MessageType::Type::SESSION)) {
+      return std::make_unique<SessionMessage>(data + 2);
     } else {
       return nullptr;
     }
@@ -50,6 +55,16 @@ namespace praas::common {
   MessageType::Type ProcessMessage::type() const
   {
     return MessageType::Type::PROCESS;
+  }
+
+  std::string SessionMessage::session_id()
+  {
+    return std::string{reinterpret_cast<char*>(buf), 16};
+  }
+
+  MessageType::Type SessionMessage::type() const
+  {
+    return MessageType::Type::SESSION;
   }
 
   int16_t SessionRequest::max_functions()
@@ -107,6 +122,16 @@ namespace praas::common {
     *reinterpret_cast<int32_t*>(data + 4) = port;
     std::strncpy(reinterpret_cast<char*>(data + 8), ip_address.data(), 15);
     std::strncpy(reinterpret_cast<char*>(data + 23), process_id.data(), 16);
+    return MSG_SIZE;
+  }
+
+  ssize_t FunctionRequest::fill(
+      std::string function_name, int32_t payload_size
+  )
+  {
+    *reinterpret_cast<int16_t*>(data) = static_cast<int16_t>(Request::Type::FUNCTION_INVOCATION);
+    *reinterpret_cast<int16_t*>(data + 2) = payload_size;
+    std::strncpy(reinterpret_cast<char*>(data + 6), function_name.data(), 16);
     return MSG_SIZE;
   }
 
