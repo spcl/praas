@@ -6,7 +6,7 @@
 #include <praas/process.hpp>
 
 #include "server.hpp"
-#include "request.hpp"
+#include "../common/messages.hpp"
 
 namespace praas::local_worker {
 
@@ -35,7 +35,7 @@ namespace praas::local_worker {
       spdlog::error("Incorrect socket initialization! {}", _listen.last_error_str());
 
     spdlog::info("Local worker starts listening on port {}!", _port);
-    Request req;
+    praas::common::ProcessRequest req;
     while(!_ending) {
       sockpp::tcp_socket conn = _listen.accept();
 
@@ -45,14 +45,15 @@ namespace praas::local_worker {
         spdlog::error("Error accepting incoming connection: {}", _listen.last_error_str());
 
       // Start a new process
-      ssize_t n = conn.read(req.buf, Request::REQUEST_BUF_SIZE);
+      ssize_t n = conn.read(req.data, req.REQUEST_BUF_SIZE);
       if(n == 0) {
         spdlog::debug("End of file on connection with {}.", conn.peer_address().to_string());
         conn.close();
         continue;
       }
       // Incorrect payload
-      if(n != Request::REQUEST_BUF_SIZE) { spdlog::error("Incorrect data size received {} from {}", n, conn.peer_address().to_string());
+      if(n != req.REQUEST_BUF_SIZE) {
+        spdlog::error("Incorrect data size received {} from {}", n, conn.peer_address().to_string());
         int ret = 2;
         conn.write(&ret, sizeof(ret));
         conn.close();
@@ -72,13 +73,14 @@ namespace praas::local_worker {
       } else {
         // Allocate a new process
         auto pos = static_cast<int32_t>(std::distance(_processes, free_process));
-        //auto process = praas::process::Process::create(req.ip_address(), req.port(), req.max_sessions());
-        //free_process->swap(process);
-        *free_process = praas::process::Process::create(req.ip_address(), req.port(), req.max_sessions());
+        *free_process = praas::process::Process::create(
+          req.process_id(), req.ip_address(), req.port(), req.max_sessions()
+        );
         if(free_process->has_value()) {
           _threads[pos] = new std::thread(&praas::process::Process::start, &free_process->value());
           spdlog::debug(
-            "Allocate new process with max sessions {}, connect to {}:{}",
+            "Allocate new process {} with max sessions {}, connect to {}:{}",
+            req.process_id(),
             req.max_sessions(),
             req.ip_address(),
             req.port()
@@ -86,7 +88,8 @@ namespace praas::local_worker {
           ret = 0;
         } else {
           spdlog::error(
-            "Failed to allocate a new process with max sessions {}, connect to {}:{}",
+            "Failed to allocate a new process {} with max sessions {}, connect to {}:{}",
+            req.process_id(),
             req.max_sessions(),
             req.ip_address(),
             req.port()
