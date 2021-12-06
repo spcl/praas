@@ -86,16 +86,34 @@ namespace praas::control_plane {
     );
     Process* proc = resources.get_process(process_id);
     if(!proc) {
-      spdlog::error("Incorrect process id {}!", process_id);
-      // FIXME: send error message
+      spdlog::error("Incorrect process identification! Incorrect id {}!", process_id);
+      // FIXME: send error message to client?
       conn->close();
       delete conn;
       return;
     }
+    // Store process connection
     proc->connection = std::move(*conn);
 
     // Allocate sessions!
-    std::string session_id = uuids::to_string(uuid_generator());
+    std::string session_id = uuids::to_string(uuid_generator()).substr(0, 16);
+    praas::common::SessionRequest req;
+    // FIXME: user parameters - pass them
+    ssize_t size = req.fill(session_id, 4, 4);
+    // Send allocation request
+    proc->connection.write(req.data, size);
+    // Wait for reply
+    int32_t ret = 0;
+    ssize_t bytes = proc->connection.read(&ret, sizeof(ret));
+    if(bytes != sizeof(ret) || ret) {
+      spdlog::error(
+        "Incorrect allocation of sesssion {}, received {} bytes, error code {}",
+        session_id, bytes, ret
+      );
+    } else {
+      spdlog::debug("Succesful allocation of sesssion {}", session_id);
+      resources.add_session(*proc, session_id);
+    }
 
     // Add sessions to Redis.
     //redis_conn.set(process_name + "_" + id, "session");

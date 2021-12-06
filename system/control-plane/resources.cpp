@@ -14,9 +14,20 @@ namespace praas::control_plane {
     return it != this->processes.end() ? &(*it).second : nullptr;
   }
 
-  void Resources::add_session(Process &)
+  void Resources::add_session(Process & pr, std::string session_id)
   {
+    Session* s = new Session{session_id};
+    pr.sessions.push_back(s);
+    this->sessions[pr.process_id + ";" + session_id] = s;
+  }
 
+  Session::Session(std::string session_id):
+    session_id(session_id)
+  {}
 
+  Resources::~Resources()
+  {
+    for(auto & [k, v] : sessions)
+      delete v;
   }
 }
