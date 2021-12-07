@@ -8,6 +8,7 @@
 
 #include "resources.hpp"
 #include "backend.hpp"
+#include "http.hpp"
 
 namespace praas::control_plane {
 
@@ -25,6 +26,9 @@ namespace praas::control_plane {
     FunctionBackendType backend;
     std::string local_server;
     bool verbose;
+    int https_port;
+    std::string ssl_server_cert;
+    std::string ssl_server_key;
   };
   Options opts(int, char**);
 
@@ -35,6 +39,7 @@ namespace praas::control_plane {
     sw::redis::Redis _redis;
     Resources _resources;
     backend::Backend* _backend;
+    praas::http::HttpServer _http_server;
     int _read_timeout;
     bool _ending;
 

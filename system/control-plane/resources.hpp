@@ -28,6 +28,7 @@ namespace praas::control_plane {
   };
 
   struct Process {
+    std::string global_process_name;
     std::string process_id;
     int16_t allocated_sessions;
     sockpp::tcp_socket connection;

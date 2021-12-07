@@ -17,6 +17,9 @@ namespace praas::control_plane {
       ("backend", "Backend allocating functions. Options: [local, aws].",  cxxopts::value<std::string>())
       ("local-server", "Address of the local server.",  cxxopts::value<std::string>())
       ("read-timeout", "Read timeout for TCP sockets [ms].",  cxxopts::value<int>()->default_value("1000"))
+      ("https-port", "HTTPS port to listen on.",  cxxopts::value<int>()->default_value("8050"))
+      ("ssl-server-cert", "Path to server certificate file.",  cxxopts::value<std::string>())
+      ("ssl-server-key", "Path to server key file.",  cxxopts::value<std::string>())
       ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
     ;
     auto parsed_options = options.parse(argc, argv);
@@ -26,6 +29,9 @@ namespace praas::control_plane {
     result.port = parsed_options["port"].as<int>();
     result.threads = parsed_options["threads"].as<int>();
     result.redis_addr = parsed_options["redis"].as<std::string>();
+    result.https_port = parsed_options["https-port"].as<int>();
+    result.ssl_server_cert = parsed_options["ssl-server-cert"].as<std::string>();
+    result.ssl_server_key = parsed_options["ssl-server-key"].as<std::string>();
     result.verbose = parsed_options["verbose"].as<bool>();
     result.read_timeout = parsed_options["read-timeout"].as<int>();
     std::string backend = parsed_options["backend"].as<std::string>();
