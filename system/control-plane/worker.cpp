@@ -101,6 +101,7 @@ namespace praas::control_plane {
     }
     // Store process connection
     proc->connection = std::move(*conn);
+    delete conn;
 
     // Check if we have unallocated session
     praas::common::SessionRequest req;
@@ -148,6 +149,7 @@ namespace praas::control_plane {
     }
     // Store process connection
     session->connection = std::move(*conn);
+    delete conn;
     spdlog::debug(
       "Succesful connection of sesssion {} from {}.",
       session_id, session->connection.peer_address().to_string()
