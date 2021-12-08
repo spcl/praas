@@ -161,24 +161,32 @@ namespace praas::control_plane {
     // Process invocations
     auto & allocations = session->allocations;
     praas::common::FunctionRequest req;
-    while(!allocations.empty()) {
-
-      auto& item = allocations.front();
-
-      size_t payload_size = item.payload.length();
-      // Invoke function
-      req.fill(item.function_name, payload_size);
+    // No allocations - let the session know to stop polling.
+    if(!allocations.size()) {
+      // No invocations.
+      req.fill("", 0);
       // Send function header
       session->connection.write(req.data, req.MSG_SIZE);
-      // Send function payload
-      session->connection.write(item.payload.c_str(), payload_size);
+    } else {
+      while(!allocations.empty()) {
 
-      spdlog::debug(
-        "Invoking function {} on session {}, sending {} bytes.",
-        item.function_name, session_id, payload_size
-      );
+        auto& item = allocations.front();
 
-      allocations.pop_front();
+        size_t payload_size = item.payload.length();
+        // Invoke function
+        req.fill(item.function_name, payload_size);
+        // Send function header
+        session->connection.write(req.data, req.MSG_SIZE);
+        // Send function payload
+        session->connection.write(item.payload.c_str(), payload_size);
+
+        spdlog::debug(
+          "Invoking function {} on session {}, sending {} bytes.",
+          item.function_name, session_id, payload_size
+        );
+
+        allocations.pop_front();
+      }
     }
 
   }
