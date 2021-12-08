@@ -13,6 +13,7 @@ namespace praas::local_worker {
   Server::Server(Options & options):
     _processes(new std::optional<praas::process::Process>[options.processes]()),
     _threads(new std::thread*[options.processes]()),
+    _hole_puncher_address(options.hole_puncher_address),
     _max_processes(options.processes),
     _port(options.port),
     _ending(false)
@@ -74,7 +75,7 @@ namespace praas::local_worker {
         // Allocate a new process
         auto pos = static_cast<int32_t>(std::distance(_processes, free_process));
         *free_process = praas::process::Process::create(
-          req.process_id(), req.ip_address(), req.port(), req.max_sessions()
+          req.process_id(), req.ip_address(), req.port(), _hole_puncher_address, req.max_sessions()
         );
         if(free_process->has_value()) {
           _threads[pos] = new std::thread(&praas::process::Process::start, &free_process->value());

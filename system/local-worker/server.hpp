@@ -14,6 +14,7 @@ namespace praas::process {
 namespace praas::local_worker {
 
   struct Options {
+    std::string hole_puncher_address;
     int processes;
     int port;
     bool verbose;
@@ -24,6 +25,7 @@ namespace praas::local_worker {
   {
     std::optional<praas::process::Process>* _processes;
     std::thread** _threads;
+    std::string _hole_puncher_address;
     int _max_processes;
     int _port;
     bool _ending;
