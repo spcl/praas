@@ -42,6 +42,32 @@ namespace praas::http {
       }
     });
 
+    CROW_ROUTE(_server, "/add_session").methods(crow::HTTPMethod::POST)
+    ([this](const crow::request& req) -> std::string {
+      try {
+
+        if(!req.body.length())
+          return "Error";
+
+        auto x = crow::json::load(req.body);
+        std::string session_id = x["session-id"].s();
+        std::string process_id = x["process-id"].s();
+        spdlog::info(
+          "Request to allocate session {} at process id {}.",
+          session_id, process_id
+        );
+        Worker& worker = Workers::get(std::this_thread::get_id());
+        return worker.process_client(process_id, session_id, "", "");
+
+      } catch (std::exception & e) {
+        std::cerr << e.what() << std::endl;
+        return "Error";
+      } catch (...) {
+        std::cerr << "err" << std::endl;
+        return "Error";
+      }
+    });
+
     CROW_ROUTE(_server, "/invoke").methods(crow::HTTPMethod::POST)
     ([this](const crow::request& req) -> std::string {
       try {

@@ -75,9 +75,11 @@ namespace praas::control_plane {
     process.allocated_sessions = 0;
     Process & process_ref = resources.add_process(std::move(process));
 
-    PendingAllocation alloc{std::move(payload), function_name};
     Session & session = resources.add_session(process_ref, new_session_id);
-    session.allocations.push_back(std::move(alloc));
+    if(payload.length() >= 0) {
+      PendingAllocation alloc{std::move(payload), function_name};
+      session.allocations.push_back(std::move(alloc));
+    }
 
     backend.allocate_process(process_name.value(), id, 1);
     redis_conn.sadd("SESSIONS_ALIVE_" + process_id, new_session_id);
