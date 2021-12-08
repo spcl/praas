@@ -47,7 +47,7 @@ namespace praas::control_plane {
   {
     spdlog::debug(
       "Request to invoke process {}, function {}, with session {}, payload size {}",
-      process_id, function_name, session_id
+      process_id, function_name, session_id, payload.length()
     );
     auto process_name = redis_conn.get("PROCESS_" + process_id);
     if(!process_name.has_value())
