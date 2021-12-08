@@ -17,7 +17,7 @@ namespace praas::http {
     crow::SimpleApp _server;
     std::thread _server_thread;
 
-    HttpServer(int port, std::string server_cert, std::string server_key, thread_pool &);
+    HttpServer(int port, std::string server_cert, std::string server_key, thread_pool &, bool verbose);
 
     void run();
     void shutdown();

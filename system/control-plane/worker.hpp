@@ -39,7 +39,12 @@ namespace praas::control_plane {
     Worker(sw::redis::Redis& redis, Resources& resources, backend::Backend& backend);
 
     void resize(ssize_t size);
-    void process_client(sockpp::tcp_socket * conn, praas::common::ClientMessage*);
+    //void process_client(sockpp::tcp_socket * conn, praas::common::ClientMessage*);
+    std::string process_allocation(std::string process_name);
+    std::string process_client(
+      std::string process_id, std::string session_id, std::string function_name,
+      std::string && payload
+    );
     void process_process(sockpp::tcp_socket * conn, praas::common::ProcessMessage*);
     void process_session(sockpp::tcp_socket * conn, praas::common::SessionMessage*);
     static void worker(sockpp::tcp_socket * conn);

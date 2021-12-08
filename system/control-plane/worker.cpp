@@ -29,59 +29,60 @@ namespace praas::control_plane {
     }
   }
 
-  void Worker::process_client(sockpp::tcp_socket * conn, praas::common::ClientMessage* msg)
+  std::string Worker::process_allocation(std::string process_name)
   {
-    std::string process_name = msg->process_name();
-    std::string function_name = msg->function_name();
-    std::string session_id = msg->session_id();
-    int32_t payload_size = msg->payload_size();
+    spdlog::debug("Request to add process {}", process_name);
+
+    std::string id = uuids::to_string(uuid_generator()).substr(0, 16);
+    redis_conn.set("PROCESS_" + id, process_name);
+
+    spdlog::debug("Added instance of {} with id  {}", process_name, id);
+    return id;
+  }
+
+  std::string Worker::process_client(
+    std::string process_id, std::string session_id, std::string function_name,
+    std::string && payload
+  )
+  {
     spdlog::debug(
       "Request to invoke process {}, function {}, with session {}, payload size {}",
-      process_name, function_name, session_id, payload_size
+      process_id, function_name, session_id
     );
+    auto process_name = redis_conn.get("PROCESS_" + process_id);
+    if(!process_name.has_value())
+      return "Process doesn't exist!";
 
-    // Receive user payload in the background
-    // Capture the buffer pointer, we're going to reallocate the buffer anyway.
-    resize(payload_size);
-    auto user_payload  = std::async(
-      std::launch::async,
-      [this, ptr = payload_buffer.get(), conn]() {
-        return conn->read(ptr, payload_buffer_len);
+    // Check if we're swapping
+    if(session_id != "") {
+      if(redis_conn.sismember("SESSIONS_ALIVE_" + process_id, session_id)) {
+        return "Session is already alive!";
       }
-    );
-
-    // Read Redis key - is there session for this?
-    std::string redis_key = process_name +  "_" + session_id;
-    auto val = redis_conn.get(redis_key);
-    // There's a session, redirect!
-    if(val) {
-      spdlog::info("Redirect invocation to worker");
-      // FIXME:
-    }
-    // Allocate a new process.
-    // FIXME: multiple sessions per the same process.
-    else {
-      // FIXME: proc name + proc id from the user
-      std::string id = uuids::to_string(uuid_generator()).substr(0, 16);
-      spdlog::info("Allocate new process worker: {}!", id);
-
-      // Allocate process objects.
-      Process process;
-      process.process_id = id;
-      process.allocated_sessions = 0;
-      Process & process_ref = resources.add_process(std::move(process));
-
-      // Allocate session objects.
-      std::string session_id = uuids::to_string(uuid_generator()).substr(0, 16);
-      PendingAllocation alloc{std::move(payload_buffer), payload_size, function_name};
-      Session & session = resources.add_session(process_ref, session_id);
-      session.allocations.push_back(std::move(alloc));
-
-      backend.allocate_process(process_name, id, 1);
-
-      // FIXME: add to Redis
+      if(redis_conn.sismember("SESSIONS_SWAPPED_" + process_id, session_id)) {
+        return "Swapping in not supported yet!";
+      }
     }
 
+    // Allocate new process worker and new session
+    std::string id = uuids::to_string(uuid_generator()).substr(0, 16);
+    spdlog::info("Allocate new process worker: {}!", id);
+    std::string new_session_id = uuids::to_string(uuid_generator()).substr(0, 16);
+    spdlog::info("Allocate new session: {}!", new_session_id);
+
+    // Allocate subprocess objects.
+    Process process;
+    process.process_id = id;
+    process.allocated_sessions = 0;
+    Process & process_ref = resources.add_process(std::move(process));
+
+    PendingAllocation alloc{std::move(payload), function_name};
+    Session & session = resources.add_session(process_ref, new_session_id);
+    session.allocations.push_back(std::move(alloc));
+
+    backend.allocate_process(process_name.value(), id, 1);
+    redis_conn.sadd("SESSIONS_ALIVE_" + process_id, new_session_id);
+
+    return new_session_id;
   }
 
   void Worker::process_process(sockpp::tcp_socket * conn, praas::common::ProcessMessage* msg)
@@ -162,21 +163,21 @@ namespace praas::control_plane {
 
       auto& item = allocations.front();
 
-      // Invoke function  
-      req.fill(item.function_name, item.payload_size);
+      size_t payload_size = item.payload.length();
+      // Invoke function
+      req.fill(item.function_name, payload_size);
       // Send function header
       session->connection.write(req.data, req.MSG_SIZE);
       // Send function payload
-      session->connection.write(item.payload.get(), item.payload_size);
+      session->connection.write(item.payload.c_str(), payload_size);
 
       spdlog::debug(
         "Invoking function {} on session {}, sending {} bytes.",
-        item.function_name, session_id, item.payload_size
+        item.function_name, session_id, payload_size
       );
 
       allocations.pop_front();
     }
-
 
   }
 
@@ -214,7 +215,7 @@ namespace praas::control_plane {
       }
 
       if(msg.get()->type() == praas::common::MessageType::Type::CLIENT) {
-        worker.process_client(conn, dynamic_cast<praas::common::ClientMessage*>(msg.get()));
+        // FIXME: no longer supported
         conn->close();
         delete conn;
       } else if(msg.get()->type() == praas::common::MessageType::Type::PROCESS) {

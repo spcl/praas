@@ -13,8 +13,7 @@
 namespace praas::control_plane {
 
   struct PendingAllocation {
-    std::unique_ptr<int8_t[]> payload;
-    int32_t payload_size;
+    std::string payload;
     std::string function_name;
   };
 

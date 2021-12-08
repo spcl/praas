@@ -15,7 +15,7 @@ namespace praas::control_plane {
     _pool(options.threads),
     _redis(options.redis_addr),
     _backend(backend::Backend::construct(options)),
-    _http_server(options.https_port, options.ssl_server_cert, options.ssl_server_key, _pool),
+    _http_server(options.https_port, options.ssl_server_cert, options.ssl_server_key, _pool, options.verbose),
     _read_timeout(options.read_timeout),
     _ending(false)
   {
