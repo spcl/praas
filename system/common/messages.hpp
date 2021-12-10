@@ -93,12 +93,12 @@ namespace praas::common {
       FUNCTION_INVOCATION = 13
     };
 
-    static constexpr uint16_t REQUEST_BUF_SIZE = 39;
-    int8_t data[REQUEST_BUF_SIZE];
+    static constexpr uint16_t EXPECTED_LENGTH = 39;
+    int8_t data[EXPECTED_LENGTH];
 
     Request()
     {
-      memset(data, 0, REQUEST_BUF_SIZE);
+      memset(data, 0, EXPECTED_LENGTH);
     }
   };
 
@@ -112,10 +112,9 @@ namespace praas::common {
     // 16 bytes process_id
     // 39 bytes
 
-    using Request::REQUEST_BUF_SIZE;
+    using Request::EXPECTED_LENGTH;
     using Request::data;
 
-    static constexpr uint16_t MSG_SIZE = 39;
     int16_t max_sessions();
     int32_t port();
     std::string ip_address();
@@ -133,10 +132,9 @@ namespace praas::common {
     // 16 bytes of session id
     // 26 bytes
 
-    using Request::REQUEST_BUF_SIZE;
+    using Request::EXPECTED_LENGTH;
     using Request::data;
 
-    static constexpr uint16_t MSG_SIZE = 26;
     int16_t max_functions();
     int32_t memory_size();
     std::string session_id();
@@ -149,15 +147,14 @@ namespace praas::common {
     // Session Allocation
     // 2 bytes of identifier
     // 4 bytes payload size
-    // 16 bytes of function id
-    // 22 bytes
+    // 16 bytes of function name
+    // 16 bytes of invocation id
+    // 32 bytes
 
-    using Request::REQUEST_BUF_SIZE;
+    using Request::EXPECTED_LENGTH;
     using Request::data;
 
-    static constexpr uint16_t MSG_SIZE = 22;
-
-    ssize_t fill(std::string function_name, int32_t payload_size);
+    ssize_t fill(std::string function_name, std::string function_id, int32_t payload_size);
   };
 
 }

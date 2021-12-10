@@ -90,7 +90,7 @@ namespace praas::common {
     *reinterpret_cast<int32_t*>(data + 2) = max_functions;
     *reinterpret_cast<int32_t*>(data + 6) = memory_size;
     std::strncpy(reinterpret_cast<char*>(data + 10), session_id.data(), 16);
-    return MSG_SIZE;
+    return EXPECTED_LENGTH;
   }
 
   int16_t ProcessRequest::max_sessions()
@@ -114,7 +114,7 @@ namespace praas::common {
   }
 
   ssize_t ProcessRequest::fill(
-      int16_t sessions, int32_t port, std::string ip_address, std::string process_id
+    int16_t sessions, int32_t port, std::string ip_address, std::string process_id
   )
   {
     *reinterpret_cast<int16_t*>(data) = static_cast<int16_t>(Request::Type::PROCESS_ALLOCATION);
@@ -122,17 +122,18 @@ namespace praas::common {
     *reinterpret_cast<int32_t*>(data + 4) = port;
     std::strncpy(reinterpret_cast<char*>(data + 8), ip_address.data(), 15);
     std::strncpy(reinterpret_cast<char*>(data + 23), process_id.data(), 16);
-    return MSG_SIZE;
+    return EXPECTED_LENGTH;
   }
 
   ssize_t FunctionRequest::fill(
-      std::string function_name, int32_t payload_size
+    std::string function_name, std::string function_id, int32_t payload_size
   )
   {
     *reinterpret_cast<int16_t*>(data) = static_cast<int16_t>(Request::Type::FUNCTION_INVOCATION);
     *reinterpret_cast<int16_t*>(data + 2) = payload_size;
     std::strncpy(reinterpret_cast<char*>(data + 6), function_name.data(), 16);
-    return MSG_SIZE;
+    std::strncpy(reinterpret_cast<char*>(data + 22), function_name.data(), 16);
+    return EXPECTED_LENGTH;
   }
 
 };
