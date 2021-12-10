@@ -132,7 +132,7 @@ namespace praas::common {
     *reinterpret_cast<int16_t*>(data) = static_cast<int16_t>(Request::Type::FUNCTION_INVOCATION);
     *reinterpret_cast<int16_t*>(data + 2) = payload_size;
     std::strncpy(reinterpret_cast<char*>(data + 6), function_name.data(), 16);
-    std::strncpy(reinterpret_cast<char*>(data + 22), function_name.data(), 16);
+    std::strncpy(reinterpret_cast<char*>(data + 22), function_id.data(), 16);
     return EXPECTED_LENGTH;
   }
 
