@@ -181,8 +181,8 @@ namespace praas::control_plane {
         session->connection.write(item.payload.c_str(), payload_size);
 
         spdlog::debug(
-          "Invoking function {} on session {}, sending {} bytes.",
-          item.function_name, session_id, payload_size
+          "Invoking function {}, invocation id {}, on session {}, sending {} bytes.",
+          item.function_name, item.function_id, session_id, payload_size
         );
 
         allocations.pop_front();
