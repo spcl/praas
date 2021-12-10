@@ -43,7 +43,7 @@ namespace praas::control_plane {
     std::string process_allocation(std::string process_name);
     std::string process_client(
       std::string process_id, std::string session_id, std::string function_name,
-      std::string && payload
+      std::string function_id, std::string && payload
     );
     void process_process(sockpp::tcp_socket * conn, praas::common::ProcessMessage*);
     void process_session(sockpp::tcp_socket * conn, praas::common::SessionMessage*);

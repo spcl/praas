@@ -57,7 +57,7 @@ namespace praas::http {
           session_id, process_id
         );
         Worker& worker = Workers::get(std::this_thread::get_id());
-        return worker.process_client(process_id, session_id, "", "");
+        return worker.process_client(process_id, session_id, "", "", "");
 
       } catch (std::exception & e) {
         std::cerr << e.what() << std::endl;
@@ -81,14 +81,17 @@ namespace praas::http {
 
         auto x = crow::json::load(msg.parts[0].body);
         std::string function_name = x["function-name"].s();
+        std::string function_id = x["function-id"].s();
         std::string session_id = x["session-id"].s();
         std::string process_id = x["process-id"].s();
         spdlog::info(
-          "Request to invoke {} at session {}, process id {}, payload size {}",
-          function_name, session_id, process_id, msg.parts[1].body.length()
+          "Request to invoke {} with id {}, at session {}, process id {}, payload size {}",
+          function_name, function_id, session_id, process_id, msg.parts[1].body.length()
         );
         Worker& worker = Workers::get(std::this_thread::get_id());
-        return worker.process_client(process_id, session_id, function_name, std::move(msg.parts[1].body));
+        return worker.process_client(
+          process_id, session_id, function_name, function_id, std::move(msg.parts[1].body)
+        );
 
       } catch (std::exception & e) {
         std::cerr << e.what() << std::endl;

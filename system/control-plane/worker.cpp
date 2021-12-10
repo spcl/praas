@@ -42,12 +42,12 @@ namespace praas::control_plane {
 
   std::string Worker::process_client(
     std::string process_id, std::string session_id, std::string function_name,
-    std::string && payload
+    std::string function_id, std::string && payload
   )
   {
     spdlog::debug(
-      "Request to invoke process {}, function {}, with session {}, payload size {}",
-      process_id, function_name, session_id, payload.length()
+      "Request to invoke process {}, function {} with id {}, with session {}, payload size {}",
+      process_id, function_name, function_id, session_id, payload.length()
     );
     auto process_name = redis_conn.get("PROCESS_" + process_id);
     if(!process_name.has_value())
@@ -77,7 +77,7 @@ namespace praas::control_plane {
 
     Session & session = resources.add_session(process_ref, new_session_id);
     if(payload.length() >= 0) {
-      PendingAllocation alloc{std::move(payload), function_name};
+      PendingAllocation alloc{std::move(payload), function_name, function_id};
       session.allocations.push_back(std::move(alloc));
     }
 
@@ -164,9 +164,9 @@ namespace praas::control_plane {
     // No allocations - let the session know to stop polling.
     if(!allocations.size()) {
       // No invocations.
-      req.fill("", 0);
+      req.fill("", "", 0);
       // Send function header
-      session->connection.write(req.data, req.MSG_SIZE);
+      session->connection.write(req.data, req.EXPECTED_LENGTH);
     } else {
       while(!allocations.empty()) {
 
@@ -174,9 +174,9 @@ namespace praas::control_plane {
 
         size_t payload_size = item.payload.length();
         // Invoke function
-        req.fill(item.function_name, payload_size);
+        req.fill(item.function_name, item.function_id, payload_size);
         // Send function header
-        session->connection.write(req.data, req.MSG_SIZE);
+        session->connection.write(req.data, req.EXPECTED_LENGTH);
         // Send function payload
         session->connection.write(item.payload.c_str(), payload_size);
 

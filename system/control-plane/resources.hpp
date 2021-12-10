@@ -15,6 +15,7 @@ namespace praas::control_plane {
   struct PendingAllocation {
     std::string payload;
     std::string function_name;
+    std::string function_id;
   };
 
   struct Session {
