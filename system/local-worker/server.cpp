@@ -46,14 +46,14 @@ namespace praas::local_worker {
         spdlog::error("Error accepting incoming connection: {}", _listen.last_error_str());
 
       // Start a new process
-      ssize_t n = conn.read(req.data, req.REQUEST_BUF_SIZE);
+      ssize_t n = conn.read(req.data, req.EXPECTED_LENGTH);
       if(n == 0) {
         spdlog::debug("End of file on connection with {}.", conn.peer_address().to_string());
         conn.close();
         continue;
       }
       // Incorrect payload
-      if(n != req.REQUEST_BUF_SIZE) {
+      if(n != req.EXPECTED_LENGTH) {
         spdlog::error("Incorrect data size received {} from {}", n, conn.peer_address().to_string());
         int ret = 2;
         conn.write(&ret, sizeof(ret));
