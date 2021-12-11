@@ -76,7 +76,7 @@ namespace praas::control_plane {
     Process & process_ref = resources.add_process(std::move(process));
 
     Session & session = resources.add_session(process_ref, new_session_id);
-    if(payload.length() >= 0) {
+    if(!function_name.empty()) {
       PendingAllocation alloc{std::move(payload), function_name, function_id};
       session.allocations.push_back(std::move(alloc));
     }
@@ -206,7 +206,10 @@ namespace praas::control_plane {
     }
     // Incorrect read
     else if(recv_data == -1) {
-      spdlog::debug("Closing connection with {}.", conn->peer_address().to_string());
+      spdlog::debug(
+        "Closing connection with {}. Reason: {}", conn->peer_address().to_string(),
+        strerror(errno)
+      );
       conn->close();
       delete conn;
     }
