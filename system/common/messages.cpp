@@ -5,18 +5,17 @@
 
 namespace praas::common {
 
-  std::unique_ptr<MessageType> Header::parse(ssize_t data_size)
+  std::unique_ptr<MessageType> Header::parse()
   {
     int16_t type = *reinterpret_cast<int16_t*>(data);
-    if(data_size == ClientMessage::EXPECTED_LENGTH
-        && type == static_cast<int16_t>(MessageType::Type::CLIENT)) {
+    if(type == static_cast<int16_t>(MessageType::Type::CLIENT)) {
       return std::make_unique<ClientMessage>(data + 2);
-    } else if (data_size == ProcessMessage::EXPECTED_LENGTH
-        && type == static_cast<int16_t>(MessageType::Type::PROCESS)) {
+    } else if (type == static_cast<int16_t>(MessageType::Type::PROCESS)) {
       return std::make_unique<ProcessMessage>(data + 2);
-    } else if (data_size == SessionMessage::EXPECTED_LENGTH
-        && type == static_cast<int16_t>(MessageType::Type::SESSION)) {
+    } else if (type == static_cast<int16_t>(MessageType::Type::SESSION)) {
       return std::make_unique<SessionMessage>(data + 2);
+    } else if (type == static_cast<int16_t>(MessageType::Type::SESSION_CLOSURE)) {
+      return std::make_unique<SessionClosureMessage>(data + 2);
     } else {
       return nullptr;
     }
@@ -49,6 +48,7 @@ namespace praas::common {
 
   std::string ProcessMessage::process_id()
   {
+    // FIXME: compute string length
     return std::string{reinterpret_cast<char*>(buf), 16};
   }
 
@@ -59,12 +59,29 @@ namespace praas::common {
 
   std::string SessionMessage::session_id()
   {
+    // FIXME: compute string length
     return std::string{reinterpret_cast<char*>(buf), 16};
   }
 
   MessageType::Type SessionMessage::type() const
   {
     return MessageType::Type::SESSION;
+  }
+
+  int32_t SessionClosureMessage::memory_size()
+  {
+    return *reinterpret_cast<int32_t*>(buf);
+  }
+
+  std::string SessionClosureMessage::session_id()
+  {
+    // FIXME: compute string length
+    return std::string{reinterpret_cast<char*>(buf+4), 16};
+  }
+
+  MessageType::Type SessionClosureMessage::type() const
+  {
+    return MessageType::Type::SESSION_CLOSURE;
   }
 
   int16_t SessionRequest::max_functions()

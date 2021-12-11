@@ -13,7 +13,8 @@ namespace praas::common {
     enum class Type : int16_t {
       CLIENT = 0,
       PROCESS = 1,
-      SESSION = 2
+      SESSION = 2,
+      SESSION_CLOSURE = 3
     };
 
     virtual Type type() const = 0;
@@ -23,7 +24,7 @@ namespace praas::common {
   {
     // Connection Headers
 
-    // Client connection
+    // Client connection - DISABLED
     // 2 bytes of identifier: 0
     // 4 bytes of packet size
     // 16 bytes of process name
@@ -41,10 +42,15 @@ namespace praas::common {
     // 16 bytes of session id
     // 18 bytes
 
-    static constexpr uint16_t BUF_SIZE = 54;
+    // Process notifying session deletion
+    // 2 bytes of identifier: 3
+    // 4 bytes of shared memory size
+    // 16 bytes of session id
+
+    static constexpr uint16_t BUF_SIZE = 22;
     int8_t data[BUF_SIZE];
 
-    std::unique_ptr<MessageType> parse(ssize_t);
+    std::unique_ptr<MessageType> parse();
   };
 
   struct ClientMessage: MessageType {
@@ -63,7 +69,6 @@ namespace praas::common {
   };
 
   struct ProcessMessage: MessageType {
-    static constexpr uint16_t EXPECTED_LENGTH = 18;
     int8_t* buf;
 
     ProcessMessage(int8_t* buf):
@@ -75,13 +80,24 @@ namespace praas::common {
   };
 
   struct SessionMessage: MessageType {
-    static constexpr uint16_t EXPECTED_LENGTH = 18;
     int8_t* buf;
 
     SessionMessage(int8_t* buf):
       buf(buf)
     {}
 
+    std::string session_id();
+    Type type() const override;
+  };
+
+  struct SessionClosureMessage: MessageType {
+    int8_t* buf;
+
+    SessionClosureMessage(int8_t* buf):
+      buf(buf)
+    {}
+
+    int32_t memory_size();
     std::string session_id();
     Type type() const override;
   };
