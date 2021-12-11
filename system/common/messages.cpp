@@ -136,5 +136,5 @@ namespace praas::common {
     return EXPECTED_LENGTH;
   }
 
-};
+}
 
