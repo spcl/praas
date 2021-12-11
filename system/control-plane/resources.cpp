@@ -1,4 +1,6 @@
 
+#include <stdexcept>
+
 #include "resources.hpp"
 
 namespace praas::control_plane {
@@ -25,6 +27,28 @@ namespace praas::control_plane {
   {
     auto it = this->sessions.find(session_id);
     return it != this->sessions.end() ? &(*it).second : nullptr;
+  }
+
+  void Resources::remove_process(std::string)
+  {
+    // FIXME: implement - remove process from epoll, deallocate resources
+    throw std::runtime_error("not implemented");
+  }
+
+  void Resources::remove_session(Process & process, std::string session_id)
+  {
+    // First clean the process
+    auto it = std::find_if(
+      process.sessions.begin(), process.sessions.end(),
+      [session_id](auto & obj) {
+        return obj->session_id == session_id;
+      }
+    );
+    if(it == process.sessions.end())
+      return;
+
+    process.allocated_sessions--;
+    process.sessions.erase(it);
   }
 
   Session::Session(std::string session_id):

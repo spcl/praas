@@ -5,6 +5,7 @@
 #include <sockpp/tcp_acceptor.h>
 #include <thread_pool.hpp>
 #include <redis++.h>
+#include <spdlog/spdlog.h>
 
 #include "resources.hpp"
 #include "backend.hpp"
@@ -34,6 +35,8 @@ namespace praas::control_plane {
 
   struct Server
   {
+    static constexpr int MAX_EPOLL_EVENTS = 32;
+
     sockpp::tcp_acceptor _listen;
     thread_pool _pool;
     sw::redis::Redis _redis;
@@ -42,6 +45,33 @@ namespace praas::control_plane {
     praas::http::HttpServer _http_server;
     int _read_timeout;
     bool _ending;
+
+    // We use epoll to wait for either new connections from subprocesses/sessions,
+    // or to read new messages from subprocesses.
+    int _epoll_fd;
+
+    // This assumes that the pointer to the socket does NOT change after submitting to epoll.
+    template<typename T>
+    bool add_epoll(int handle, T* data, uint32_t epoll_events)
+    {
+      spdlog::debug(
+        "Adding to epoll connection, fd {}, ptr {}, events {}",
+        handle,
+        fmt::ptr(static_cast<void*>(data)),
+        epoll_events
+      );
+
+      epoll_event event;
+      memset(&event, 0, sizeof(epoll_event));
+      event.events  = epoll_events;
+      event.data.ptr = static_cast<void*>(data);
+
+      if(epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, handle, &event) == -1) {
+        spdlog::error("Adding socket to epoll failed, reason: {}", strerror(errno));
+        return false;
+      }
+      return true;
+    }
 
     Server(Options &);
     ~Server();

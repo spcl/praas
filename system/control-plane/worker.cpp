@@ -1,17 +1,20 @@
 
+#include <sockpp/tcp_connector.h>
 #include <thread>
 
 #include <redis++.h>
 
 #include "worker.hpp"
+#include "server.hpp"
 #include "resources.hpp"
 #include "backend.hpp"
 
 namespace praas::control_plane {
 
-  Worker::Worker(sw::redis::Redis& redis, Resources& resources, backend::Backend& backend):
+  Worker::Worker(Server& server, sw::redis::Redis& redis, Resources& resources, backend::Backend& backend):
     generator{rd()},
     uuid_generator{generator},
+    server(server),
     redis_conn(redis),
     resources(resources),
     backend(backend)
@@ -72,6 +75,7 @@ namespace praas::control_plane {
     // Allocate subprocess objects.
     Process process;
     process.process_id = id;
+    process.global_process_id = process_id;
     process.allocated_sessions = 0;
     Process & process_ref = resources.add_process(std::move(process));
 
@@ -129,9 +133,13 @@ namespace praas::control_plane {
       }
     }
 
-    // Add sessions to Redis.
-    //redis_conn.set(process_name + "_" + id, "session");
-    // FIXME: wait for confirmation
+    // Add for future message polling
+    if(!server.add_epoll(proc->connection.handle(), proc, EPOLLIN | EPOLLPRI)) {
+      spdlog::error("Couldn't add the process to epoll,closing connection");
+      proc->connection.close();
+      resources.remove_process(process_id);
+      return;
+    }
 
   }
 
@@ -191,13 +199,82 @@ namespace praas::control_plane {
 
   }
 
+  void Worker::handle_process_closure(Process*)
+  {
+    throw std::runtime_error("Not implemented yet");
+  }
+
+  void Worker::handle_session_closure(Process* process, int32_t memory_size, std::string session_id)
+  {
+    // Remove resource
+    resources.remove_session(*process, session_id);
+
+    // Update Redis - move session from swapped to alive
+    redis_conn.srem("SESSIONS_ALIVE_" + process->process_id, session_id);
+
+    // Store the following format: <session-id>;<swapped-memory-size>
+    // Semicolon is not permitted in the session id
+    redis_conn.sadd(
+      "SESSIONS_SWAPPED_" + process->global_process_id,
+      session_id + ";" + std::to_string(memory_size)
+    );
+    redis_conn.srem(
+      "SESSIONS_ALIVE_" + process->global_process_id,
+      session_id
+    );
+  }
+
+  void Worker::handle_message(Process* process, praas::common::Header buffer, ssize_t recv_data)
+  {
+    auto thread_id = std::hash<std::thread::id>{}(std::this_thread::get_id());
+    spdlog::debug("Worker {} begins processing a message request", thread_id);
+    Worker& worker = Workers::get(std::this_thread::get_id());
+    sockpp::tcp_socket& conn = process->connection;
+
+    // EOF
+    if(recv_data == 0) {
+      spdlog::debug("End of file on connection with {}.", conn.peer_address().to_string());
+      worker.handle_process_closure(process);
+      return;
+    }
+    // Incorrect read
+    // FIXME: handle timeout & interruption
+    else if(recv_data == -1) {
+      spdlog::debug(
+        "Closing connection with {}. Reason: {}", conn.peer_address().to_string(),
+        strerror(errno)
+      );
+      worker.handle_process_closure(process);
+      return;
+    }
+
+    // Correctly received request
+    std::unique_ptr<praas::common::MessageType> msg = buffer.parse();
+    if(!msg) {
+      spdlog::error(
+        "Incorrect message of size {} received from {}.",
+        recv_data, conn.peer_address().to_string()
+      );
+      return;
+    }
+
+    if(msg.get()->type() == praas::common::MessageType::Type::SESSION_CLOSURE) {
+      auto casted_msg = dynamic_cast<praas::common::SessionClosureMessage*>(msg.get());
+      worker.handle_session_closure(process, casted_msg->memory_size(), casted_msg->session_id());
+    } else {
+      spdlog::error("Unknown type of request!");
+    }
+
+    spdlog::debug("Worker {} ends processing a request", thread_id);
+  }
+
   void Worker::worker(sockpp::tcp_socket * conn)
   {
     auto thread_id = std::hash<std::thread::id>{}(std::this_thread::get_id());
-    spdlog::debug("Worker {} begins processing a request", thread_id);
     Worker& worker = Workers::get(std::this_thread::get_id());
 
     ssize_t recv_data = conn->read(worker.header.data, praas::common::Header::BUF_SIZE);
+
     // EOF
     if(recv_data == 0) {
       spdlog::debug("End of file on connection with {}.", conn->peer_address().to_string());
@@ -216,7 +293,7 @@ namespace praas::control_plane {
     // Correctly received request
     else {
 
-      std::unique_ptr<praas::common::MessageType> msg = worker.header.parse(recv_data);
+      std::unique_ptr<praas::common::MessageType> msg = worker.header.parse();
       if(!msg) {
         spdlog::error(
           "Incorrect message of size {} received, closing connection with {}.",
@@ -247,15 +324,17 @@ namespace praas::control_plane {
   }
 
   std::unordered_map<std::thread::id, Worker*> Workers::_workers;
+  Server* Workers::_server;
   sw::redis::Redis* Workers::_redis_conn;
   Resources* Workers::_resources;
   backend::Backend* Workers::_backend;
 
-  void Workers::init(sw::redis::Redis& redis_conn, Resources& resources, backend::Backend& backend)
+  void Workers::init(Server& server, sw::redis::Redis& redis_conn, Resources& resources, backend::Backend& backend)
   {
     Workers::_redis_conn = &redis_conn;
     Workers::_resources = &resources;
     Workers::_backend = &backend;
+    Workers::_server = &server;
   }
 
   void Workers::free()
@@ -270,7 +349,7 @@ namespace praas::control_plane {
     if(it != _workers.end()) {
       return *(*it).second;
     } else {
-      Worker* ptr = new Worker(*_redis_conn, *_resources, *_backend);
+      Worker* ptr = new Worker(*_server, *_redis_conn, *_resources, *_backend);
       _workers[thread_id] = ptr;
       return *ptr;
     }

@@ -20,6 +20,8 @@ namespace sw::redis {
 namespace praas::control_plane {
 
   struct Resources;
+  struct Process;
+  struct Server;
   namespace backend {
     struct Backend;
   }
@@ -32,11 +34,13 @@ namespace praas::control_plane {
     std::random_device rd;
     std::mt19937 generator;
     uuids::uuid_random_generator uuid_generator;
+
+    Server& server;
     sw::redis::Redis& redis_conn;
     Resources& resources;
     backend::Backend& backend;
 
-    Worker(sw::redis::Redis& redis, Resources& resources, backend::Backend& backend);
+    Worker(Server & server, sw::redis::Redis& redis, Resources& resources, backend::Backend& backend);
 
     void resize(ssize_t size);
     //void process_client(sockpp::tcp_socket * conn, praas::common::ClientMessage*);
@@ -47,6 +51,10 @@ namespace praas::control_plane {
     );
     void process_process(sockpp::tcp_socket * conn, praas::common::ProcessMessage*);
     void process_session(sockpp::tcp_socket * conn, praas::common::SessionMessage*);
+    void handle_process_closure(Process*);
+    void handle_session_closure(Process*, int32_t memory_size, std::string session_id);
+
+    static void handle_message(Process* process, praas::common::Header msg, ssize_t recv_data);
     static void worker(sockpp::tcp_socket * conn);
   };
 
@@ -56,8 +64,9 @@ namespace praas::control_plane {
     static sw::redis::Redis* _redis_conn;
     static Resources* _resources;
     static backend::Backend* _backend;
+    static Server* _server;
 
-    static void init(sw::redis::Redis& redis_conn, Resources& resources, backend::Backend& backend);
+    static void init(Server& server, sw::redis::Redis& redis_conn, Resources& resources, backend::Backend& backend);
     static void free();
     static Worker& get(std::thread::id thread_id);
   };
