@@ -11,7 +11,7 @@ namespace praas::control_plane::backend {
 
   std::tuple<std::string_view, std::string_view> split(std::string & str, char split_character)
   {
-    ssize_t pos = str.find(split_character);
+    auto pos = str.find(split_character);
     if(pos == std::string::npos)
       return std::make_tuple("", "");
     else
@@ -75,7 +75,7 @@ namespace praas::control_plane::backend {
   }
 
   void AWSBackend::allocate_process(
-    std::string process_name, std::string process_id, int16_t max_sessions
+    std::string, std::string, int16_t
   )
   {
     // FIXME

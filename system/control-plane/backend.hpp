@@ -19,6 +19,8 @@ namespace praas::control_plane {
       std::string controller_ip_address;
       int32_t controller_port;
 
+      virtual ~Backend() {}
+
       virtual void allocate_process(
         std::string process_name, std::string process_id, int16_t max_sessions
       ) = 0;

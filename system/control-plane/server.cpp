@@ -49,7 +49,7 @@ namespace praas::control_plane {
       sockpp::tcp_socket conn = _listen.accept();
       conn.read_timeout(std::chrono::microseconds(_read_timeout * 1000));
       if(conn.is_open())
-        spdlog::debug("Accepted new connection from {}", conn.peer_address().to_string());
+        spdlog::debug("Accepted new connection from {}.", conn.peer_address().to_string());
 
       if(_ending)
         break;
