@@ -79,31 +79,20 @@ namespace praas::local_worker {
         praas::process::Process::create(
           *free_process,
           req.process_id(), req.ip_address(), req.port(), _hole_puncher_address,
-          req.max_sessions(), _verbose
+          req.max_sessions(), _verbose, _enable_swapping
         );
         if(free_process->has_value()) {
 
-          if(_enable_swapping && !free_process->value().enable_swapping()) {
-              spdlog::error(
-                "Failed to initalize session swapping a new process {} with max sessions {}",
-                req.process_id(),
-                req.max_sessions()
-              );
-              free_process->reset();
-              ret = 2;
-          } else {
+          _threads[pos] = new std::thread(&praas::process::Process::start, &(*free_process).value());
+          spdlog::debug(
+            "Allocate new process {} with max sessions {}, connect to {}:{}",
+            req.process_id(),
+            req.max_sessions(),
+            req.ip_address(),
+            req.port()
+          );
+          ret = 0;
 
-            _threads[pos] = new std::thread(&praas::process::Process::start, &(*free_process).value());
-            spdlog::debug(
-              "Allocate new process {} with max sessions {}, connect to {}:{}",
-              req.process_id(),
-              req.max_sessions(),
-              req.ip_address(),
-              req.port()
-            );
-            ret = 0;
-
-          }
         } else {
           spdlog::error(
             "Failed to allocate a new process {} with max sessions {}, connect to {}:{}",
