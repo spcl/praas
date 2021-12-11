@@ -93,6 +93,12 @@ namespace praas::control_plane {
           praas::common::Header msg; 
           Process* process = static_cast<Process*>(events[i].data.ptr);
           sockpp::tcp_socket* conn = &process->connection;
+
+          if(process->busy.load()) {
+            spdlog::debug("Ignore activity on busy {}, events {}", conn->peer_address().to_string(), events[i].events);
+            continue;
+          }
+
           spdlog::debug("New activity on {}, events {}", conn->peer_address().to_string(), events[i].events);
 
           ssize_t recv_data = conn->read(msg.data, praas::common::Header::BUF_SIZE);

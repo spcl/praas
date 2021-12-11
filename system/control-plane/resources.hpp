@@ -6,6 +6,7 @@
 #include <memory>
 #include <random>
 #include <deque>
+#include <atomic>
 #include <unordered_map>
 
 #include <sockpp/tcp_socket.h>
@@ -34,8 +35,46 @@ namespace praas::control_plane {
     std::string global_process_id;
     std::string process_id;
     int16_t allocated_sessions;
+    int16_t max_sessions;
+    std::atomic<bool> busy;
     sockpp::tcp_socket connection;
     std::vector<Session*> sessions;
+
+    Process(int16_t max_sessions = 0):
+      allocated_sessions(0),
+      max_sessions(max_sessions),
+      busy(0)
+    {}
+
+    Process(Process && obj)
+    {
+      global_process_id = std::move(obj.global_process_id);
+      process_id = std::move(obj.process_id);
+      allocated_sessions = std::move(obj.allocated_sessions);
+      max_sessions = std::move(obj.max_sessions);
+      sessions = std::move(obj.sessions);
+      connection = std::move(obj.connection);
+
+      // atomics are not movable
+      busy.store(obj.busy.load());
+    }
+
+    Process& operator=(Process && obj)
+    {
+      if(this != &obj) {
+        global_process_id = std::move(obj.global_process_id);
+        process_id = std::move(obj.process_id);
+        allocated_sessions = std::move(obj.allocated_sessions);
+        max_sessions = std::move(obj.max_sessions);
+        sessions = std::move(obj.sessions);
+        connection = std::move(obj.connection);
+
+        // atomics are not movable
+        busy.store(obj.busy.load());
+      }
+
+      return *this;
+    }
   };
 
   struct Resources {
@@ -50,12 +89,14 @@ namespace praas::control_plane {
     std::unordered_map<std::string, Session> sessions;
     // process_id -> process resources
     std::unordered_map<std::string, Process> processes;
+    // FIXME: processes per global process
     std::mutex mutex;
 
     ~Resources();
 
     Process& add_process(Process &&);
     Process* get_process(std::string process_id);
+    Process* get_free_process(std::string process_id);
     void remove_process(std::string process_id);
     Session& add_session(Process &, std::string session_id);
     Session* get_session(std::string session_id);

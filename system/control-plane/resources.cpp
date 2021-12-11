@@ -16,6 +16,22 @@ namespace praas::control_plane {
     return it != this->processes.end() ? &(*it).second : nullptr;
   }
 
+  Process* Resources::get_free_process(std::string)
+  {
+    auto it = std::find_if(
+      processes.begin(), processes.end(),
+      [](auto & p) {
+        return p.second.allocated_sessions < p.second.max_sessions;
+      }
+    );
+    if(it == this->processes.end())
+      return nullptr;
+
+    (*it).second.allocated_sessions++;
+    return &(*it).second;
+  }
+
+
   Session& Resources::add_session(Process & pr, std::string session_id)
   {
     auto [it, success] = this->sessions.emplace(session_id, session_id);;

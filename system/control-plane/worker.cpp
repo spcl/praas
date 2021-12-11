@@ -109,27 +109,73 @@ namespace praas::control_plane {
       );
     }
 
-    // Allocate new process worker and new session
-    std::string id = uuids::to_string(uuid_generator()).substr(0, 16);
-    spdlog::info("Allocate new process worker: {}!", id);
+    // Check if we have free processes
+    Process* proc = resources.get_free_process(process_id);
+    // Allocate in an existing process
+    if(proc) {
 
-    // Allocate subprocess objects.
-    Process process;
-    process.process_id = id;
-    process.global_process_id = process_id;
-    process.allocated_sessions = 0;
-    Process & process_ref = resources.add_process(std::move(process));
+      // FIXME: Move somewhere else this code and unify behind resources API
+      Session & session = resources.add_session(*proc, session_id);
+      session.max_functions = max_functions;
+      session.memory_size = memory_size;
+      session.swap_in = swap_in;
+      if(!function_name.empty()) {
+        PendingAllocation alloc{std::move(payload), function_name, function_id};
+        session.allocations.push_back(std::move(alloc));
+      }
 
-    Session & session = resources.add_session(process_ref, session_id);
-    session.max_functions = max_functions;
-    session.memory_size = memory_size;
-    session.swap_in = swap_in;
-    if(!function_name.empty()) {
-      PendingAllocation alloc{std::move(payload), function_name, function_id};
-      session.allocations.push_back(std::move(alloc));
+      proc->busy.store(true);
+      // Check if we have unallocated session
+      praas::common::SessionRequest req;
+      std::string session_id = session.session_id;
+      ssize_t size = req.fill(session_id, session.max_functions, session.memory_size);
+      // Send allocation request
+      proc->connection.write(req.data, size);
+
+      // Wait for reply
+      int32_t ret = 0;
+      ssize_t bytes = proc->connection.read(&ret, sizeof(ret));
+      if(bytes != sizeof(ret) || ret) {
+        spdlog::error(
+          "Incorrect allocation of sesssion {} at {}, received {} bytes, error code {}",
+          session_id, proc->connection.peer_address().to_string(), bytes, ret
+        );
+        // FIXME: notify user
+      } else {
+        spdlog::debug("Succesful allocation of sesssion {} at {}", session_id, proc->connection.peer_address().to_string());
+        session.allocated = true;
+      }
+
+      proc->busy.store(false);
+    }
+    // New process
+    else {
+      // Allocate new process worker and new session
+      std::string id = uuids::to_string(uuid_generator()).substr(0, 16);
+      spdlog::info("Allocate new process worker: {}!", id);
+
+      // FIXME: Make it a paramater
+      int16_t max_sessions_per_process = 4;
+
+      // Allocate subprocess objects.
+      Process process{max_sessions_per_process};
+      process.process_id = id;
+      process.global_process_id = process_id;
+      process.allocated_sessions = 1;
+      Process & process_ref = resources.add_process(std::move(process));
+
+      Session & session = resources.add_session(process_ref, session_id);
+      session.max_functions = max_functions;
+      session.memory_size = memory_size;
+      session.swap_in = swap_in;
+      if(!function_name.empty()) {
+        PendingAllocation alloc{std::move(payload), function_name, function_id};
+        session.allocations.push_back(std::move(alloc));
+      }
+
+      backend.allocate_process(process_name.value(), id, max_sessions_per_process);
     }
 
-    backend.allocate_process(process_name.value(), id, 1);
     redis_conn.sadd("SESSIONS_ALIVE_" + process_id, session_id);
 
     return std::make_tuple(200, session_id);
@@ -159,7 +205,6 @@ namespace praas::control_plane {
     for(Session * session : proc->sessions) {
       if(!session->allocated) {
         std::string session_id = session->session_id;
-        // if memory is swapped in, then we send a negative amount of memory
         ssize_t size = req.fill(session_id, session->max_functions, session->memory_size);
         // Send allocation request
         proc->connection.write(req.data, size);
