@@ -69,13 +69,10 @@ namespace praas::control_plane {
     if(!process_name.has_value())
       return std::make_tuple(400, "Process doesn't exist!");
 
-    // Allocate new process worker and new session
-    std::string id = uuids::to_string(uuid_generator()).substr(0, 16);
-    spdlog::info("Allocate new process worker: {}!", id);
-
     bool swap_in = false;
     // Check if we're swapping
     if(!session_id.empty()) {
+
       if(redis_conn.sismember("SESSIONS_ALIVE_" + process_id, session_id)) {
         return std::make_tuple(400, "Session is already alive!");
       } else if(redis_conn.srem("SESSIONS_SWAPPED_" + process_id, session_id) == 1) {
@@ -87,7 +84,7 @@ namespace praas::control_plane {
         }
 
         // Retrieve configuration from Redis
-        auto [func, mem] = split(val.value(), ';');
+        auto [mem, func] = split(val.value(), ';');
         std::from_chars(func.data(), func.data() + func.length(), max_functions);
         std::from_chars(mem.data(), mem.data() + mem.length(), memory_size);
         memory_size *= -1;
@@ -111,6 +108,10 @@ namespace praas::control_plane {
         std::to_string(memory_size) + ";" + std::to_string(max_functions)
       );
     }
+
+    // Allocate new process worker and new session
+    std::string id = uuids::to_string(uuid_generator()).substr(0, 16);
+    spdlog::info("Allocate new process worker: {}!", id);
 
     // Allocate subprocess objects.
     Process process;
@@ -159,10 +160,10 @@ namespace praas::control_plane {
       if(!session->allocated) {
         std::string session_id = session->session_id;
         // if memory is swapped in, then we send a negative amount of memory
-        int32_t memory_mod = session->swap_in ? -1 : 1;
-        ssize_t size = req.fill(session_id, session->max_functions, session->memory_size * memory_mod);
+        ssize_t size = req.fill(session_id, session->max_functions, session->memory_size);
         // Send allocation request
         proc->connection.write(req.data, size);
+
         // Wait for reply
         int32_t ret = 0;
         ssize_t bytes = proc->connection.read(&ret, sizeof(ret));
@@ -250,7 +251,7 @@ namespace praas::control_plane {
     throw std::runtime_error("Not implemented yet");
   }
 
-  void Worker::handle_session_closure(Process* process, int32_t memory_size, std::string session_id)
+  void Worker::handle_session_closure(Process* process, int32_t, std::string session_id)
   {
     // Remove resource
     resources.remove_session(*process, session_id);
@@ -262,7 +263,7 @@ namespace praas::control_plane {
     // Semicolon is not permitted in the session id
     redis_conn.sadd(
       "SESSIONS_SWAPPED_" + process->global_process_id,
-      session_id + ";" + std::to_string(memory_size)
+      session_id
     );
     redis_conn.srem(
       "SESSIONS_ALIVE_" + process->global_process_id,
