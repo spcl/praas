@@ -18,6 +18,7 @@ namespace praas::local_worker {
     int processes;
     int port;
     bool verbose;
+    bool enable_swapping;
   };
   Options opts(int, char**);
 
@@ -29,6 +30,8 @@ namespace praas::local_worker {
     int _max_processes;
     int _port;
     bool _ending;
+    bool _verbose;
+    bool _enable_swapping;
     sockpp::tcp_acceptor _listen;
 
     Server(Options &);

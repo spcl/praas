@@ -16,7 +16,9 @@ namespace praas::local_worker {
     _hole_puncher_address(options.hole_puncher_address),
     _max_processes(options.processes),
     _port(options.port),
-    _ending(false)
+    _ending(false),
+    _verbose(options.verbose),
+    _enable_swapping(options.enable_swapping)
   {
     _listen.open(options.port);
   }
@@ -61,7 +63,7 @@ namespace praas::local_worker {
         continue;
       }
 
-      auto* free_process = std::find_if(
+      auto free_process = std::find_if(
         _processes, _processes + _max_processes,
         [](std::optional<praas::process::Process> & p) {
           return !p.has_value();
@@ -74,19 +76,34 @@ namespace praas::local_worker {
       } else {
         // Allocate a new process
         auto pos = static_cast<int32_t>(std::distance(_processes, free_process));
-        *free_process = praas::process::Process::create(
-          req.process_id(), req.ip_address(), req.port(), _hole_puncher_address, req.max_sessions()
+        praas::process::Process::create(
+          *free_process,
+          req.process_id(), req.ip_address(), req.port(), _hole_puncher_address,
+          req.max_sessions(), _verbose
         );
         if(free_process->has_value()) {
-          _threads[pos] = new std::thread(&praas::process::Process::start, &free_process->value());
-          spdlog::debug(
-            "Allocate new process {} with max sessions {}, connect to {}:{}",
-            req.process_id(),
-            req.max_sessions(),
-            req.ip_address(),
-            req.port()
-          );
-          ret = 0;
+
+          if(_enable_swapping && !free_process->value().enable_swapping()) {
+              spdlog::error(
+                "Failed to initalize session swapping a new process {} with max sessions {}",
+                req.process_id(),
+                req.max_sessions()
+              );
+              free_process->reset();
+              ret = 2;
+          } else {
+
+            _threads[pos] = new std::thread(&praas::process::Process::start, &(*free_process).value());
+            spdlog::debug(
+              "Allocate new process {} with max sessions {}, connect to {}:{}",
+              req.process_id(),
+              req.max_sessions(),
+              req.ip_address(),
+              req.port()
+            );
+            ret = 0;
+
+          }
         } else {
           spdlog::error(
             "Failed to allocate a new process {} with max sessions {}, connect to {}:{}",
