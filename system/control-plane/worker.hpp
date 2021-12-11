@@ -45,9 +45,9 @@ namespace praas::control_plane {
     void resize(ssize_t size);
     //void process_client(sockpp::tcp_socket * conn, praas::common::ClientMessage*);
     std::string process_allocation(std::string process_name);
-    std::string process_client(
+    std::tuple<int, std::string> process_client(
       std::string process_id, std::string session_id, std::string function_name,
-      std::string function_id, std::string && payload
+      std::string function_id, int32_t max_functions, int32_t memory_size, std::string && payload
     );
     void process_process(sockpp::tcp_socket * conn, praas::common::ProcessMessage*);
     void process_session(sockpp::tcp_socket * conn, praas::common::SessionMessage*);

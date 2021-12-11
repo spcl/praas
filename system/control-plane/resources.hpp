@@ -21,8 +21,11 @@ namespace praas::control_plane {
   struct Session {
     sockpp::tcp_socket connection;
     std::string session_id;
+    int32_t max_functions;
+    int32_t memory_size;
     std::deque<PendingAllocation> allocations;
     bool allocated;
+    bool swap_in;
 
     Session(std::string);
   };

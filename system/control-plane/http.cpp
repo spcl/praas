@@ -23,11 +23,11 @@ namespace praas::http {
     _server.port(port).ssl_file(server_cert, server_key);
 
     CROW_ROUTE(_server, "/add_process").methods(crow::HTTPMethod::POST)
-    ([this](const crow::request& req) -> std::string {
+    ([this](const crow::request& req) -> crow::response {
       try {
 
         if(!req.body.length())
-          return "Error";
+          return crow::response(400, "Error");
 
         auto x = crow::json::load(req.body);
         Worker& worker = Workers::get(std::this_thread::get_id());
@@ -35,70 +35,90 @@ namespace praas::http {
 
       } catch (std::exception & e) {
         std::cerr << e.what() << std::endl;
-        return "Error";
+        return crow::response(400, "Error");
       } catch (...) {
         std::cerr << "err" << std::endl;
-        return "Error";
+        return crow::response(400, "Error");
       }
     });
 
     CROW_ROUTE(_server, "/add_session").methods(crow::HTTPMethod::POST)
-    ([this](const crow::request& req) -> std::string {
+    ([this](const crow::request& req) -> crow::response {
       try {
 
         if(!req.body.length())
-          return "Error";
+          return crow::response(400, "Error");
 
         auto x = crow::json::load(req.body);
         std::string session_id = x["session-id"].s();
         std::string process_id = x["process-id"].s();
+        // Session retrieval, we don't need that
+        int32_t max_functions = 0;
+        int32_t memory_size = 0;
+        if(session_id.empty()) {
+          max_functions = x["max-functions"].i();
+          memory_size = x["memory-size"].i();
+        }
+
         spdlog::info(
-          "Request to allocate session {} at process id {}.",
+          "Request to allocate/retrieve session {} at process id {}.",
           session_id, process_id
         );
         Worker& worker = Workers::get(std::this_thread::get_id());
-        return worker.process_client(process_id, session_id, "", "", "");
+        auto [code, msg] = worker.process_client(process_id, session_id, "", "", max_functions, memory_size, "");
 
+        return crow::response(code, msg);
       } catch (std::exception & e) {
         std::cerr << e.what() << std::endl;
-        return "Error";
+        return crow::response(400, "Error");
       } catch (...) {
         std::cerr << "err" << std::endl;
-        return "Error";
+        return crow::response(400, "Error");
       }
     });
 
     CROW_ROUTE(_server, "/invoke").methods(crow::HTTPMethod::POST)
-    ([this](const crow::request& req) -> std::string {
+    ([this](const crow::request& req) -> crow::response {
       try {
 
         if(!req.body.length())
-          return "Error";
+          return crow::response(400, "Error");
 
         crow::multipart::message msg(req);
         if(msg.parts.size() != 2)
-          return "Error";
+          return crow::response(400, "Error");
 
         auto x = crow::json::load(msg.parts[0].body);
         std::string function_name = x["function-name"].s();
         std::string function_id = x["function-id"].s();
         std::string session_id = x["session-id"].s();
         std::string process_id = x["process-id"].s();
+        // Session retrieval, we don't need that
+        int32_t max_functions = 0;
+        int32_t memory_size = 0;
+        if(session_id.empty()) {
+          max_functions = x["max-functions"].i();
+          memory_size = x["memory-size"].i();
+        }
+
         spdlog::info(
-          "Request to invoke {} with id {}, at session {}, process id {}, payload size {}",
-          function_name, function_id, session_id, process_id, msg.parts[1].body.length()
+          "Request to invoke {} with id {}, at session {}, process id {}, payload size {}, session parameters: {} {}",
+          function_name, function_id, session_id, process_id, msg.parts[1].body.length(),
+          max_functions, memory_size
         );
         Worker& worker = Workers::get(std::this_thread::get_id());
-        return worker.process_client(
-          process_id, session_id, function_name, function_id, std::move(msg.parts[1].body)
+        auto [code, ret_msg] = worker.process_client(
+          process_id, session_id, function_name, function_id, max_functions,
+          memory_size, std::move(msg.parts[1].body)
         );
 
+        return crow::response(code, ret_msg);
       } catch (std::exception & e) {
         std::cerr << e.what() << std::endl;
-        return "Error";
+        return crow::response(400, "Error");
       } catch (...) {
         std::cerr << "err" << std::endl;
-        return "Error";
+        return crow::response(400, "Error");
       }
     });
 

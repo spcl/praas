@@ -1,4 +1,6 @@
 
+#include <charconv>
+
 #include <sockpp/tcp_connector.h>
 #include <thread>
 
@@ -10,6 +12,19 @@
 #include "backend.hpp"
 
 namespace praas::control_plane {
+
+  // FIXME: move to utils
+  std::tuple<std::string_view, std::string_view> split(std::string & str, char split_character)
+  {
+    auto pos = str.find(split_character);
+    if(pos == std::string::npos)
+      return std::make_tuple("", "");
+    else
+      return std::make_tuple(
+        std::string_view(str.data(), pos),
+        std::string_view(str.data() + pos + 1, str.length() - pos - 1)
+      );
+  }
 
   Worker::Worker(Server& server, sw::redis::Redis& redis, Resources& resources, backend::Backend& backend):
     generator{rd()},
@@ -34,8 +49,6 @@ namespace praas::control_plane {
 
   std::string Worker::process_allocation(std::string process_name)
   {
-    spdlog::debug("Request to add process {}", process_name);
-
     std::string id = uuids::to_string(uuid_generator()).substr(0, 16);
     redis_conn.set("PROCESS_" + id, process_name);
 
@@ -43,9 +56,9 @@ namespace praas::control_plane {
     return id;
   }
 
-  std::string Worker::process_client(
+  std::tuple<int, std::string> Worker::process_client(
     std::string process_id, std::string session_id, std::string function_name,
-    std::string function_id, std::string && payload
+    std::string function_id, int32_t max_functions, int32_t memory_size, std::string && payload
   )
   {
     spdlog::debug(
@@ -54,23 +67,50 @@ namespace praas::control_plane {
     );
     auto process_name = redis_conn.get("PROCESS_" + process_id);
     if(!process_name.has_value())
-      return "Process doesn't exist!";
-
-    // Check if we're swapping
-    if(session_id != "") {
-      if(redis_conn.sismember("SESSIONS_ALIVE_" + process_id, session_id)) {
-        return "Session is already alive!";
-      }
-      if(redis_conn.sismember("SESSIONS_SWAPPED_" + process_id, session_id)) {
-        return "Swapping in not supported yet!";
-      }
-    }
+      return std::make_tuple(400, "Process doesn't exist!");
 
     // Allocate new process worker and new session
     std::string id = uuids::to_string(uuid_generator()).substr(0, 16);
     spdlog::info("Allocate new process worker: {}!", id);
-    std::string new_session_id = uuids::to_string(uuid_generator()).substr(0, 16);
-    spdlog::info("Allocate new session: {}!", new_session_id);
+
+    bool swap_in = false;
+    // Check if we're swapping
+    if(!session_id.empty()) {
+      if(redis_conn.sismember("SESSIONS_ALIVE_" + process_id, session_id)) {
+        return std::make_tuple(400, "Session is already alive!");
+      } else if(redis_conn.srem("SESSIONS_SWAPPED_" + process_id, session_id) == 1) {
+
+        spdlog::info("Swapping a session {} back in!", session_id);
+        auto val = redis_conn.get("SESSION_" + session_id);
+        if(!val.has_value()) {
+          return std::make_tuple(400, "Couldn't locate session details!");
+        }
+
+        // Retrieve configuration from Redis
+        auto [func, mem] = split(val.value(), ';');
+        std::from_chars(func.data(), func.data() + func.length(), max_functions);
+        std::from_chars(mem.data(), mem.data() + mem.length(), memory_size);
+        memory_size *= -1;
+        swap_in = true;
+
+        spdlog::info(
+          "Retrieve session: {}, max functions {}, memory size {}.",
+          session_id, max_functions, memory_size
+        );
+
+      } else {
+        return std::make_tuple(400, "Session ID unknown!");
+      }
+    } else {
+
+      session_id = uuids::to_string(uuid_generator()).substr(0, 16);
+      spdlog::info("Allocate new session: {}!", session_id);
+
+      redis_conn.set(
+        "SESSION_" + session_id,
+        std::to_string(memory_size) + ";" + std::to_string(max_functions)
+      );
+    }
 
     // Allocate subprocess objects.
     Process process;
@@ -79,16 +119,19 @@ namespace praas::control_plane {
     process.allocated_sessions = 0;
     Process & process_ref = resources.add_process(std::move(process));
 
-    Session & session = resources.add_session(process_ref, new_session_id);
+    Session & session = resources.add_session(process_ref, session_id);
+    session.max_functions = max_functions;
+    session.memory_size = memory_size;
+    session.swap_in = swap_in;
     if(!function_name.empty()) {
       PendingAllocation alloc{std::move(payload), function_name, function_id};
       session.allocations.push_back(std::move(alloc));
     }
 
     backend.allocate_process(process_name.value(), id, 1);
-    redis_conn.sadd("SESSIONS_ALIVE_" + process_id, new_session_id);
+    redis_conn.sadd("SESSIONS_ALIVE_" + process_id, session_id);
 
-    return new_session_id;
+    return std::make_tuple(200, session_id);
   }
 
   void Worker::process_process(sockpp::tcp_socket * conn, praas::common::ProcessMessage* msg)
@@ -115,8 +158,9 @@ namespace praas::control_plane {
     for(Session * session : proc->sessions) {
       if(!session->allocated) {
         std::string session_id = session->session_id;
-        // FIXME: user parameters - pass them
-        ssize_t size = req.fill(session_id, 4, 4);
+        // if memory is swapped in, then we send a negative amount of memory
+        int32_t memory_mod = session->swap_in ? -1 : 1;
+        ssize_t size = req.fill(session_id, session->max_functions, session->memory_size * memory_mod);
         // Send allocation request
         proc->connection.write(req.data, size);
         // Wait for reply
@@ -127,9 +171,11 @@ namespace praas::control_plane {
             "Incorrect allocation of sesssion {}, received {} bytes, error code {}",
             session_id, bytes, ret
           );
+          // FIXME: notify user
+        } else {
+          spdlog::debug("Succesful allocation of sesssion {}", session_id);
+          session->allocated = true;
         }
-        spdlog::debug("Succesful allocation of sesssion {}", session_id);
-        session->allocated = true;
       }
     }
 
