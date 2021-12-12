@@ -14,6 +14,7 @@ namespace praas::serving {
       ("processes", "Number of subprocesseses to support.", cxxopts::value<int>()->default_value("1"))
       ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
       ("enable-session-swapping", "Enable session swapping.", cxxopts::value<bool>()->default_value("true"))
+      ("use-docker", "Use Docker.", cxxopts::value<bool>()->default_value("true"))
     ;
     auto parsed_options = options.parse(argc, argv);
 
@@ -22,6 +23,7 @@ namespace praas::serving {
     result.processes = parsed_options["processes"].as<int>();
     result.verbose = parsed_options["verbose"].as<bool>();
     result.enable_swapping = parsed_options["enable-session-swapping"].as<bool>();
+    result.use_docker = parsed_options["use-docker"].as<bool>();
     result.hole_puncher_address = parsed_options["hole-puncher-addr"].as<std::string>();
 
     return result;

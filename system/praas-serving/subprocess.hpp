@@ -21,7 +21,7 @@ namespace praas::serving {
     int pos;
     int pid;
 
-    void fork(praas::common::ProcessRequest req, std::string, bool);
+    void fork(praas::common::ProcessRequest req, std::string, bool, bool);
     void shutdown();
   };
 

@@ -8,7 +8,7 @@
 namespace praas::serving {
 
 
-  void SubprocessFork::fork(praas::common::ProcessRequest req, std::string hole_puncher_address, bool enable_swapping)
+  void SubprocessFork::fork(praas::common::ProcessRequest req, std::string hole_puncher_address, bool enable_swapping, bool use_docker)
   {
     spdlog::debug(
       "Allocate new process {} with max sessions {}, connect to {}:{}",
@@ -35,21 +35,45 @@ namespace praas::serving {
       strcat(addr, ":");
       strcat(addr, std::to_string(req.port()).c_str());
 
-      std::string process_id = req.process_id();
-      const char * argv[] = {
-        "/dev-praas/bin/process_exec",
-        "--process-id", process_id.c_str(),
-        "--control-plane-address", addr,
-        "--hole-puncher-address", hole_puncher_address.c_str(),
-        "--max-sessions", max_sessions_str.c_str(),
-        "--enable-swapping", enable_swapping_str.c_str(),
-        "-v", nullptr
-      };
+      if(use_docker) {
+        std::string process_id = req.process_id();
+        // FIXME: do not hardcode this
+        const char * argv[] = {
+          "/usr/bin/docker", "run",
+          "praas/runtime",
+          "/dev-praas/bin/process_exec",
+          "--process-id", process_id.c_str(),
+          "--control-plane-address", addr,
+          "--hole-puncher-address", hole_puncher_address.c_str(),
+          "--max-sessions", max_sessions_str.c_str(),
+          "--enable-swapping", enable_swapping_str.c_str(),
+          "-v", nullptr
+        };
+        for(int i = 0; i < 15;++i)
+          spdlog::debug(argv[i]);
 
-      int ret = execv(argv[0], const_cast<char**>(&argv[0]));
-      if(ret == -1) {
-        spdlog::error("Executor process failed {}, reason {}", errno, strerror(errno));
-        exit(1);
+        int ret = execv(argv[0], const_cast<char**>(&argv[0]));
+        if(ret == -1) {
+          spdlog::error("Executor process failed {}, reason {}", errno, strerror(errno));
+          exit(1);
+        }
+      } else {
+        std::string process_id = req.process_id();
+        const char * argv[] = {
+          "/dev-praas/bin/process_exec",
+          "--process-id", process_id.c_str(),
+          "--control-plane-address", addr,
+          "--hole-puncher-address", hole_puncher_address.c_str(),
+          "--max-sessions", max_sessions_str.c_str(),
+          "--enable-swapping", enable_swapping_str.c_str(),
+          "-v", nullptr
+        };
+
+        int ret = execv(argv[0], const_cast<char**>(&argv[0]));
+        if(ret == -1) {
+          spdlog::error("Executor process failed {}, reason {}", errno, strerror(errno));
+          exit(1);
+        }
       }
     } else {
       spdlog::debug("Launched subprocess executor for subprocess {}, PID {}", req.process_id(), pid);

@@ -19,7 +19,8 @@ namespace praas::serving {
     _port(options.port),
     _ending(false),
     _verbose(options.verbose),
-    _enable_swapping(options.enable_swapping)
+    _enable_swapping(options.enable_swapping),
+    _use_docker(options.use_docker)
   {
     _listen.open(options.port);
   }
@@ -79,7 +80,7 @@ namespace praas::serving {
         _processes[pos] = SubprocessFork();
         _processes[pos]->pos = pos;
 
-        std::thread{&SubprocessFork::fork, &_processes[pos].value(), std::move(req), _hole_puncher_address, _enable_swapping}.detach();
+        std::thread{&SubprocessFork::fork, &_processes[pos].value(), std::move(req), _hole_puncher_address, _enable_swapping, _use_docker}.detach();
         ret = 0;
         conn.write(&ret, sizeof(ret));
         conn.close();

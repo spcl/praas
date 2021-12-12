@@ -21,6 +21,7 @@ namespace praas::serving {
     int port;
     bool verbose;
     bool enable_swapping;
+    bool use_docker;
   };
   Options opts(int, char**);
 
@@ -33,6 +34,7 @@ namespace praas::serving {
     bool _ending;
     bool _verbose;
     bool _enable_swapping;
+    bool _use_docker;
     sockpp::tcp_acceptor _listen;
 
     Server(Options &);
