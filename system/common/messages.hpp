@@ -14,7 +14,7 @@ namespace praas::common {
       CLIENT = 0,
       PROCESS = 1,
       SESSION = 2,
-      SESSION_CLOSURE = 3
+      SESSION_STATUS = 3
     };
 
     virtual Type type() const = 0;
@@ -42,15 +42,17 @@ namespace praas::common {
     // 16 bytes of session id
     // 18 bytes
 
-    // Process notifying session deletion
+    // Process notifying session status
     // 2 bytes of identifier: 3
+    // 2 bytes of shared memory status
     // 4 bytes of shared memory size
     // 16 bytes of session id
 
-    static constexpr uint16_t BUF_SIZE = 22;
+    static constexpr uint16_t BUF_SIZE = 24;
     int8_t data[BUF_SIZE];
 
     std::unique_ptr<MessageType> parse();
+    bool is_session_status();
   };
 
   struct ClientMessage: MessageType {
@@ -90,15 +92,16 @@ namespace praas::common {
     Type type() const override;
   };
 
-  struct SessionClosureMessage: MessageType {
+  struct SessionStatusMessage: MessageType {
     int8_t* buf;
 
-    SessionClosureMessage(int8_t* buf):
+    SessionStatusMessage(int8_t* buf):
       buf(buf)
     {}
 
     int32_t memory_size();
     std::string session_id();
+    int16_t session_status();
     Type type() const override;
   };
 
