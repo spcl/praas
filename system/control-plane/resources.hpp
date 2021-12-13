@@ -90,7 +90,7 @@ namespace praas::control_plane {
     // process_id -> process resources
     std::unordered_map<std::string, Process> processes;
     // FIXME: processes per global process
-    std::mutex mutex;
+    std::mutex _sessions_mutex;
 
     ~Resources();
 

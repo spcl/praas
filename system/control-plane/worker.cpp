@@ -114,6 +114,7 @@ namespace praas::control_plane {
     // Allocate in an existing process
     if(proc) {
 
+      std::lock_guard<std::mutex> guard(resources._sessions_mutex);
       // FIXME: Move somewhere else this code and unify behind resources API
       Session & session = resources.add_session(*proc, session_id);
       session.max_functions = max_functions;
@@ -158,6 +159,7 @@ namespace praas::control_plane {
       // FIXME: Make it a paramater
       int16_t max_sessions_per_process = 4;
 
+      std::lock_guard<std::mutex> guard(resources._sessions_mutex);
       // Allocate subprocess objects.
       Process process{max_sessions_per_process};
       process.process_id = id;
@@ -202,35 +204,39 @@ namespace praas::control_plane {
     delete conn;
 
     // Check if we have unallocated session
-    praas::common::SessionRequest req;
-    for(Session * session : proc->sessions) {
-      if(!session->allocated) {
-        std::string session_id = session->session_id;
-        ssize_t size = req.fill(session_id, session->max_functions, session->memory_size);
-        // Send allocation request
-        proc->connection.write(req.data, size);
 
-        // Wait for reply
-        //int32_t ret = 0;
-        //ssize_t bytes = proc->connection.read_n(&ret, sizeof(ret));
+    {
+      std::lock_guard<std::mutex> guard(resources._sessions_mutex);
+      praas::common::SessionRequest req;
+      for(Session * session : proc->sessions) {
+        if(!session->allocated) {
+          std::string session_id = session->session_id;
+          ssize_t size = req.fill(session_id, session->max_functions, session->memory_size);
+          // Send allocation request
+          proc->connection.write(req.data, size);
 
-        session->allocated = true;
-        //spdlog::error("READ {} bytes of result {}", sizeof(ret), ret);
-        //if(bytes != sizeof(ret) || ret) {
-        //  spdlog::error(
-        //    "Incorrect allocation of sesssion {}, received {} bytes, error code {}",
-        //    session_id, bytes, ret
-        //  );
-        //  // FIXME: notify user
-        //} else {
-        //  spdlog::debug("Succesful allocation of sesssion {}", session_id);
-        //  session->allocated = true;
-        //}
+          // Wait for reply
+          //int32_t ret = 0;
+          //ssize_t bytes = proc->connection.read_n(&ret, sizeof(ret));
+
+          session->allocated = true;
+          //spdlog::error("READ {} bytes of result {}", sizeof(ret), ret);
+          //if(bytes != sizeof(ret) || ret) {
+          //  spdlog::error(
+          //    "Incorrect allocation of sesssion {}, received {} bytes, error code {}",
+          //    session_id, bytes, ret
+          //  );
+          //  // FIXME: notify user
+          //} else {
+          //  spdlog::debug("Succesful allocation of sesssion {}", session_id);
+          //  session->allocated = true;
+          //}
+        }
       }
     }
 
     // Add for future message polling
-    if(!server.add_epoll(proc->connection.handle(), proc, EPOLLIN | EPOLLPRI | EPOLLONESHOT)) {
+    if(!server.add_epoll(proc->connection.handle(), proc, EPOLLIN | EPOLLPRI | EPOLLRDHUP | EPOLLONESHOT)) {
       spdlog::error("Couldn't add the process to epoll,closing connection");
       proc->connection.close();
       resources.remove_process(process_id);
@@ -246,6 +252,7 @@ namespace praas::control_plane {
       "Received connection from a session {}",
       session_id
     );
+    std::lock_guard<std::mutex> guard(resources._sessions_mutex);
     Session* session = resources.get_session(session_id);
     if(!session) {
       spdlog::error("Incorrect session identification! Incorrect session {}!", session_id);
@@ -305,8 +312,12 @@ namespace praas::control_plane {
 
   void Worker::handle_session_closure(Process* process, int32_t, std::string session_id)
   {
+    spdlog::info("Session closure {}", session_id);
     // Remove resource
-    resources.remove_session(*process, session_id);
+    {
+      std::lock_guard<std::mutex> guard(resources._sessions_mutex);
+      resources.remove_session(*process, session_id);
+    }
 
     // Update Redis - move session from swapped to alive
     redis_conn.srem("SESSIONS_ALIVE_" + process->process_id, session_id);
@@ -332,14 +343,14 @@ namespace praas::control_plane {
 
     // EOF
     if(recv_data == 0) {
-      spdlog::debug("End of file on connection with {}.", conn.peer_address().to_string());
+      spdlog::info("End of file on connection with {}.", conn.peer_address().to_string());
       worker.handle_process_closure(process);
       return;
     }
     // Incorrect read
     // FIXME: handle timeout & interruption
     else if(recv_data == -1) {
-      spdlog::debug(
+      spdlog::error(
         "Closing connection with {}. Reason: {}", conn.peer_address().to_string(),
         strerror(errno)
       );
@@ -369,8 +380,7 @@ namespace praas::control_plane {
     }
 
     // Ream process for future message polling
-    if(!worker.server.mod_epoll(process->connection.handle(), process, EPOLLIN | EPOLLPRI | EPOLLONESHOT)) {
-    //if(!worker.server.add_epoll(process->connection.handle(), process, EPOLLIN | EPOLLPRI | EPOLLONESHOT)) {
+    if(!worker.server.mod_epoll(process->connection.handle(), process, EPOLLIN | EPOLLPRI | EPOLLRDHUP | EPOLLONESHOT)) {
       spdlog::error("Couldn't add the process to epoll,closing connection");
       process->connection.close();
       worker.resources.remove_process(process->process_id);
@@ -388,13 +398,13 @@ namespace praas::control_plane {
 
     // EOF
     if(recv_data == 0) {
-      spdlog::debug("End of file on connection with {}.", conn->peer_address().to_string());
+      spdlog::info("End of file on connection with {}.", conn->peer_address().to_string());
       conn->close();
       delete conn;
     }
     // Incorrect read
     else if(recv_data == -1) {
-      spdlog::debug(
+      spdlog::error(
         "Closing connection with {}. Reason: {}", conn->peer_address().to_string(),
         strerror(errno)
       );
@@ -417,6 +427,7 @@ namespace praas::control_plane {
 
       if(msg.get()->type() == praas::common::MessageType::Type::CLIENT) {
         // FIXME: no longer supported
+        spdlog::error("NOT SUPPORTED");
         conn->close();
         delete conn;
       } else if(msg.get()->type() == praas::common::MessageType::Type::PROCESS) {
