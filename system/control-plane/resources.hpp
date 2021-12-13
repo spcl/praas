@@ -56,7 +56,7 @@ namespace praas::control_plane {
       connection = std::move(obj.connection);
 
       // atomics are not movable
-      busy.store(obj.busy.load());
+      //busy.store(obj.busy.load());
     }
 
     Process& operator=(Process && obj)
@@ -70,7 +70,7 @@ namespace praas::control_plane {
         connection = std::move(obj.connection);
 
         // atomics are not movable
-        busy.store(obj.busy.load());
+        //busy.store(obj.busy.load());
       }
 
       return *this;

@@ -124,7 +124,7 @@ namespace praas::control_plane {
         session.allocations.push_back(std::move(alloc));
       }
 
-      proc->busy.store(true);
+      //proc->busy.store(true);
       // Check if we have unallocated session
       praas::common::SessionRequest req;
       std::string session_id = session.session_id;
@@ -133,20 +133,21 @@ namespace praas::control_plane {
       proc->connection.write(req.data, size);
 
       // Wait for reply
-      int32_t ret = 0;
-      ssize_t bytes = proc->connection.read(&ret, sizeof(ret));
-      if(bytes != sizeof(ret) || ret) {
-        spdlog::error(
-          "Incorrect allocation of sesssion {} at {}, received {} bytes, error code {}",
-          session_id, proc->connection.peer_address().to_string(), bytes, ret
-        );
-        // FIXME: notify user
-      } else {
-        spdlog::debug("Succesful allocation of sesssion {} at {}", session_id, proc->connection.peer_address().to_string());
-        session.allocated = true;
-      }
+      //int32_t ret = 0;
+      //ssize_t bytes = proc->connection.read_n(&ret, sizeof(ret));
+      //if(bytes != sizeof(ret) || ret) {
+      //  spdlog::error(
+      //    "Incorrect allocation of sesssion {} at {}, received {} bytes, error code {}",
+      //    session_id, proc->connection.peer_address().to_string(), bytes, ret
+      //  );
+      //  // FIXME: notify user
+      //} else {
+      //  spdlog::debug("Succesful allocation of sesssion {} at {}", session_id, proc->connection.peer_address().to_string());
+      //  session.allocated = true;
+      //}
+      session.allocated = true;
 
-      proc->busy.store(false);
+      //proc->busy.store(false);
     }
     // New process
     else {
@@ -210,23 +211,26 @@ namespace praas::control_plane {
         proc->connection.write(req.data, size);
 
         // Wait for reply
-        int32_t ret = 0;
-        ssize_t bytes = proc->connection.read(&ret, sizeof(ret));
-        if(bytes != sizeof(ret) || ret) {
-          spdlog::error(
-            "Incorrect allocation of sesssion {}, received {} bytes, error code {}",
-            session_id, bytes, ret
-          );
-          // FIXME: notify user
-        } else {
-          spdlog::debug("Succesful allocation of sesssion {}", session_id);
-          session->allocated = true;
-        }
+        //int32_t ret = 0;
+        //ssize_t bytes = proc->connection.read_n(&ret, sizeof(ret));
+
+        session->allocated = true;
+        //spdlog::error("READ {} bytes of result {}", sizeof(ret), ret);
+        //if(bytes != sizeof(ret) || ret) {
+        //  spdlog::error(
+        //    "Incorrect allocation of sesssion {}, received {} bytes, error code {}",
+        //    session_id, bytes, ret
+        //  );
+        //  // FIXME: notify user
+        //} else {
+        //  spdlog::debug("Succesful allocation of sesssion {}", session_id);
+        //  session->allocated = true;
+        //}
       }
     }
 
     // Add for future message polling
-    if(!server.add_epoll(proc->connection.handle(), proc, EPOLLIN | EPOLLPRI)) {
+    if(!server.add_epoll(proc->connection.handle(), proc, EPOLLIN | EPOLLPRI | EPOLLONESHOT)) {
       spdlog::error("Couldn't add the process to epoll,closing connection");
       proc->connection.close();
       resources.remove_process(process_id);
@@ -289,6 +293,9 @@ namespace praas::control_plane {
       }
     }
 
+    session->connection.close();
+    //if(!server.add_epoll(proc->connection.handle(), proc, EPOLLIN | EPOLLPRI | EPOLLONESHOT)) {
+    //  spdlog::error("Couldn't add the process to epoll,closing connection");
   }
 
   void Worker::handle_process_closure(Process*)
@@ -349,14 +356,26 @@ namespace praas::control_plane {
       );
       return;
     }
-
-    if(msg.get()->type() == praas::common::MessageType::Type::SESSION_CLOSURE) {
-      auto casted_msg = dynamic_cast<praas::common::SessionClosureMessage*>(msg.get());
-      worker.handle_session_closure(process, casted_msg->memory_size(), casted_msg->session_id());
+    if(msg.get()->type() == praas::common::MessageType::Type::SESSION_STATUS) {
+      auto casted_msg = dynamic_cast<praas::common::SessionStatusMessage*>(msg.get());
+      // closure
+      // FIXME: encapsulate
+      if(casted_msg->session_status() == -1)
+        worker.handle_session_closure(process, casted_msg->memory_size(), casted_msg->session_id());
+      else
+        spdlog::debug("Session {} allocation status {}", casted_msg->session_id(), casted_msg->session_status());
     } else {
       spdlog::error("Unknown type of request!");
     }
 
+    // Ream process for future message polling
+    if(!worker.server.mod_epoll(process->connection.handle(), process, EPOLLIN | EPOLLPRI | EPOLLONESHOT)) {
+    //if(!worker.server.add_epoll(process->connection.handle(), process, EPOLLIN | EPOLLPRI | EPOLLONESHOT)) {
+      spdlog::error("Couldn't add the process to epoll,closing connection");
+      process->connection.close();
+      worker.resources.remove_process(process->process_id);
+      return;
+    }
     spdlog::debug("Worker {} ends processing a request", thread_id);
   }
 
@@ -365,7 +384,7 @@ namespace praas::control_plane {
     auto thread_id = std::hash<std::thread::id>{}(std::this_thread::get_id());
     Worker& worker = Workers::get(std::this_thread::get_id());
 
-    ssize_t recv_data = conn->read(worker.header.data, praas::common::Header::BUF_SIZE);
+    ssize_t recv_data = conn->read_n(worker.header.data, praas::common::Header::BUF_SIZE);
 
     // EOF
     if(recv_data == 0) {

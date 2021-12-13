@@ -90,18 +90,18 @@ namespace praas::control_plane {
         // New message from a process. 
         else {
 
+          // FIXME: aggregate multiple messages from the same connection
           praas::common::Header msg; 
           Process* process = static_cast<Process*>(events[i].data.ptr);
           sockpp::tcp_socket* conn = &process->connection;
 
-          if(process->busy.load()) {
-            spdlog::debug("Ignore activity on busy {}, events {}", conn->peer_address().to_string(), events[i].events);
-            continue;
-          }
+          //if(process->busy.load()) {
+          //  spdlog::debug("Ignore activity on busy {}, events {}", conn->peer_address().to_string(), events[i].events);
+          //  continue;
+          //}
+          //spdlog::debug("New activity on {}, events {}", conn->peer_address().to_string(), events[i].events);
 
-          spdlog::debug("New activity on {}, events {}", conn->peer_address().to_string(), events[i].events);
-
-          ssize_t recv_data = conn->read(msg.data, praas::common::Header::BUF_SIZE);
+          ssize_t recv_data = conn->read_n(msg.data, praas::common::Header::BUF_SIZE);
 
           // Store process sending the message in user-provided data
           _pool.push_task(Worker::handle_message, process, msg, recv_data);
