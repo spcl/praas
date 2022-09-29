@@ -7,17 +7,21 @@
 
 #include <crow.h>
 
-struct thread_pool;
+namespace BS {
+
+  struct thread_pool;
+
+}
 
 namespace praas::http {
 
   struct HttpServer
   {
-    thread_pool& _pool;
+    BS::thread_pool& _pool;
     crow::SimpleApp _server;
     std::thread _server_thread;
 
-    HttpServer(int port, std::string server_cert, std::string server_key, thread_pool &, bool verbose);
+    HttpServer(int port, std::string server_cert, std::string server_key, BS::thread_pool &, bool verbose);
 
     void run();
     void shutdown();

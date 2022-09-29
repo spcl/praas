@@ -3,7 +3,7 @@
 #define __CONTROLL_PLANE_SERVER_HPP__
 
 #include <sockpp/tcp_acceptor.h>
-#include <thread_pool.hpp>
+#include <BS_thread_pool.hpp>
 #include <redis++.h>
 #include <spdlog/spdlog.h>
 
@@ -38,7 +38,7 @@ namespace praas::control_plane {
     static constexpr int MAX_EPOLL_EVENTS = 32;
 
     sockpp::tcp_acceptor _listen;
-    thread_pool _pool;
+    BS::thread_pool _pool;
     sw::redis::Redis _redis;
     Resources _resources;
     backend::Backend* _backend;

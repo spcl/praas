@@ -2,7 +2,6 @@
 #include <future>
 
 #include <thread>
-#include <thread_pool.hpp>
 #include <spdlog/spdlog.h>
 
 #include "http.hpp"
@@ -13,7 +12,7 @@ using praas::control_plane::Workers;
 
 namespace praas::http {
 
-  HttpServer::HttpServer(int port, std::string server_cert, std::string server_key, thread_pool & pool, bool verbose):
+  HttpServer::HttpServer(int port, std::string server_cert, std::string server_key, BS::thread_pool & pool, bool verbose):
     _pool(pool)
   {
     spdlog::info(

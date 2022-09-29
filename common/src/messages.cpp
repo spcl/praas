@@ -1,7 +1,7 @@
 
 #include <cstring>
 
-#include "messages.hpp"
+#include <praas/common/messages.hpp>
 
 namespace praas::common {
 

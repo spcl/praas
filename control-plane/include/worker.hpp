@@ -11,7 +11,7 @@
 #include <sockpp/tcp_socket.h>
 #include <uuid.h>
 
-#include "../common/messages.hpp"
+#include <praas/common/messages.hpp>
 
 namespace sw::redis {
   struct Redis;

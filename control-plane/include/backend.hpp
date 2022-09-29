@@ -7,7 +7,7 @@
 
 #include <sockpp/tcp_connector.h>
 
-#include "../common/messages.hpp"
+#include <praas/common/messages.hpp>
 
 namespace praas::control_plane {
 
