@@ -10,23 +10,7 @@ if(NOT stduuid_FOUND)
   FetchContent_Declare(stduuid
     GIT_REPOSITORY https://github.com/mariusbancila/stduuid.git
   )
-  FetchContent_Populate(stduuid)
   FetchContent_MakeAvailable(stduuid)
-  add_subdirectory(${stduuid_SOURCE_DIR} ${stduuid_BINARY_DIR})
-endif()
-
-###
-# threadpool
-###
-FetchContent_Declare(threadpool
-  GIT_REPOSITORY https://github.com/bshoshany/thread-pool.git
-  GIT_TAG master
-  CONFIGURE_COMMAND ""
-  BUILD_COMMAND ""
-)
-FetchContent_GetProperties(threadpool)
-if(NOT threadpool_POPULATED)
-  FetchContent_Populate(threadpool)
 endif()
 
 ###
@@ -41,9 +25,7 @@ if(NOT redis_FOUND)
     GIT_REPOSITORY https://github.com/sewenew/redis-plus-plus.git
     GIT_TAG master
   )
-  FetchContent_Populate(redis)
   FetchContent_MakeAvailable(redis)
-  add_subdirectory(${redis_SOURCE_DIR} ${redis_BINARY_DIR})
 else()
   add_custom_target(redis)
 endif()
@@ -58,14 +40,6 @@ if(NOT Crow_FOUND)
     GIT_REPOSITORY  https://github.com/CrowCpp/Crow.git
     #GIT_TAG         v0.3+3
   )
-  #FetchContent_Populate(Crow)
-  #set(CROW_BUILD_EXAMPLES OFF CACHE INTERNAL "")
-  #set(CROW_BUILD_TESTS  OFF CACHE INTERNAL "")
-  #set(CROW_ENABLE_SSL ON CACHE INTERNAL "")
-  #set(CROW_BUILD_EXAMPLES OFF)
-  #set(CROW_BUILD_TESTS OFF)
-  #set(CROW_ENABLE_SSL ON)
-  #FetchContent_MakeAvailable(Crow)
   set(CROW_BUILD_EXAMPLES OFF)
   set(CROW_BUILD_TESTS  OFF)
   set(CROW_FEATURES "ssl")

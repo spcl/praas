@@ -13,9 +13,7 @@ if(NOT cxxopts_FOUND)
     GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
     CMAKE_ARGS -DCXXOPTS_BUILD_EXAMPLES=Off -DCXXOPTS_BUILD_TESTS=Off
   )
-  FetchContent_Populate(cxxopts)
   FetchContent_MakeAvailable(cxxopts)
-  add_subdirectory(${cxxopts_SOURCE_DIR} ${cxxopts_BINARY_DIR})
 endif()
 
 ###
@@ -27,11 +25,9 @@ if(NOT sockpp_FOUND)
   FetchContent_Declare(sockpp
     GIT_REPOSITORY https://github.com/spcl/sockpp
   )
-  FetchContent_Populate(sockpp)
-  FetchContent_MakeAvailable(sockpp)
   set(SOCKPP_BUILD_SHARED OFF CACHE INTERNAL "Build SHARED libraries")
   set(SOCKPP_BUILD_STATIC ON CACHE INTERNAL "Build SHARED libraries")
-  add_subdirectory(${sockpp_SOURCE_DIR} ${sockpp_BINARY_DIR})
+  FetchContent_MakeAvailable(sockpp)
 endif()
 
 ###
@@ -45,9 +41,7 @@ if(NOT spdlog_FOUND)
     # default branch is v1.x - for some reason, cmake switches to master
     GIT_TAG v1.8.0
   )
-  FetchContent_Populate(spdlog)
   FetchContent_MakeAvailable(spdlog)
-  add_subdirectory(${spdlog_SOURCE_DIR} ${spdlog_BINARY_DIR})
 else()
   add_custom_target(spdlog)
 endif()
@@ -61,10 +55,7 @@ FetchContent_Declare(threadpool
   CONFIGURE_COMMAND ""
   BUILD_COMMAND ""
 )
-FetchContent_GetProperties(threadpool)
-if(NOT threadpool_POPULATED)
-  FetchContent_Populate(threadpool)
-endif()
+FetchContent_MakeAvailable(threadpool)
 
 ###
 # google test
