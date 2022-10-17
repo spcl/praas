@@ -1,0 +1,15 @@
+
+---
+BasedOnStyle: LLVM
+AlignAfterOpenBracket: BlockIndent
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: true
+NamespaceIndentation: All
+IncludeCategories:
+  - Regex:           '^<praas/.*\.hpp>'
+    Priority:        1
+  - Regex:           '^<.*'
+    Priority:        2
+  - Regex:           '.*'
+    Priority:        3
