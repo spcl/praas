@@ -1,0 +1,18 @@
+
+name: Linting
+on:
+  pull_request:
+  push:
+
+jobs:
+
+  format:
+
+    runs-on: ubuntu-latest
+    container: mcopik/cpp-tools:clang-15
+    steps:
+      - uses: actions/checkout@v3
+      - name: clang-format
+        run: |
+          /opt/run-clang-format.py -r ${GITHUB_WORKSPACE}/control-plane
+
