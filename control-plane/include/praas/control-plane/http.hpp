@@ -15,18 +15,19 @@ namespace BS {
 
 namespace praas::http {
 
-  struct HttpServer
-  {
+  struct HttpServer {
     BS::thread_pool& _pool;
     crow::SimpleApp _server;
     std::thread _server_thread;
 
-    HttpServer(int port, std::string server_cert, std::string server_key, BS::thread_pool &, bool verbose);
+    HttpServer(
+        int port, std::string server_cert, std::string server_key,
+        BS::thread_pool&, bool verbose
+    );
 
     void run();
     void shutdown();
   };
-}
+} // namespace praas::http
 
 #endif
-

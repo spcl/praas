@@ -1,17 +1,18 @@
 
+
+#include <praas/control-plane/server.hpp>
+
 #include <chrono>
+#include <climits>
 #include <stdexcept>
 #include <thread>
-#include <climits>
-#include <sys/time.h>
 
 #include <signal.h>
+#include <sys/time.h>
 
 #include <spdlog/spdlog.h>
 
-#include "server.hpp"
-
-praas::control_plane::Server * instance = nullptr;
+praas::control_plane::Server* instance = nullptr;
 
 void signal_handler(int)
 {
@@ -19,10 +20,10 @@ void signal_handler(int)
   instance->shutdown();
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char** argv)
 {
   auto opts = praas::control_plane::opts(argc, argv);
-  if(opts.verbose)
+  if (opts.verbose)
     spdlog::set_level(spdlog::level::debug);
   else
     spdlog::set_level(spdlog::level::info);

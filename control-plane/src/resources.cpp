@@ -1,11 +1,11 @@
 
-#include <stdexcept>
+#include <praas/control-plane/resources.hpp>
 
-#include "resources.hpp"
+#include <stdexcept>
 
 namespace praas::control_plane {
 
-  Process& Resources::add_process(Process && p)
+  Process& Resources::add_process(Process&& p)
   {
     return this->processes[p.process_id] = std::move(p);
   }
@@ -18,23 +18,20 @@ namespace praas::control_plane {
 
   Process* Resources::get_free_process(std::string)
   {
-    auto it = std::find_if(
-      processes.begin(), processes.end(),
-      [](auto & p) {
-        return p.second.allocated_sessions < p.second.max_sessions;
-      }
-    );
-    if(it == this->processes.end())
+    auto it = std::find_if(processes.begin(), processes.end(), [](auto& p) {
+      return p.second.allocated_sessions < p.second.max_sessions;
+    });
+    if (it == this->processes.end())
       return nullptr;
 
     (*it).second.allocated_sessions++;
     return &(*it).second;
   }
 
-
-  Session& Resources::add_session(Process & pr, std::string session_id)
+  Session& Resources::add_session(Process& pr, std::string session_id)
   {
-    auto [it, success] = this->sessions.emplace(session_id, session_id);;
+    auto [it, success] = this->sessions.emplace(session_id, session_id);
+    ;
     pr.sessions.push_back(&it->second);
     return it->second;
   }
@@ -51,27 +48,24 @@ namespace praas::control_plane {
     throw std::runtime_error("not implemented");
   }
 
-  void Resources::remove_session(Process & process, std::string session_id)
+  void Resources::remove_session(Process& process, std::string session_id)
   {
     // First clean the process
     auto it = std::find_if(
-      process.sessions.begin(), process.sessions.end(),
-      [session_id](auto & obj) {
-        return obj->session_id == session_id;
-      }
+        process.sessions.begin(), process.sessions.end(),
+        [session_id](auto& obj) { return obj->session_id == session_id; }
     );
-    if(it == process.sessions.end())
+    if (it == process.sessions.end())
       return;
 
     process.allocated_sessions--;
     process.sessions.erase(it);
   }
 
-  Session::Session(std::string session_id):
-    session_id(session_id),
-    allocated(false)
-  {}
+  Session::Session(std::string session_id)
+      : session_id(session_id), allocated(false)
+  {
+  }
 
-  Resources::~Resources()
-  {}
-}
+  Resources::~Resources() {}
+} // namespace praas::control_plane

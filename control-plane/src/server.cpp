@@ -1,25 +1,28 @@
 
+#include <praas/control-plane/server.hpp>
+
+#include <praas/control-plane/http.hpp>
+#include <praas/control-plane/worker.hpp>
+
 #include <chrono>
 #include <future>
+
 #include <sys/epoll.h>
 
 #include <spdlog/spdlog.h>
-
-#include "server.hpp"
-#include "worker.hpp"
-#include "http.hpp"
 
 extern void signal_handler(int);
 
 namespace praas::control_plane {
 
-  Server::Server(Options & options):
-    _pool(options.threads),
-    _redis(options.redis_addr),
-    _backend(backend::Backend::construct(options)),
-    _http_server(options.https_port, options.ssl_server_cert, options.ssl_server_key, _pool, options.verbose),
-    _read_timeout(options.read_timeout),
-    _ending(false)
+  Server::Server(Options& options)
+      : _pool(options.threads), _redis(options.redis_addr),
+        _backend(backend::Backend::construct(options)),
+        _http_server(
+            options.https_port, options.ssl_server_cert, options.ssl_server_key,
+            _pool, options.verbose
+        ),
+        _read_timeout(options.read_timeout), _ending(false)
   {
     _listen.open(options.port);
     Workers::init(*this, _redis, _resources, *_backend);
@@ -34,16 +37,18 @@ namespace praas::control_plane {
   void Server::start()
   {
     if (!_listen) {
-      spdlog::error("Incorrect socket initialization! {}", _listen.last_error_str());
+      spdlog::error(
+          "Incorrect socket initialization! {}", _listen.last_error_str()
+      );
       return;
     }
 
     _epoll_fd = epoll_create(255);
-    if(_epoll_fd < 0) {
+    if (_epoll_fd < 0) {
       spdlog::error("Incorrect epoll initialization! {}", strerror(errno));
       return;
     }
-    if(!add_epoll(_listen.handle(), &_listen, EPOLLIN | EPOLLPRI))
+    if (!add_epoll(_listen.handle(), &_listen, EPOLLIN | EPOLLPRI))
       return;
 
     // Run the HTTP server on another thread
@@ -58,54 +63,64 @@ namespace praas::control_plane {
     sigaction(SIGINT, &sigIntHandler, NULL);
 
     epoll_event events[MAX_EPOLL_EVENTS];
-    while(!_ending) {
+    while (!_ending) {
 
       int events_count = epoll_wait(_epoll_fd, events, MAX_EPOLL_EVENTS, 0);
 
-      // Finish if we failed (but we were not interrupted), or when end was requested.
-      if(_ending || (events_count == -1 && errno != EINVAL))
+      // Finish if we failed (but we were not interrupted), or when end was
+      // requested.
+      if (_ending || (events_count == -1 && errno != EINVAL))
         break;
 
-      for(int i = 0; i < events_count; ++i) {
+      for (int i = 0; i < events_count; ++i) {
 
         // Accept connection
-        if(events[i].data.ptr == static_cast<void*>(&_listen)) {
+        if (events[i].data.ptr == static_cast<void*>(&_listen)) {
 
           sockpp::tcp_socket conn = _listen.accept();
           // FIXME: disable until we figure out what to do with epoll
-          //conn.read_timeout(std::chrono::microseconds(_read_timeout * 1000));
-          if(conn.is_open())
-            spdlog::debug("Accepted new connection from {}.", conn.peer_address().to_string());
+          // conn.read_timeout(std::chrono::microseconds(_read_timeout * 1000));
+          if (conn.is_open())
+            spdlog::debug(
+                "Accepted new connection from {}.",
+                conn.peer_address().to_string()
+            );
 
           if (!conn) {
-            spdlog::error("Error accepting incoming connection: {}", _listen.last_error_str());
+            spdlog::error(
+                "Error accepting incoming connection: {}",
+                _listen.last_error_str()
+            );
             continue;
           }
 
           // Ugly fix around the fact that our pool uses std::function
           // std::function cannot accept a non-copyable object :-(
           // And our lambda must be movable only due to dependence on socket.
-          _pool.push_task(Worker::worker, new sockpp::tcp_socket{std::move(conn)});
+          _pool.push_task(
+              Worker::worker, new sockpp::tcp_socket{std::move(conn)}
+          );
         }
-        // New message from a process. 
+        // New message from a process.
         else {
 
           // FIXME: aggregate multiple messages from the same connection
-          praas::common::Header msg; 
+          praas::common::Header msg;
           Process* process = static_cast<Process*>(events[i].data.ptr);
           sockpp::tcp_socket* conn = &process->connection;
 
-          //if(process->busy.load()) {
-          //  spdlog::debug("Ignore activity on busy {}, events {}", conn->peer_address().to_string(), events[i].events);
-          //  continue;
-          //}
-          //spdlog::debug("New activity on {}, events {}", conn->peer_address().to_string(), events[i].events);
+          // if(process->busy.load()) {
+          //   spdlog::debug("Ignore activity on busy {}, events {}",
+          //   conn->peer_address().to_string(), events[i].events); continue;
+          // }
+          // spdlog::debug("New activity on {}, events {}",
+          // conn->peer_address().to_string(), events[i].events);
 
-          ssize_t recv_data = conn->read_n(msg.data, praas::common::Header::BUF_SIZE);
+          ssize_t recv_data =
+              conn->read_n(msg.data, praas::common::Header::BUF_SIZE);
 
           // Store process sending the message in user-provided data
           _pool.push_task(Worker::handle_message, process, msg, recv_data);
-
         }
       }
     }
@@ -120,5 +135,4 @@ namespace praas::control_plane {
     spdlog::info("Closed control plane.");
   }
 
-}
-
+} // namespace praas::control_plane
