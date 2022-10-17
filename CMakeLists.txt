@@ -14,13 +14,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 ###
 # CMake options
 ###
+set(PRAAS_COMPONENTS "" CACHE STRING "Components to build")
 option(WITH_CONTROL_PLANE "Build control plane deployment" ON)
 option(WITH_CXX_LINTING "Enable linting and formatting of C++ options." OFF)
 option(WITH_TESTING "Enable testing" OFF)
 
 ###
 # C++ linting
-### 
+###
 if(${WITH_CXX_LINTING})
   find_program(CLANG_TIDY_COMMAND NAMES clang-tidy clang-tidy-14 clang-tidy-13 clang-tidy-12 clang-tidy-11 clang-tidy-10)
   if(NOT CLANG_TIDY_COMMAND)
@@ -51,7 +52,15 @@ add_library(common_library STATIC ${common_library_files})
 target_include_directories(common_library PUBLIC "common/include")
 set_target_properties(common_library PROPERTIES RUNTIME_OUTPUT_DIRECTORY lib)
 
-if(${WITH_CONTROL_PLANE})
-  add_subdirectory(control-plane)
-endif()
+foreach(COMPONENT ${PRAAS_COMPONENTS})
+
+  if(COMPONENT STREQUAL "control-plane")
+    message(STATUS "Building control-plane component")
+    add_subdirectory(control-plane)
+  else()
+    message(FATAL_ERROR "The component ${COMPONENT} does not exist")
+  endif()
+
+endforeach()
+
 
