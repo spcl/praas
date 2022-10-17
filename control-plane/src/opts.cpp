@@ -6,7 +6,7 @@
 
 namespace praas::control_plane {
 
-  Options opts(int argc, char **argv)
+  Options opts(int argc, char** argv)
   {
     cxxopts::Options options(
         "rfaas-executor-manager",
