@@ -1,11 +1,15 @@
 
 ---
 BasedOnStyle: LLVM
+# When parameters do not fit into line, prefer breaking, and keep closing bracket in a new line
 AlignAfterOpenBracket: BlockIndent
 BreakBeforeBraces: Custom
+# Brace after function definition should be in a new line
 BraceWrapping:
   AfterFunction: true
+# Apply indentation to namespaces as well
 NamespaceIndentation: All
+# First we include all PraaS files
 IncludeCategories:
   - Regex:           '^<praas/.*\.hpp>'
     Priority:        1
@@ -13,3 +17,5 @@ IncludeCategories:
     Priority:        2
   - Regex:           '.*'
     Priority:        3
+# Prefer * and & to be aligned to type, not variable name
+PointerAlignment: Left
