@@ -23,14 +23,19 @@ option(WITH_TESTING "Enable testing" OFF)
 # C++ linting
 ###
 if(${WITH_CXX_LINTING})
-  find_program(CLANG_TIDY_COMMAND NAMES clang-tidy clang-tidy-14 clang-tidy-13 clang-tidy-12 clang-tidy-11 clang-tidy-10)
+
+  find_program(
+    CLANG_TIDY_COMMAND NAMES
+    clang-tidy clang-tidy-14 clang-tidy-13 clang-tidy-12
+    clang-tidy-11 clang-tidy-10
+  )
+
   if(NOT CLANG_TIDY_COMMAND)
     message(FATAL_ERROR "clang-tidy is not found!")
     set(CMAKE_CXX_CLANG_TIDY "" CACHE STRING "" FORCE)
-  else()
-    set(CLANG_TIDY_CHECKS "*")
-    set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_COMMAND};-checks=${CLANG_TIDY_CHECKS};-header-filter=.")
   endif()
+
+  # We read tidy checks from the configuration file.
 endif()
 
 ###
