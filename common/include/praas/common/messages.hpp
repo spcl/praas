@@ -1,15 +1,14 @@
 
-#ifndef __COMMON_MESSAGES_HPP__
-#define __COMMON_MESSAGES_HPP__
+#ifndef PRAAS_COMMON_MESSAGES_HPP
+#define PRAAS_COMMON_MESSAGES_HPP
 
+#include <cstring>
 #include <memory>
 #include <string>
-#include <cstring>
 
 namespace praas::common {
 
-  struct MessageType
-  {
+  struct MessageType {
     enum class Type : int16_t {
       CLIENT = 0,
       PROCESS = 1,
@@ -17,11 +16,17 @@ namespace praas::common {
       SESSION_STATUS = 3
     };
 
+    MessageType() = default;
+    MessageType(const MessageType&) = default;
+    MessageType(MessageType&&) = delete;
+    MessageType& operator=(const MessageType&) = default;
+    MessageType& operator=(MessageType&&) = delete;
+    virtual ~MessageType() = default;
+
     virtual Type type() const = 0;
   };
 
-  struct Header
-  {
+  struct Header {
     // Connection Headers
 
     // Client connection - DISABLED
@@ -49,19 +54,17 @@ namespace praas::common {
     // 16 bytes of session id
 
     static constexpr uint16_t BUF_SIZE = 24;
-    int8_t data[BUF_SIZE];
+    std::array<int8_t, BUF_SIZE> data;
 
     std::unique_ptr<MessageType> parse();
     bool is_session_status();
   };
 
-  struct ClientMessage: MessageType {
+  struct ClientMessage : MessageType {
     static constexpr uint16_t EXPECTED_LENGTH = 54;
     int8_t* buf;
 
-    ClientMessage(int8_t* buf):
-      buf(buf)
-    {}
+    ClientMessage(int8_t* buf) : buf(buf) {}
 
     int32_t payload_size();
     std::string process_name();
@@ -70,34 +73,28 @@ namespace praas::common {
     Type type() const override;
   };
 
-  struct ProcessMessage: MessageType {
+  struct ProcessMessage : MessageType {
     int8_t* buf;
 
-    ProcessMessage(int8_t* buf):
-      buf(buf)
-    {}
+    ProcessMessage(int8_t* buf) : buf(buf) {}
 
     std::string process_id();
     Type type() const override;
   };
 
-  struct SessionMessage: MessageType {
+  struct SessionMessage : MessageType {
     int8_t* buf;
 
-    SessionMessage(int8_t* buf):
-      buf(buf)
-    {}
+    SessionMessage(int8_t* buf) : buf(buf) {}
 
     std::string session_id();
     Type type() const override;
   };
 
-  struct SessionStatusMessage: MessageType {
+  struct SessionStatusMessage : MessageType {
     int8_t* buf;
 
-    SessionStatusMessage(int8_t* buf):
-      buf(buf)
-    {}
+    SessionStatusMessage(int8_t* buf) : buf(buf) {}
 
     int32_t memory_size();
     std::string session_id();
@@ -113,12 +110,9 @@ namespace praas::common {
     };
 
     static constexpr uint16_t EXPECTED_LENGTH = 39;
-    int8_t data[EXPECTED_LENGTH];
+    std::array<int8_t, EXPECTED_LENGTH> data;
 
-    Request()
-    {
-      memset(data, 0, EXPECTED_LENGTH);
-    }
+    Request(): data() { }
   };
 
   struct ProcessRequest : Request {
@@ -131,15 +125,18 @@ namespace praas::common {
     // 16 bytes process_id
     // 39 bytes
 
-    using Request::EXPECTED_LENGTH;
     using Request::data;
+    using Request::EXPECTED_LENGTH;
 
     int16_t max_sessions();
     int32_t port();
     std::string ip_address();
     std::string process_id();
 
-    ssize_t fill(int16_t sessions, int32_t port, std::string ip_address, std::string process_id);
+    ssize_t fill(
+        int16_t sessions, int32_t port, std::string ip_address,
+        std::string process_id
+    );
   };
 
   struct SessionRequest : Request {
@@ -151,14 +148,15 @@ namespace praas::common {
     // 16 bytes of session id
     // 26 bytes
 
-    using Request::EXPECTED_LENGTH;
     using Request::data;
+    using Request::EXPECTED_LENGTH;
 
     int16_t max_functions();
     int32_t memory_size();
     std::string session_id();
 
-    ssize_t fill(std::string session_id, int32_t max_functions, int32_t memory_size);
+    ssize_t
+    fill(std::string session_id, int32_t max_functions, int32_t memory_size);
   };
 
   struct FunctionRequest : Request {
@@ -170,13 +168,14 @@ namespace praas::common {
     // 16 bytes of invocation id
     // 32 bytes
 
-    using Request::EXPECTED_LENGTH;
     using Request::data;
+    using Request::EXPECTED_LENGTH;
 
-    ssize_t fill(std::string function_name, std::string function_id, int32_t payload_size);
+    ssize_t fill(
+        std::string function_name, std::string function_id, int32_t payload_size
+    );
   };
 
-}
+} // namespace praas::common
 
 #endif
-
