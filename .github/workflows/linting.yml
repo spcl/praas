@@ -15,4 +15,5 @@ jobs:
       - name: clang-format
         run: |
           /opt/run-clang-format.py -r ${GITHUB_WORKSPACE}/control-plane
+          /opt/run-clang-format.py -r ${GITHUB_WORKSPACE}/common
 
