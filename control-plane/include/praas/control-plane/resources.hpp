@@ -1,108 +1,224 @@
 
-#ifndef __CONTROLL_PLANE_RESOURCES_HPP__
-#define __CONTROLL_PLANE_RESOURCES_HPP__
+#ifndef PRAAS_CONTROLL_PLANE_RESOURCES_HPP
+#define PRAAS_CONTROLL_PLANE_RESOURCES_HPP
 
 #include <atomic>
 #include <deque>
 #include <future>
 #include <memory>
+#include <optional>
 #include <random>
 #include <unordered_map>
+#include <utility>
 
 #include <sockpp/tcp_socket.h>
+#include <tbb/concurrent_hash_map.h>
 
 namespace praas::control_plane {
 
-  struct PendingAllocation {
-    std::string payload;
-    std::string function_name;
-    std::string function_id;
+  template <typename Value, typename Key = std::string>
+  struct ConcurrentTable {
+
+    // IntelTBB concurrent hash map, with a default string key
+    using table_t = oneapi::tbb::concurrent_hash_map<Key, Value>;
+
+    // Equivalent to receiving a read-write lock. Should be used only for
+    // modifying contents.
+    using rw_acc_t = typename oneapi::tbb::concurrent_hash_map<Key, Value>::accessor;
+
+    // Read lock. Guarantees that data is safe to access, as long as we keep the
+    // accessor
+    using ro_acc_t = typename oneapi::tbb::concurrent_hash_map<Key, Value>::const_accessor;
   };
 
-  struct Session {
-    sockpp::tcp_socket connection;
-    std::string session_id;
-    int32_t max_functions;
-    int32_t memory_size;
-    std::deque<PendingAllocation> allocations;
-    bool allocated;
-    bool swap_in;
+  namespace state {
 
-    Session(std::string);
-  };
+    struct SwapLocation {
+      SwapLocation(const SwapLocation&) = default;
+      SwapLocation(SwapLocation&&) = delete;
+      SwapLocation& operator=(const SwapLocation&) = default;
+      SwapLocation& operator=(SwapLocation&&) = delete;
+      virtual ~SwapLocation() = default;
 
-  struct Process {
-    std::string global_process_id;
-    std::string process_id;
-    int16_t allocated_sessions;
-    int16_t max_sessions;
-    std::atomic<bool> busy;
-    sockpp::tcp_socket connection;
-    std::vector<Session*> sessions;
+      virtual std::string location() const = 0;
+    };
 
-    Process(int16_t max_sessions = 0)
-        : allocated_sessions(0), max_sessions(max_sessions), busy(0)
-    {
+    class SessionState {
+    public:
+    private:
+      int32_t _size;
+
+      std::unique_ptr<SwapLocation> _swap;
+
+      std::string _session_id;
+    };
+
+  } // namespace state
+
+  namespace process {
+
+    enum class Status {
+
+      ACTIVE = 0,
+      SWAPPED_OUT = 1,
+      SWAPPING_OUT = 2,
+      SWAPPING_IN = 3,
+      DELETED = 4
+
+    };
+
+    struct DataPlaneMetrics {
+
+      int32_t invocations;
+      int32_t computation_time;
+    };
+
+    struct Resources {
+
+      int32_t vcpus;
+      int32_t memory;
+    };
+
+    class Process {
+    public:
+      std::string name() const;
+
+    private:
+      // FIXME: add reference to actual backend running the process
+      //Resources _resources;
+
+      //Status _status;
+
+      //DataPlaneMetrics _metrics;
+
+      //state::SessionState _state;
+    };
+
+  } // namespace process
+
+  class Application {
+  public:
+    Application() = default;
+    ~Application() = default;
+
+    Application(std::string name) : _name(std::move(name)) {}
+    Application(const Application & obj) = delete;
+    Application& operator=(const Application & obj) = delete;
+
+    Application(Application && obj) noexcept {
+      write_lock_t lock{obj._active_mutex};
+      this->_name = obj._name;
+      this->_active_processes = std::move(obj._active_processes);
+      this->_swapped_processes = std::move(obj._swapped_processes);
     }
 
-    Process(Process&& obj)
+    Application& operator=(Application && obj) noexcept
     {
-      global_process_id = std::move(obj.global_process_id);
-      process_id = std::move(obj.process_id);
-      allocated_sessions = std::move(obj.allocated_sessions);
-      max_sessions = std::move(obj.max_sessions);
-      sessions = std::move(obj.sessions);
-      connection = std::move(obj.connection);
-
-      // atomics are not movable
-      // busy.store(obj.busy.load());
-    }
-
-    Process& operator=(Process&& obj)
-    {
-      if (this != &obj) {
-        global_process_id = std::move(obj.global_process_id);
-        process_id = std::move(obj.process_id);
-        allocated_sessions = std::move(obj.allocated_sessions);
-        max_sessions = std::move(obj.max_sessions);
-        sessions = std::move(obj.sessions);
-        connection = std::move(obj.connection);
-
-        // atomics are not movable
-        // busy.store(obj.busy.load());
+      if (this != &obj)
+      {
+        write_lock_t lhs_lk(_active_mutex, std::defer_lock);
+        write_lock_t rhs_lk(obj._active_mutex, std::defer_lock);
+        std::lock(lhs_lk, rhs_lk);
+        this->_name = obj._name;
+        this->_active_processes = std::move(obj._active_processes);
+        this->_swapped_processes = std::move(obj._swapped_processes);
       }
-
       return *this;
     }
+
+    void add_process(process::Process&);
+
+    void swap_process(std::string process_id);
+
+    void delete_process(std::string process_id);
+
+    /**
+     * @brief
+     *
+     * @param process_id [TODO:description]
+     */
+    void
+    update_metrics(std::string process_id, std::string auth_token, const process::DataPlaneMetrics&);
+
+
+    void invoke(std::string fname, std::string process_id = "");
+
+    std::string name() const;
+
+  private:
+
+    using lock_t = std::shared_mutex;
+    using write_lock_t = std::unique_lock<lock_t>;
+    using read_lock_t = std::shared_lock<lock_t>;
+
+    std::string _name;
+
+    lock_t _active_mutex;
+    std::unordered_map<std::string, process::Process> _active_processes;
+
+    lock_t _swapped_mutex;
+    std::unordered_map<std::string, process::Process> _swapped_processes;
   };
 
-  struct Resources {
+  class Resources {
 
-    // Since we store elements in a C++ hash map, we have a gurantee that
-    // pointers and references to elements are valid even after a rehashing.
-    // Thus, we can safely store pointers in epoll structures, and we know that
-    // after receiving a message from process, the pointer to Process data
-    // structure will not change, even if we significantly altered the size of
-    // this container.
+    class ROAccessor {
 
-    // session_id -> session
-    std::unordered_map<std::string, Session> sessions;
-    // process_id -> process resources
-    std::unordered_map<std::string, Process> processes;
-    // FIXME: processes per global process
-    std::mutex _sessions_mutex;
+      const Application* get() const;
 
-    ~Resources();
+      bool empty() const;
 
-    Process& add_process(Process&&);
-    Process* get_process(std::string process_id);
-    Process* get_free_process(std::string process_id);
-    void remove_process(std::string process_id);
-    Session& add_session(Process&, std::string session_id);
-    Session* get_session(std::string session_id);
-    void remove_session(Process&, std::string session_id);
+    private:
+      using ro_acc_t = ConcurrentTable<Application>::ro_acc_t;
+      ro_acc_t _accessor;
+
+      friend class Resources;
+    };
+
+    /**
+     * @brief Acquires a write-lock on the hash map to insert a new application.
+     *
+     * @param {name} desired application object.
+     */
+    void add_application(Application&& application);
+
+    void get_application(std::string application_name, ROAccessor& acc);
+
+    /**
+     * @brief Acquires a write-lock on the hash map to remove application, returning
+     *
+     * @param application_name
+     */
+    void delete_application(std::string application_name);
+
+  private:
+    ConcurrentTable<Application>::table_t _applications;
+
   };
 
+  // struct PendingAllocation {
+  //   std::string payload;
+  //   std::string function_name;
+  //   std::string function_id;
+  // };
+
+  // struct Resources {
+
+  //  // Since we store elements in a C++ hash map, we have a gurantee that
+  //  // pointers and references to elements are valid even after a rehashing.
+  //  // Thus, we can safely store pointers in epoll structures, and we know that
+  //  // after receiving a message from process, the pointer to Process data
+  //  // structure will not change, even if we significantly altered the size of
+  //  // this container.
+
+  //  // session_id -> session
+  //  std::unordered_map<std::string, Session> sessions;
+  //  // process_id -> process resources
+  //  std::unordered_map<std::string, Process> processes;
+  //  // FIXME: processes per global process
+  //  std::mutex _sessions_mutex;
+
+  //} // namespace praas::control_plane
 } // namespace praas::control_plane
 
 #endif

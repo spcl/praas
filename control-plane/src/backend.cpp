@@ -77,7 +77,7 @@ namespace praas::control_plane::backend {
         max_sessions, controller_port, controller_ip_address, process_id
     );
     // FIXME: handle errors here
-    connection.write(req.data, size);
+    connection.write(req.data.data(), size);
     spdlog::debug(
         "Allocating a new process {} of name {} with max sessions {}, process "
         "will talk to {}:{}",

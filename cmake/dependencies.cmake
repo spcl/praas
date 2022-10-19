@@ -58,6 +58,20 @@ FetchContent_Declare(threadpool
 FetchContent_MakeAvailable(threadpool)
 
 ###
+# TBB - static libraries are discouraged
+###
+find_package(TBB QUIET)
+if(NOT TBB_FOUND)
+  message(STATUS "Downloading and building TBB dependency")
+  FetchContent_Declare(TBB
+    GIT_REPOSITORY https://github.com/oneapi-src/oneTBB.git
+  )
+  set(TBB_TEST OFF CACHE INTERNAL "")
+  set(BUILD_SHARED_LIBS ON CACHE INTERNAL "")
+  FetchContent_MakeAvailable(TBB)
+endif()
+
+###
 # google test
 ###
 if(${WITH_TESTING})
