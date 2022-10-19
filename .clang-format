@@ -1,6 +1,8 @@
 
 ---
 BasedOnStyle: LLVM
+# We want slighlyt longer lines.
+ColumnLimit: 100
 # When parameters do not fit into line, prefer breaking, and keep closing bracket in a new line
 AlignAfterOpenBracket: BlockIndent
 BreakBeforeBraces: Custom
@@ -19,3 +21,9 @@ IncludeCategories:
     Priority:        3
 # Prefer * and & to be aligned to type, not variable name
 PointerAlignment: Left
+# Template in line before of declaration
+AlwaysBreakTemplateDeclarations: Yes
+# Allow for spaces between class contents and braces
+KeepEmptyLinesAtTheStartOfBlocks: Yes
+# Prevent format from turning short one-liner functions into one-line definition
+AllowShortFunctionsOnASingleLine: Empty
