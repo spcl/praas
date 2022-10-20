@@ -61,6 +61,18 @@ if(NOT cereal_FOUND)
   FetchContent_MakeAvailable(cereal)
 endif()
 
+###
+# format
+###
+find_package(fmt QUIET)
+if(NOT fmt_FOUND)
+  message(STATUS "Downloading and building fmt dependency")
+  FetchContent_Declare(fmt
+    GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+  )
+  set(BUILD_SHARED_LIBS OFF)
+  FetchContent_MakeAvailable(fmt)
+endif()
 
 ###
 # threadpool
