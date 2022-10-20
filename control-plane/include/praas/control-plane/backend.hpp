@@ -37,6 +37,10 @@ namespace praas::control_plane::backend {
       const process::Resources& resources
     ) = 0;
 
+    // close process
+    // swap process
+    // invoke
+
     virtual int max_memory() const = 0;
     virtual int max_vcpus() const = 0;
 
