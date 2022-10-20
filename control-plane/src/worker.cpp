@@ -14,8 +14,8 @@
 namespace praas::control_plane {
 
   // FIXME: move to utils
-  //std::tuple<std::string_view, std::string_view>
-  //split(std::string& str, char split_character)
+  // std::tuple<std::string_view, std::string_view>
+  // split(std::string& str, char split_character)
   //{
   //  auto pos = str.find(split_character);
   //  if (pos == std::string::npos)
@@ -27,48 +27,48 @@ namespace praas::control_plane {
   //    );
   //}
 
-  //Worker::Worker(
-  //    Server& server, sw::redis::Redis& redis, Resources& resources,
-  //    backend::Backend& backend
+  // Worker::Worker(
+  //     Server& server, sw::redis::Redis& redis, Resources& resources,
+  //     backend::Backend& backend
   //)
-  //    : generator{rd()}, uuid_generator{generator}, server(server),
-  //      redis_conn(redis), resources(resources), backend(backend)
+  //     : generator{rd()}, uuid_generator{generator}, server(server),
+  //       redis_conn(redis), resources(resources), backend(backend)
   //{
-  //  payload_buffer_len = 1024;
-  //  payload_buffer.reset(new int8_t[payload_buffer_len]);
-  //}
+  //   payload_buffer_len = 1024;
+  //   payload_buffer.reset(new int8_t[payload_buffer_len]);
+  // }
 
-  //void Worker::resize(ssize_t size)
+  // void Worker::resize(ssize_t size)
   //{
-  //  if (payload_buffer_len < size || !payload_buffer) {
-  //    payload_buffer_len = size;
-  //    payload_buffer.reset(new int8_t[payload_buffer_len]);
-  //  }
-  //}
+  //   if (payload_buffer_len < size || !payload_buffer) {
+  //     payload_buffer_len = size;
+  //     payload_buffer.reset(new int8_t[payload_buffer_len]);
+  //   }
+  // }
 
-  //std::string Worker::process_allocation(std::string process_name)
+  // std::string Worker::process_allocation(std::string process_name)
   //{
-  //  std::string id = uuids::to_string(uuid_generator()).substr(0, 16);
-  //  redis_conn.set("PROCESS_" + id, process_name);
+  //   std::string id = uuids::to_string(uuid_generator()).substr(0, 16);
+  //   redis_conn.set("PROCESS_" + id, process_name);
 
   //  spdlog::debug("Added instance of {} with id  {}", process_name, id);
   //  return id;
   //}
 
-  //std::tuple<int, std::string> Worker::process_client(
-  //    std::string process_id, std::string session_id, std::string function_name,
-  //    std::string function_id, int32_t max_functions, int32_t memory_size,
-  //    std::string&& payload
+  // std::tuple<int, std::string> Worker::process_client(
+  //     std::string process_id, std::string session_id, std::string function_name,
+  //     std::string function_id, int32_t max_functions, int32_t memory_size,
+  //     std::string&& payload
   //)
   //{
-  //  spdlog::debug(
-  //      "Request to invoke process {}, function {} with id {}, with session "
-  //      "{}, payload size {}",
-  //      process_id, function_name, function_id, session_id, payload.length()
-  //  );
-  //  auto process_name = redis_conn.get("PROCESS_" + process_id);
-  //  if (!process_name.has_value())
-  //    return std::make_tuple(400, "Process doesn't exist!");
+  //   spdlog::debug(
+  //       "Request to invoke process {}, function {} with id {}, with session "
+  //       "{}, payload size {}",
+  //       process_id, function_name, function_id, session_id, payload.length()
+  //   );
+  //   auto process_name = redis_conn.get("PROCESS_" + process_id);
+  //   if (!process_name.has_value())
+  //     return std::make_tuple(400, "Process doesn't exist!");
 
   //  bool swap_in = false;
   //  // Check if we're swapping
@@ -192,25 +192,25 @@ namespace praas::control_plane {
   //  return std::make_tuple(200, session_id);
   //}
 
-  //void Worker::process_process(
-  //    sockpp::tcp_socket* conn, praas::common::ProcessMessage* msg
+  // void Worker::process_process(
+  //     sockpp::tcp_socket* conn, praas::common::ProcessMessage* msg
   //)
   //{
-  //  std::string process_id = msg->process_id();
-  //  spdlog::debug("Received connection from a process {}", process_id);
-  //  Process* proc = resources.get_process(process_id);
-  //  if (!proc) {
-  //    spdlog::error(
-  //        "Incorrect process identification! Incorrect id {}!", process_id
-  //    );
-  //    // FIXME: send error message to client?
-  //    conn->close();
-  //    delete conn;
-  //    return;
-  //  }
-  //  // Store process connection
-  //  proc->connection = std::move(*conn);
-  //  delete conn;
+  //   std::string process_id = msg->process_id();
+  //   spdlog::debug("Received connection from a process {}", process_id);
+  //   Process* proc = resources.get_process(process_id);
+  //   if (!proc) {
+  //     spdlog::error(
+  //         "Incorrect process identification! Incorrect id {}!", process_id
+  //     );
+  //     // FIXME: send error message to client?
+  //     conn->close();
+  //     delete conn;
+  //     return;
+  //   }
+  //   // Store process connection
+  //   proc->connection = std::move(*conn);
+  //   delete conn;
 
   //  // Check if we have unallocated session
 
@@ -258,30 +258,30 @@ namespace praas::control_plane {
   //  }
   //}
 
-  //void Worker::process_session(
-  //    sockpp::tcp_socket* conn, praas::common::SessionMessage* msg
+  // void Worker::process_session(
+  //     sockpp::tcp_socket* conn, praas::common::SessionMessage* msg
   //)
   //{
-  //  std::string session_id = msg->session_id();
-  //  spdlog::debug("Received connection from a session {}", session_id);
-  //  std::lock_guard<std::mutex> guard(resources._sessions_mutex);
-  //  Session* session = resources.get_session(session_id);
-  //  if (!session) {
-  //    spdlog::error(
-  //        "Incorrect session identification! Incorrect session {}!", session_id
-  //    );
-  //    // FIXME: send error message to client?
-  //    conn->close();
-  //    delete conn;
-  //    return;
-  //  }
-  //  // Store process connection
-  //  session->connection = std::move(*conn);
-  //  delete conn;
-  //  spdlog::debug(
-  //      "Succesful connection of sesssion {} from {}.", session_id,
-  //      session->connection.peer_address().to_string()
-  //  );
+  //   std::string session_id = msg->session_id();
+  //   spdlog::debug("Received connection from a session {}", session_id);
+  //   std::lock_guard<std::mutex> guard(resources._sessions_mutex);
+  //   Session* session = resources.get_session(session_id);
+  //   if (!session) {
+  //     spdlog::error(
+  //         "Incorrect session identification! Incorrect session {}!", session_id
+  //     );
+  //     // FIXME: send error message to client?
+  //     conn->close();
+  //     delete conn;
+  //     return;
+  //   }
+  //   // Store process connection
+  //   session->connection = std::move(*conn);
+  //   delete conn;
+  //   spdlog::debug(
+  //       "Succesful connection of sesssion {} from {}.", session_id,
+  //       session->connection.peer_address().to_string()
+  //   );
 
   //  // Process invocations
   //  auto& allocations = session->allocations;
@@ -321,21 +321,21 @@ namespace praas::control_plane {
   //  //   spdlog::error("Couldn't add the process to epoll,closing connection");
   //}
 
-  //void Worker::handle_process_closure(Process*)
+  // void Worker::handle_process_closure(Process*)
   //{
-  //  throw std::runtime_error("Not implemented yet");
-  //}
+  //   throw std::runtime_error("Not implemented yet");
+  // }
 
-  //void Worker::handle_session_closure(
-  //    Process* process, int32_t, std::string session_id
+  // void Worker::handle_session_closure(
+  //     Process* process, int32_t, std::string session_id
   //)
   //{
-  //  spdlog::info("Session closure {}", session_id);
-  //  // Remove resource
-  //  {
-  //    std::lock_guard<std::mutex> guard(resources._sessions_mutex);
-  //    resources.remove_session(*process, session_id);
-  //  }
+  //   spdlog::info("Session closure {}", session_id);
+  //   // Remove resource
+  //   {
+  //     std::lock_guard<std::mutex> guard(resources._sessions_mutex);
+  //     resources.remove_session(*process, session_id);
+  //   }
 
   //  // Update Redis - move session from swapped to alive
   //  redis_conn.srem("SESSIONS_ALIVE_" + process->process_id, session_id);
@@ -348,14 +348,14 @@ namespace praas::control_plane {
   //  redis_conn.srem("SESSIONS_ALIVE_" + process->global_process_id, session_id);
   //}
 
-  //void Worker::handle_message(
-  //    Process* process, praas::common::Header buffer, ssize_t recv_data
+  // void Worker::handle_message(
+  //     Process* process, praas::common::Header buffer, ssize_t recv_data
   //)
   //{
-  //  auto thread_id = std::hash<std::thread::id>{}(std::this_thread::get_id());
-  //  spdlog::debug("Worker {} begins processing a message request", thread_id);
-  //  Worker& worker = Workers::get(std::this_thread::get_id());
-  //  sockpp::tcp_socket& conn = process->connection;
+  //   auto thread_id = std::hash<std::thread::id>{}(std::this_thread::get_id());
+  //   spdlog::debug("Worker {} begins processing a message request", thread_id);
+  //   Worker& worker = Workers::get(std::this_thread::get_id());
+  //   sockpp::tcp_socket& conn = process->connection;
 
   //  // EOF
   //  if (recv_data == 0) {
@@ -416,10 +416,10 @@ namespace praas::control_plane {
   //  spdlog::debug("Worker {} ends processing a request", thread_id);
   //}
 
-  //void Worker::worker(sockpp::tcp_socket* conn)
+  // void Worker::worker(sockpp::tcp_socket* conn)
   //{
-  //  auto thread_id = std::hash<std::thread::id>{}(std::this_thread::get_id());
-  //  Worker& worker = Workers::get(std::this_thread::get_id());
+  //   auto thread_id = std::hash<std::thread::id>{}(std::this_thread::get_id());
+  //   Worker& worker = Workers::get(std::this_thread::get_id());
 
   //  ssize_t recv_data =
   //      conn->read_n(worker.header.data, praas::common::Header::BUF_SIZE);
@@ -479,38 +479,38 @@ namespace praas::control_plane {
   //  spdlog::debug("Worker {} ends processing a request", thread_id);
   //}
 
-  //std::unordered_map<std::thread::id, Worker*> Workers::_workers;
-  //Server* Workers::_server;
-  //sw::redis::Redis* Workers::_redis_conn;
-  //Resources* Workers::_resources;
-  //backend::Backend* Workers::_backend;
+  // std::unordered_map<std::thread::id, Worker*> Workers::_workers;
+  // Server* Workers::_server;
+  // sw::redis::Redis* Workers::_redis_conn;
+  // Resources* Workers::_resources;
+  // backend::Backend* Workers::_backend;
 
-  //void Workers::init(
-  //    Server& server, sw::redis::Redis& redis_conn, Resources& resources,
-  //    backend::Backend& backend
+  // void Workers::init(
+  //     Server& server, sw::redis::Redis& redis_conn, Resources& resources,
+  //     backend::Backend& backend
   //)
   //{
-  //  Workers::_redis_conn = &redis_conn;
-  //  Workers::_resources = &resources;
-  //  Workers::_backend = &backend;
-  //  Workers::_server = &server;
-  //}
+  //   Workers::_redis_conn = &redis_conn;
+  //   Workers::_resources = &resources;
+  //   Workers::_backend = &backend;
+  //   Workers::_server = &server;
+  // }
 
-  //void Workers::free()
+  // void Workers::free()
   //{
-  //  for (auto& v : _workers)
-  //    delete v.second;
-  //}
+  //   for (auto& v : _workers)
+  //     delete v.second;
+  // }
 
-  //Worker& Workers::get(std::thread::id thread_id)
+  // Worker& Workers::get(std::thread::id thread_id)
   //{
-  //  auto it = _workers.find(thread_id);
-  //  if (it != _workers.end()) {
-  //    return *(*it).second;
-  //  } else {
-  //    Worker* ptr = new Worker(*_server, *_redis_conn, *_resources, *_backend);
-  //    _workers[thread_id] = ptr;
-  //    return *ptr;
-  //  }
-  //}
+  //   auto it = _workers.find(thread_id);
+  //   if (it != _workers.end()) {
+  //     return *(*it).second;
+  //   } else {
+  //     Worker* ptr = new Worker(*_server, *_redis_conn, *_resources, *_backend);
+  //     _workers[thread_id] = ptr;
+  //     return *ptr;
+  //   }
+  // }
 } // namespace praas::control_plane

@@ -8,20 +8,19 @@
 
 #include <spdlog/spdlog.h>
 
-//using praas::control_plane::Worker;
-//using praas::control_plane::Workers;
+// using praas::control_plane::Worker;
+// using praas::control_plane::Workers;
 
 namespace praas::http {
 
   HttpServer::HttpServer(
-      int port, std::string server_cert, std::string server_key,
-      BS::thread_pool& pool, bool verbose
+      int port, std::string server_cert, std::string server_key, BS::thread_pool& pool, bool verbose
   )
       : _pool(pool)
   {
     spdlog::info(
-        "Configuring HTTPS sever at port {}, server cert {}, server key {}",
-        port, server_cert, server_key
+        "Configuring HTTPS sever at port {}, server cert {}, server key {}", port, server_cert,
+        server_key
     );
     _server.port(port).ssl_file(server_cert, server_key);
 
@@ -35,11 +34,10 @@ namespace praas::http {
 
     // accept metrics(id, token, metrics)
 
-
-    //CROW_ROUTE(_server, "/add_process")
-    //    .methods(crow::HTTPMethod::POST
-    //    )([this](const crow::request& req) -> crow::response {
-    //      try {
+    // CROW_ROUTE(_server, "/add_process")
+    //     .methods(crow::HTTPMethod::POST
+    //     )([this](const crow::request& req) -> crow::response {
+    //       try {
 
     //        if (!req.body.length())
     //          return crow::response(400, "Error");
@@ -57,10 +55,10 @@ namespace praas::http {
     //      }
     //    });
 
-    //CROW_ROUTE(_server, "/add_session")
-    //    .methods(crow::HTTPMethod::POST
-    //    )([this](const crow::request& req) -> crow::response {
-    //      try {
+    // CROW_ROUTE(_server, "/add_session")
+    //     .methods(crow::HTTPMethod::POST
+    //     )([this](const crow::request& req) -> crow::response {
+    //       try {
 
     //        if (!req.body.length())
     //          return crow::response(400, "Error");
@@ -95,10 +93,10 @@ namespace praas::http {
     //      }
     //    });
 
-    //CROW_ROUTE(_server, "/invoke")
-    //    .methods(crow::HTTPMethod::POST
-    //    )([this](const crow::request& req) -> crow::response {
-    //      try {
+    // CROW_ROUTE(_server, "/invoke")
+    //     .methods(crow::HTTPMethod::POST
+    //     )([this](const crow::request& req) -> crow::response {
+    //       try {
 
     //        if (!req.body.length())
     //          return crow::response(400, "Error");

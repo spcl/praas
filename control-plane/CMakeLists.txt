@@ -66,7 +66,7 @@ control_plane_link(control_plane)
 
 if(WITH_TESTING)
 
-  set(TESTS tests/unit/resources.cpp tests/unit/config.cpp)
+  set(TESTS tests/unit/resources.cpp tests/unit/config.cpp tests/unit/process.cpp)
   foreach(test ${TESTS})
 
     string(REGEX REPLACE "(\/|\.)" "_" test_name ${test})
@@ -74,6 +74,7 @@ if(WITH_TESTING)
     control_plane_dependencies(${test_name})
     target_link_libraries(${test_name} PRIVATE control_plane_lib)
     target_link_libraries(${test_name} PRIVATE GTest::gtest_main)
+    target_link_libraries(${test_name} PRIVATE GTest::gmock_main)
     control_plane_link(${test_name})
 
     gtest_discover_tests(${test_name})

@@ -9,6 +9,7 @@
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+#include <utility>
 
 #include <sockpp/tcp_socket.h>
 #include <tbb/concurrent_hash_map.h>
@@ -59,6 +60,8 @@ namespace praas::control_plane {
 
   } // namespace state
 
+  class Application;
+
   namespace process {
 
     enum class Status {
@@ -91,26 +94,68 @@ namespace praas::control_plane {
 
     class Process {
     public:
+      friend class control_plane::Application;
 
-      Process(const std::string& name, Resources && resources):
-        _status(Status::ALLOCATING),
-        _name(name),
-        _handle(std::nullopt),
-        _resources(resources)
-      {}
+      using lock_t = std::shared_mutex;
+      using write_lock_t = std::unique_lock<lock_t>;
+      using read_lock_t = std::shared_lock<lock_t>;
+
+      Process(std::string name, Resources&& resources)
+          : _status(Status::ALLOCATING), _name(std::move(name)), _handle(std::nullopt),
+            _resources(resources)
+      {
+      }
+
+      Process(const Process& obj) = delete;
+      Process& operator=(const Process& obj) = delete;
+
+      Process(Process&& obj) noexcept
+      {
+        write_lock_t lock{obj._mutex};
+        this->_name = obj._name;
+        this->_status = obj._status;
+        this->_status = std::move(obj._status);
+        this->_resources = std::move(obj._resources);
+      }
+
+      Process& operator=(Process&& obj) noexcept
+      {
+        if (this != &obj) {
+          write_lock_t lhs_lk(_mutex, std::defer_lock);
+          write_lock_t rhs_lk(obj._mutex, std::defer_lock);
+          std::lock(lhs_lk, rhs_lk);
+
+          this->_name = obj._name;
+          this->_status = obj._status;
+          this->_status = std::move(obj._status);
+          this->_resources = std::move(obj._resources);
+        }
+        return *this;
+      }
 
       std::string name() const;
-
-      void set_handle(backend::ProcessHandle&& handle);
 
       const backend::ProcessHandle& handle() const;
 
       bool has_handle() const;
 
       Status status() const;
-      void set_status(Status status);
+
+      read_lock_t read_lock() const;
 
     private:
+      /**
+       * @brief Acquires an exclusive write lock to the class.
+       * This is only allowed to be called by the resource management explicitly.
+       * This way we solve the issue of clients trying to "upgrade" to write lock
+       * while having to always keep the read lock.
+       *
+       * @return instance of unique_lock
+       */
+      write_lock_t write_lock() const;
+
+      void set_handle(backend::ProcessHandle&& handle);
+      void set_status(Status status);
 
       Status _status;
 
@@ -124,6 +169,7 @@ namespace praas::control_plane {
 
       // state::SessionState _state;
 
+      mutable lock_t _mutex;
     };
 
   } // namespace process
@@ -158,7 +204,11 @@ namespace praas::control_plane {
       return *this;
     }
 
-    void add_process(backend::Backend& backend, const std::string& name, process::Resources&& resources);
+    void
+    add_process(backend::Backend& backend, const std::string& name, process::Resources&& resources);
+
+    std::tuple<process::Process::read_lock_t, process::Process*> get_process(const std::string& name
+    );
 
     void swap_process(std::string process_id);
 
@@ -183,6 +233,8 @@ namespace praas::control_plane {
 
     std::string _name;
 
+    // We need to be able to iterate across all processes.
+    // Thus, we apply a read lock over the collection instead of using a concurrent map.
     lock_t _active_mutex;
     std::unordered_map<std::string, process::Process> _active_processes;
 

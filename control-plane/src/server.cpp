@@ -15,33 +15,33 @@ extern void signal_handler(int);
 
 namespace praas::control_plane {
 
-  //Server::Server(Options& options)
-  //    : _pool(options.threads), _redis(options.redis_addr),
-  //      _backend(backend::Backend::construct(options)),
-  //      _http_server(
-  //          options.https_port, options.ssl_server_cert, options.ssl_server_key,
-  //          _pool, options.verbose
-  //      ),
-  //      _read_timeout(options.read_timeout), _ending(false)
+  // Server::Server(Options& options)
+  //     : _pool(options.threads), _redis(options.redis_addr),
+  //       _backend(backend::Backend::construct(options)),
+  //       _http_server(
+  //           options.https_port, options.ssl_server_cert, options.ssl_server_key,
+  //           _pool, options.verbose
+  //       ),
+  //       _read_timeout(options.read_timeout), _ending(false)
   //{
-  //  _listen.open(options.port);
-  //  //Workers::init(*this, _redis, _resources, *_backend);
-  //}
+  //   _listen.open(options.port);
+  //   //Workers::init(*this, _redis, _resources, *_backend);
+  // }
 
-  //Server::~Server()
+  // Server::~Server()
   //{
-  //  //Workers::free();
-  //  delete _backend;
-  //}
+  //   //Workers::free();
+  //   delete _backend;
+  // }
 
-  //void Server::start()
+  // void Server::start()
   //{
-  //  //if (!_listen) {
-  //  //  spdlog::error(
-  //  //      "Incorrect socket initialization! {}", _listen.last_error_str()
-  //  //  );
-  //  //  return;
-  //  //}
+  //   //if (!_listen) {
+  //   //  spdlog::error(
+  //   //      "Incorrect socket initialization! {}", _listen.last_error_str()
+  //   //  );
+  //   //  return;
+  //   //}
 
   //  //_epoll_fd = epoll_create(255);
   //  //if (_epoll_fd < 0) {
@@ -126,13 +126,13 @@ namespace praas::control_plane {
   //  //}
   //}
 
-  //void Server::shutdown()
+  // void Server::shutdown()
   //{
-  //  _ending = true;
-  //  spdlog::info("Closing control plane.");
-  //  _listen.shutdown();
-  //  _http_server.shutdown();
-  //  spdlog::info("Closed control plane.");
-  //}
+  //   _ending = true;
+  //   spdlog::info("Closing control plane.");
+  //   _listen.shutdown();
+  //   _http_server.shutdown();
+  //   spdlog::info("Closed control plane.");
+  // }
 
 } // namespace praas::control_plane

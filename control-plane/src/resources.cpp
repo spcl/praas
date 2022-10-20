@@ -1,10 +1,13 @@
 
-#include <praas/common/messages.hpp>
-#include <praas/control-plane/backend.hpp>
 #include <praas/control-plane/resources.hpp>
 
 #include <praas/common/exceptions.hpp>
+#include <praas/common/messages.hpp>
+#include <praas/control-plane/backend.hpp>
+
 #include <stdexcept>
+
+#include <fmt/format.h>
 
 namespace praas::control_plane {
 
@@ -13,6 +16,22 @@ namespace praas::control_plane {
   )
   {
 
+    if (name.length() <= 0) {
+      throw praas::common::InvalidConfigurationError("Empty name");
+    }
+
+    if (resources.memory <= 0 || resources.memory > backend.max_memory()) {
+      throw praas::common::InvalidConfigurationError(
+          fmt::format("Incorrect memory size {}", resources.memory)
+      );
+    }
+
+    if (resources.vcpus <= 0 || resources.vcpus > backend.max_vcpus()) {
+      throw praas::common::InvalidConfigurationError(
+          fmt::format("Incorrect number of vCPUs {}", resources.vcpus)
+      );
+    }
+
     // We lock the internal collection to write the new process.
     typename decltype(_active_processes)::iterator iter;
     bool succeed;
@@ -20,21 +39,34 @@ namespace praas::control_plane {
       write_lock_t lock(_active_mutex);
 
       process::Process process{name, std::move(resources)};
-      std::tie(iter, succeed) = _active_processes.try_emplace(process.name(), process);
+      std::tie(iter, succeed) = _active_processes.try_emplace(process.name(), std::move(process));
 
       if (!succeed) {
         throw praas::common::ObjectExists{process.name()};
       }
     }
 
-    // FIXME: hold a lock
     try {
       backend::ProcessHandle handle = backend.allocate_process(resources);
       (*iter).second.set_handle(std::move(handle));
-    } catch (common::PraaSException& err) {
+    } catch (common::FailedAllocationError& err) {
 
-      (*iter).second.set_status(process::Status::DELETED);
+      write_lock_t lock(_active_mutex);
+      _active_processes.erase(iter);
       throw err;
+    }
+  }
+
+  std::tuple<process::Process::read_lock_t, process::Process*>
+  Application::get_process(const std::string& name)
+  {
+    read_lock_t lock(_active_mutex);
+
+    auto iter = _active_processes.find(name);
+    if (iter != _active_processes.end()) {
+      return std::make_tuple(std::move(iter->second.read_lock()), &iter->second);
+    } else {
+      throw praas::common::ObjectDoesNotExist{name};
     }
   }
 
@@ -66,6 +98,7 @@ namespace praas::control_plane {
 
   void process::Process::set_handle(backend::ProcessHandle&& handle)
   {
+    auto lock = write_lock();
     _handle = std::move(handle);
     _status = Status::ALLOCATED;
   }
@@ -73,7 +106,6 @@ namespace praas::control_plane {
   const backend::ProcessHandle& process::Process::handle() const
   {
     return _handle.value();
-    ;
   }
 
   bool process::Process::has_handle() const
@@ -84,6 +116,22 @@ namespace praas::control_plane {
   process::Status process::Process::status() const
   {
     return _status;
+  }
+
+  void process::Process::set_status(Status status)
+  {
+    auto lock = write_lock();
+    _status = status;
+  }
+
+  process::Process::read_lock_t process::Process::read_lock() const
+  {
+    return std::move(read_lock_t{_mutex});
+  }
+
+  process::Process::write_lock_t process::Process::write_lock() const
+  {
+    return write_lock_t{_mutex};
   }
 
   void Resources::add_application(Application&& application)

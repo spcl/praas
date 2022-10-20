@@ -26,6 +26,7 @@ namespace praas::control_plane::backend {
 
   struct Backend {
 
+    Backend() = default;
     Backend(const Backend&) = default;
     Backend(Backend&&) = delete;
     Backend& operator=(const Backend&) = default;
@@ -35,6 +36,9 @@ namespace praas::control_plane::backend {
     virtual ProcessHandle allocate_process(
       const process::Resources& resources
     ) = 0;
+
+    virtual int max_memory() const = 0;
+    virtual int max_vcpus() const = 0;
 
     static std::unique_ptr<Backend> construct(const config::Config&);
   };
