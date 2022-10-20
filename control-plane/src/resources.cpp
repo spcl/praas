@@ -6,8 +6,6 @@
 #include <praas/control-plane/backend.hpp>
 #include <praas/control-plane/process.hpp>
 
-#include <stdexcept>
-
 #include <fmt/format.h>
 
 namespace praas::control_plane {
@@ -96,7 +94,7 @@ namespace praas::control_plane {
   {
 
     if (application.name().length() == 0) {
-      throw std::invalid_argument{"Application name cannot be empty"};
+      throw praas::common::InvalidConfigurationError("Application name cannot be empty");
     }
 
     ConcurrentTable<Application>::rw_acc_t acc;
@@ -116,7 +114,7 @@ namespace praas::control_plane {
   void Resources::delete_application(std::string application_name)
   {
     if (application_name.length() == 0) {
-      throw std::invalid_argument{"Application name cannot be empty"};
+      throw praas::common::InvalidConfigurationError("Application name cannot be empty");
     }
 
     ConcurrentTable<Application>::rw_acc_t acc;

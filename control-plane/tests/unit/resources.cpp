@@ -51,7 +51,7 @@ TEST(Resources, AddApplication)
     Application app;
     EXPECT_THROW(
       resources.add_application(std::move(app)),
-      std::invalid_argument
+      praas::common::InvalidConfigurationError
     );
   }
 
@@ -99,7 +99,7 @@ TEST(Resources, DeleteApplication)
     Application app;
     EXPECT_THROW(
       resources.delete_application(""),
-      std::invalid_argument
+      praas::common::InvalidConfigurationError
     );
   }
 
