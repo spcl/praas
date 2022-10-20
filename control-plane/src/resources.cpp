@@ -1,18 +1,40 @@
 
+#include <praas/common/messages.hpp>
+#include <praas/control-plane/backend.hpp>
 #include <praas/control-plane/resources.hpp>
 
 #include <praas/common/exceptions.hpp>
+#include <stdexcept>
 
 namespace praas::control_plane {
 
-  void Application::add_process(process::Process& process)
+  void Application::add_process(
+      backend::Backend& backend, const std::string& name, process::Resources&& resources
+  )
   {
-    write_lock_t lock(_active_mutex);
 
-    auto [it, succeed] = _active_processes.try_emplace(process.name(), process);
+    // We lock the internal collection to write the new process.
+    typename decltype(_active_processes)::iterator iter;
+    bool succeed;
+    {
+      write_lock_t lock(_active_mutex);
 
-    if (!succeed) {
-      throw praas::common::ObjectExists{process.name()};
+      process::Process process{name, std::move(resources)};
+      std::tie(iter, succeed) = _active_processes.try_emplace(process.name(), process);
+
+      if (!succeed) {
+        throw praas::common::ObjectExists{process.name()};
+      }
+    }
+
+    // FIXME: hold a lock
+    try {
+      backend::ProcessHandle handle = backend.allocate_process(resources);
+      (*iter).second.set_handle(std::move(handle));
+    } catch (common::PraaSException& err) {
+
+      (*iter).second.set_status(process::Status::DELETED);
+      throw err;
     }
   }
 
@@ -39,13 +61,35 @@ namespace praas::control_plane {
 
   std::string process::Process::name() const
   {
-    return "";
+    return _name;
+  }
+
+  void process::Process::set_handle(backend::ProcessHandle&& handle)
+  {
+    _handle = std::move(handle);
+    _status = Status::ALLOCATED;
+  }
+
+  const backend::ProcessHandle& process::Process::handle() const
+  {
+    return _handle.value();
+    ;
+  }
+
+  bool process::Process::has_handle() const
+  {
+    return _handle.has_value();
+  }
+
+  process::Status process::Process::status() const
+  {
+    return _status;
   }
 
   void Resources::add_application(Application&& application)
   {
 
-    if(application.name().length() == 0) {
+    if (application.name().length() == 0) {
       throw std::invalid_argument{"Application name cannot be empty"};
     }
 
@@ -65,7 +109,7 @@ namespace praas::control_plane {
 
   void Resources::delete_application(std::string application_name)
   {
-    if(application_name.length() == 0) {
+    if (application_name.length() == 0) {
       throw std::invalid_argument{"Application name cannot be empty"};
     }
 

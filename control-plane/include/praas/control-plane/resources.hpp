@@ -2,19 +2,23 @@
 #ifndef PRAAS_CONTROLL_PLANE_RESOURCES_HPP
 #define PRAAS_CONTROLL_PLANE_RESOURCES_HPP
 
-#include <atomic>
-#include <deque>
-#include <future>
+#include <praas/control-plane/backend.hpp>
+
+#include <chrono>
+#include <functional>
 #include <memory>
-#include <optional>
-#include <random>
+#include <mutex>
 #include <unordered_map>
-#include <utility>
 
 #include <sockpp/tcp_socket.h>
 #include <tbb/concurrent_hash_map.h>
 
 namespace praas::control_plane {
+
+  namespace backend {
+    struct ProcessHandle;
+    struct Backend;
+  } // namespace backend
 
   template <typename Value, typename Key = std::string>
   struct ConcurrentTable {
@@ -59,11 +63,12 @@ namespace praas::control_plane {
 
     enum class Status {
 
-      ACTIVE = 0,
-      SWAPPED_OUT = 1,
-      SWAPPING_OUT = 2,
-      SWAPPING_IN = 3,
-      DELETED = 4
+      ALLOCATING = 0,
+      ALLOCATED,
+      SWAPPED_OUT,
+      SWAPPING_OUT,
+      SWAPPING_IN,
+      DELETED
 
     };
 
@@ -71,27 +76,54 @@ namespace praas::control_plane {
 
       int32_t invocations;
       int32_t computation_time;
+      std::chrono::time_point<std::chrono::system_clock> last_invocation;
+      std::chrono::time_point<std::chrono::system_clock> last_report;
+
+      DataPlaneMetrics() = default;
     };
 
     struct Resources {
 
       int32_t vcpus;
       int32_t memory;
+      std::string sandbox_id;
     };
 
     class Process {
     public:
+
+      Process(const std::string& name, Resources && resources):
+        _status(Status::ALLOCATING),
+        _name(name),
+        _handle(std::nullopt),
+        _resources(resources)
+      {}
+
       std::string name() const;
 
+      void set_handle(backend::ProcessHandle&& handle);
+
+      const backend::ProcessHandle& handle() const;
+
+      bool has_handle() const;
+
+      Status status() const;
+      void set_status(Status status);
+
     private:
-      // FIXME: add reference to actual backend running the process
-      //Resources _resources;
 
-      //Status _status;
+      Status _status;
 
-      //DataPlaneMetrics _metrics;
+      std::string _name;
 
-      //state::SessionState _state;
+      std::optional<backend::ProcessHandle> _handle;
+
+      Resources _resources;
+
+      // DataPlaneMetrics _metrics;
+
+      // state::SessionState _state;
+
     };
 
   } // namespace process
@@ -102,20 +134,20 @@ namespace praas::control_plane {
     ~Application() = default;
 
     Application(std::string name) : _name(std::move(name)) {}
-    Application(const Application & obj) = delete;
-    Application& operator=(const Application & obj) = delete;
+    Application(const Application& obj) = delete;
+    Application& operator=(const Application& obj) = delete;
 
-    Application(Application && obj) noexcept {
+    Application(Application&& obj) noexcept
+    {
       write_lock_t lock{obj._active_mutex};
       this->_name = obj._name;
       this->_active_processes = std::move(obj._active_processes);
       this->_swapped_processes = std::move(obj._swapped_processes);
     }
 
-    Application& operator=(Application && obj) noexcept
+    Application& operator=(Application&& obj) noexcept
     {
-      if (this != &obj)
-      {
+      if (this != &obj) {
         write_lock_t lhs_lk(_active_mutex, std::defer_lock);
         write_lock_t rhs_lk(obj._active_mutex, std::defer_lock);
         std::lock(lhs_lk, rhs_lk);
@@ -126,7 +158,7 @@ namespace praas::control_plane {
       return *this;
     }
 
-    void add_process(process::Process&);
+    void add_process(backend::Backend& backend, const std::string& name, process::Resources&& resources);
 
     void swap_process(std::string process_id);
 
@@ -140,13 +172,11 @@ namespace praas::control_plane {
     void
     update_metrics(std::string process_id, std::string auth_token, const process::DataPlaneMetrics&);
 
-
     void invoke(std::string fname, std::string process_id = "");
 
     std::string name() const;
 
   private:
-
     using lock_t = std::shared_mutex;
     using write_lock_t = std::unique_lock<lock_t>;
     using read_lock_t = std::shared_lock<lock_t>;
@@ -162,10 +192,8 @@ namespace praas::control_plane {
 
   class Resources {
   public:
-
     class ROAccessor {
     public:
-
       const Application* get() const;
 
       bool empty() const;
@@ -195,7 +223,6 @@ namespace praas::control_plane {
 
   private:
     ConcurrentTable<Application>::table_t _applications;
-
   };
 
   // struct PendingAllocation {
