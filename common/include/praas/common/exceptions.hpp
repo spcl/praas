@@ -6,24 +6,34 @@
 
 namespace praas::common {
 
-  struct NotImplementedError : std::runtime_error {
+  struct PraaSException : std::runtime_error {
 
-    NotImplementedError() : std::runtime_error("Function is not implemented!") {}
+    PraaSException(const std::string& msg) : std::runtime_error(msg) {}
   };
 
-  struct InvalidConfigurationError : std::runtime_error {
+  struct NotImplementedError : PraaSException {
 
-    InvalidConfigurationError(const std::string& msg) : std::runtime_error(msg) {}
+    NotImplementedError() : PraaSException("Function is not implemented!") {}
   };
 
-  struct ObjectExists : std::runtime_error {
+  struct InvalidConfigurationError : PraaSException {
 
-    ObjectExists(std::string name) : std::runtime_error(name) {}
+    InvalidConfigurationError(const std::string& msg) : PraaSException(msg) {}
   };
 
-  struct ObjectDoesNotExist : std::runtime_error {
+  struct ObjectExists : PraaSException {
 
-    ObjectDoesNotExist(std::string name) : std::runtime_error(name) {}
+    ObjectExists(const std::string& name) : PraaSException(name) {}
+  };
+
+  struct ObjectDoesNotExist : PraaSException {
+
+    ObjectDoesNotExist(const std::string& name) : PraaSException(name) {}
+  };
+
+  struct FailedAllocationError : PraaSException {
+
+    FailedAllocationError(const std::string& name) : PraaSException(name) {}
   };
 
 } // namespace praas::common
