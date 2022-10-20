@@ -11,6 +11,11 @@ namespace praas::common {
     NotImplementedError() : std::runtime_error("Function is not implemented!") {}
   };
 
+  struct InvalidConfigurationError : std::runtime_error {
+
+    InvalidConfigurationError(const std::string& msg) : std::runtime_error(msg) {}
+  };
+
   struct ObjectExists : std::runtime_error {
 
     ObjectExists(std::string name) : std::runtime_error(name) {}
