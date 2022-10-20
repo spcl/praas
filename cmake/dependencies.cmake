@@ -47,6 +47,22 @@ else()
 endif()
 
 ###
+# cereal
+###
+find_package(cereal QUIET)
+if(NOT cereal_FOUND)
+  message(STATUS "Downloading and building cereal dependency")
+  FetchContent_Declare(cereal
+    GIT_REPOSITORY https://github.com/USCiLab/cereal.git
+  )
+  set(SKIP_PERFORMANCE_COMPARISON)
+  set(SKIP_PORTABILITY_TEST ON)
+  set(JUST_INSTALL_CEREAL ON)
+  FetchContent_MakeAvailable(cereal)
+endif()
+
+
+###
 # threadpool
 ###
 FetchContent_Declare(threadpool
