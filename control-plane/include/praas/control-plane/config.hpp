@@ -1,108 +1,60 @@
 
-#ifndef __CONTROLL_PLANE_RESOURCES_HPP__
-#define __CONTROLL_PLANE_RESOURCES_HPP__
+#ifndef PRAAS__CONTROLL_PLANE_CONFIG_HPP
+#define PRAAS__CONTROLL_PLANE_CONFIG_HPP
 
-#include <atomic>
-#include <deque>
-#include <future>
-#include <memory>
-#include <random>
-#include <unordered_map>
+#include <praas/control-plane/backend.hpp>
+#include <praas/control-plane/deployment.hpp>
 
-#include <sockpp/tcp_socket.h>
+#include <string>
+#include <istream>
 
-namespace praas::control_plane {
+#include <cereal/archives/json.hpp>
 
-  struct PendingAllocation {
-    std::string payload;
-    std::string function_name;
-    std::string function_id;
+namespace cereal {
+  struct JSONInputArchive;
+}
+
+namespace praas::control_plane::config {
+
+  struct HTTPServer {
+    int port;
+    int threads;
+    bool enable_ssl;
+    std::string ssl_server_cert;
+    std::string ssl_server_key;
   };
 
-  struct Session {
-    sockpp::tcp_socket connection;
-    std::string session_id;
-    int32_t max_functions;
-    int32_t memory_size;
-    std::deque<PendingAllocation> allocations;
-    bool allocated;
-    bool swap_in;
-
-    Session(std::string);
+  struct Workers {
+    int threads;
   };
 
-  struct Process {
-    std::string global_process_id;
-    std::string process_id;
-    int16_t allocated_sessions;
-    int16_t max_sessions;
-    std::atomic<bool> busy;
-    sockpp::tcp_socket connection;
-    std::vector<Session*> sessions;
-
-    Process(int16_t max_sessions = 0)
-        : allocated_sessions(0), max_sessions(max_sessions), busy(0)
-    {
-    }
-
-    Process(Process&& obj)
-    {
-      global_process_id = std::move(obj.global_process_id);
-      process_id = std::move(obj.process_id);
-      allocated_sessions = std::move(obj.allocated_sessions);
-      max_sessions = std::move(obj.max_sessions);
-      sessions = std::move(obj.sessions);
-      connection = std::move(obj.connection);
-
-      // atomics are not movable
-      // busy.store(obj.busy.load());
-    }
-
-    Process& operator=(Process&& obj)
-    {
-      if (this != &obj) {
-        global_process_id = std::move(obj.global_process_id);
-        process_id = std::move(obj.process_id);
-        allocated_sessions = std::move(obj.allocated_sessions);
-        max_sessions = std::move(obj.max_sessions);
-        sessions = std::move(obj.sessions);
-        connection = std::move(obj.connection);
-
-        // atomics are not movable
-        // busy.store(obj.busy.load());
-      }
-
-      return *this;
-    }
+  struct DownScaler {
+    int polling_interval;
+    int scaling_threshold;
   };
 
-  struct Resources {
+  struct Backend {};
 
-    // Since we store elements in a C++ hash map, we have a gurantee that
-    // pointers and references to elements are valid even after a rehashing.
-    // Thus, we can safely store pointers in epoll structures, and we know that
-    // after receiving a message from process, the pointer to Process data
-    // structure will not change, even if we significantly altered the size of
-    // this container.
+  struct BackendLocal : Backend {};
 
-    // session_id -> session
-    std::unordered_map<std::string, Session> sessions;
-    // process_id -> process resources
-    std::unordered_map<std::string, Process> processes;
-    // FIXME: processes per global process
-    std::mutex _sessions_mutex;
+  struct Config {
 
-    ~Resources();
+    HTTPServer http;
+    Workers workers;
+    DownScaler down_scaler;
 
-    Process& add_process(Process&&);
-    Process* get_process(std::string process_id);
-    Process* get_free_process(std::string process_id);
-    void remove_process(std::string process_id);
-    Session& add_session(Process&, std::string session_id);
-    Session* get_session(std::string session_id);
-    void remove_session(Process&, std::string session_id);
+    deployment::Type deployment_type;
+
+    backend::Type backend_type;
+    std::unique_ptr<Backend> backend;
+
+    bool verbose;
+
+    void load(cereal::JSONInputArchive & archive);
+
+    static Config deserialize(std::istream & in_stream);
   };
 
-} // namespace praas::control_plane
+} // namespace praas::control_plane::config
 
 #endif

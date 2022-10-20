@@ -65,6 +65,10 @@ namespace praas::control_plane {
 
   void Resources::delete_application(std::string application_name)
   {
+    if(application_name.length() == 0) {
+      throw std::invalid_argument{"Application name cannot be empty"};
+    }
+
     ConcurrentTable<Application>::rw_acc_t acc;
     _applications.find(acc, application_name);
     if (acc.empty()) {

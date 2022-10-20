@@ -15,6 +15,7 @@ function(control_plane_dependencies tgt)
   add_dependencies(${tgt} common_library)
   add_dependencies(${tgt} Crow::Crow)
   add_dependencies(${tgt} TBB::tbb)
+  add_dependencies(${tgt} cereal::cereal)
   target_include_directories(${tgt} SYSTEM PRIVATE "include")
   target_include_directories(${tgt} SYSTEM PRIVATE ${threadpool_SOURCE_DIR})
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:common_library,INTERFACE_INCLUDE_DIRECTORIES>)
@@ -25,6 +26,7 @@ function(control_plane_dependencies tgt)
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:stduuid,INTERFACE_INCLUDE_DIRECTORIES>)
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:Crow::Crow,INTERFACE_INCLUDE_DIRECTORIES>)
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:TBB::tbb,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:cereal::cereal,INTERFACE_INCLUDE_DIRECTORIES>)
 
 endfunction()
 
@@ -38,6 +40,7 @@ function(control_plane_link tgt)
   target_link_libraries(${tgt} PRIVATE stduuid)
   target_link_libraries(${tgt} PRIVATE Crow::Crow)
   target_link_libraries(${tgt} PRIVATE TBB::tbb)
+  target_link_libraries(${tgt} PRIVATE cereal::cereal)
 
 endfunction()
 
@@ -60,13 +63,18 @@ control_plane_link(control_plane)
 
 if(WITH_TESTING)
 
-  add_executable(unit_resources tests/unit/resources.cpp)
-  control_plane_dependencies(unit_resources)
-  target_link_libraries(unit_resources PRIVATE control_plane_lib)
-  target_link_libraries(unit_resources PRIVATE GTest::gtest_main)
-  control_plane_link(unit_resources)
+  set(TESTS tests/unit/resources.cpp tests/unit/config.cpp)
+  foreach(test ${TESTS})
 
-  gtest_discover_tests(unit_resources)
+    string(REGEX REPLACE "(\/|\.)" "_" test_name ${test})
+    add_executable(${test_name} ${test})
+    control_plane_dependencies(${test_name})
+    target_link_libraries(${test_name} PRIVATE control_plane_lib)
+    target_link_libraries(${test_name} PRIVATE GTest::gtest_main)
+    control_plane_link(${test_name})
+
+    gtest_discover_tests(${test_name})
+  endforeach()
 
 endif()
 

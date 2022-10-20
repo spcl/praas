@@ -65,5 +65,42 @@ TEST(Resources, AddApplication)
 
 }
 
-// should fail - name exists
-// should fail - name empty
+TEST(Resources, DeleteApplication)
+{
+
+  Resources resources;
+  std::string app_name{"app"};
+  std::string second_app_name{"app2"};
+  std::string third_app_name{"app3"};
+
+  {
+    EXPECT_THROW(
+        resources.delete_application(app_name),
+        praas::common::ObjectDoesNotExist
+    );
+  }
+
+  {
+    Application app{app_name};
+    EXPECT_NO_THROW(resources.add_application(std::move(app)));
+
+    EXPECT_NO_THROW(resources.delete_application(app_name));
+    EXPECT_THROW(
+        resources.delete_application(app_name),
+        praas::common::ObjectDoesNotExist
+    );
+    EXPECT_THROW(
+        resources.delete_application(second_app_name),
+        praas::common::ObjectDoesNotExist
+    );
+  }
+
+  {
+    Application app;
+    EXPECT_THROW(
+      resources.delete_application(""),
+      std::invalid_argument
+    );
+  }
+
+}
