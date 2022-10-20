@@ -6,6 +6,7 @@ project(praas)
 # Generic configuration
 ###
 include(FetchContent)
+include(FeatureSummary)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -15,7 +16,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 # CMake options
 ###
 set(PRAAS_COMPONENTS "" CACHE STRING "Components to build")
-option(WITH_CONTROL_PLANE "Build control plane deployment" ON)
+set(PRAAS_DEPLOYMENTS "" CACHE STRING "Deployments to to build")
+set(PRAAS_BACKENDS "" CACHE STRING "Backends to build")
 option(WITH_CXX_LINTING "Enable linting and formatting of C++ options." OFF)
 option(WITH_TESTING "Enable testing" OFF)
 
@@ -57,15 +59,47 @@ add_library(common_library STATIC ${common_library_files})
 target_include_directories(common_library PUBLIC "common/include")
 set_target_properties(common_library PROPERTIES RUNTIME_OUTPUT_DIRECTORY lib)
 
+###
+# Enable testing
+###
+if(WITH_TESTING)
+
+  enable_testing()
+  include(GoogleTest)
+  add_feature_info(testing ON "enabled")
+
+endif()
+
+if(NOT PRAAS_DEPLOYMENTS)
+
+  message(FATAL_ERROR "Must specify at least one deployment with -DPRAAS_DEPLOYMENTS=...")
+
+endif()
+
+foreach(COMPONENT ${PRAAS_DEPLOYMENTS})
+
+  if(COMPONENT STREQUAL "aws")
+    message(STATUS "Building PraaS deployment to AWS cloud.")
+    set(PRAAS_WITH_DEPLOYMENT_AWS TRUE)
+    add_compile_definitions(WITH_AWS_DEPLOYMENT)
+    add_feature_info(deployments ON "aws")
+  else()
+    message(FATAL_ERROR "The deployment ${COMPONENT} does not exist")
+  endif()
+
+endforeach()
+
 foreach(COMPONENT ${PRAAS_COMPONENTS})
 
   if(COMPONENT STREQUAL "control-plane")
     message(STATUS "Building control-plane component")
     add_subdirectory(control-plane)
+    add_feature_info(components ON "control-plane")
   else()
     message(FATAL_ERROR "The component ${COMPONENT} does not exist")
   endif()
 
 endforeach()
 
+feature_summary(WHAT ALL)
 

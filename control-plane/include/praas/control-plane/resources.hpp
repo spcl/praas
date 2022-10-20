@@ -161,8 +161,10 @@ namespace praas::control_plane {
   };
 
   class Resources {
+  public:
 
     class ROAccessor {
+    public:
 
       const Application* get() const;
 

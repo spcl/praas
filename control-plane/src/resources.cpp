@@ -44,6 +44,11 @@ namespace praas::control_plane {
 
   void Resources::add_application(Application&& application)
   {
+
+    if(application.name().length() == 0) {
+      throw std::invalid_argument{"Application name cannot be empty"};
+    }
+
     ConcurrentTable<Application>::rw_acc_t acc;
     bool inserted = _applications.insert(acc, application.name());
     if (inserted) {

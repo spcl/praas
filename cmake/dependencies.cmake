@@ -74,7 +74,7 @@ endif()
 ###
 # google test
 ###
-if(${WITH_TESTING})
+if(WITH_TESTING)
   message(STATUS "Downloading and building gtest")
   FetchContent_Declare(
     googletest

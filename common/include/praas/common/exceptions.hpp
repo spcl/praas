@@ -8,8 +8,7 @@ namespace praas::common {
 
   struct NotImplementedError : std::runtime_error {
 
-    NotImplementedError(): std::runtime_error("Function is not implemented!");
-
+    NotImplementedError() : std::runtime_error("Function is not implemented!") {}
   };
 
   struct ObjectExists : std::runtime_error {
