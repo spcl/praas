@@ -16,6 +16,7 @@ function(control_plane_dependencies tgt)
   add_dependencies(${tgt} Crow::Crow)
   add_dependencies(${tgt} TBB::tbb)
   add_dependencies(${tgt} cereal::cereal)
+  add_dependencies(${tgt} fmt::fmt)
   target_include_directories(${tgt} SYSTEM PRIVATE "include")
   target_include_directories(${tgt} SYSTEM PRIVATE ${threadpool_SOURCE_DIR})
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:common_library,INTERFACE_INCLUDE_DIRECTORIES>)
@@ -27,6 +28,7 @@ function(control_plane_dependencies tgt)
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:Crow::Crow,INTERFACE_INCLUDE_DIRECTORIES>)
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:TBB::tbb,INTERFACE_INCLUDE_DIRECTORIES>)
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:cereal::cereal,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:fmt::fmt,INTERFACE_INCLUDE_DIRECTORIES>)
 
 endfunction()
 
@@ -41,6 +43,7 @@ function(control_plane_link tgt)
   target_link_libraries(${tgt} PRIVATE Crow::Crow)
   target_link_libraries(${tgt} PRIVATE TBB::tbb)
   target_link_libraries(${tgt} PRIVATE cereal::cereal)
+  target_link_libraries(${tgt} PRIVATE fmt::fmt)
 
 endfunction()
 

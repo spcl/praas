@@ -7,6 +7,7 @@
 
 #include <string>
 #include <istream>
+#include <optional>
 
 #include <cereal/archives/json.hpp>
 
@@ -17,20 +18,39 @@ namespace cereal {
 namespace praas::control_plane::config {
 
   struct HTTPServer {
+
+    static constexpr int DEFAULT_THREADS_NUMBER = 1;
+    static constexpr int DEFAULT_PORT = 80;
+
     int port;
     int threads;
     bool enable_ssl;
-    std::string ssl_server_cert;
-    std::string ssl_server_key;
+    std::optional<std::string> ssl_server_cert;
+    std::optional<std::string> ssl_server_key;
+
+    void load(cereal::JSONInputArchive & archive);
+    void set_defaults();
   };
 
   struct Workers {
+    static constexpr int DEFAULT_THREADS_NUMBER = 1;
+
     int threads;
+
+    void load(cereal::JSONInputArchive & archive);
+    void set_defaults();
   };
 
   struct DownScaler {
+
+    static constexpr int DEFAULT_POLLING_INTERVAL = 60;
+    static constexpr int DEFAULT_SWAPPING_THRESHOLD = 360;
+
     int polling_interval;
-    int scaling_threshold;
+    int swapping_threshold;
+
+    void load(cereal::JSONInputArchive & archive);
+    void set_defaults();
   };
 
   struct Backend {};
