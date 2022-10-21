@@ -22,6 +22,7 @@ public:
 class MockDeployment : public deployment::Deployment {
 public:
   MOCK_METHOD(std::unique_ptr<state::SwapLocation>, get_location, (std::string), (override));
+  MOCK_METHOD(void, delete_swap, (const state::SwapLocation& ), (override));
 };
 
 class MockBackend : public backend::Backend {
@@ -94,7 +95,7 @@ TEST_F(SwapProcessTest, SwapProcess)
 
   EXPECT_THROW(
     _app_create.swap_process(proc_name, deployment),
-    praas::common::SwappingNotAllocatedProcess
+    praas::common::InvalidProcessState
   );
 }
 
@@ -116,7 +117,7 @@ TEST_F(SwapProcessTest, SwapProcessFail)
 
   EXPECT_THROW(
     _app_create.swap_process(proc_name, deployment),
-    praas::common::SwappingNotAllocatedProcess
+    praas::common::InvalidProcessState
   );
 
   // Non-existing process

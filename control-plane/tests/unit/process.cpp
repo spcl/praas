@@ -22,6 +22,7 @@ public:
 class MockDeployment : public deployment::Deployment {
 public:
   MOCK_METHOD(std::unique_ptr<state::SwapLocation>, get_location, (std::string), (override));
+  MOCK_METHOD(void, delete_swap, (const state::SwapLocation& ), (override));
 };
 
 class MockBackend : public backend::Backend {

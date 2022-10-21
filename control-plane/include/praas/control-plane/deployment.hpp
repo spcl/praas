@@ -36,13 +36,16 @@ namespace praas::control_plane::deployment {
   class Deployment {
   public:
     virtual std::unique_ptr<state::SwapLocation> get_location(std::string process_name) = 0;
+    virtual void delete_swap(const state::SwapLocation &) = 0;
   };
 
-  class Local : Deployment {
+  class Local : public Deployment {
   public:
     Local(std::string fs_path) : _path(fs_path) {}
 
     std::unique_ptr<state::SwapLocation> get_location(std::string process_name) override;
+
+    void delete_swap(const state::SwapLocation &) override;
 
   private:
     std::filesystem::path _path;

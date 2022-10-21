@@ -8,4 +8,10 @@ namespace praas::control_plane::deployment {
         (_path / "swaps" / process_name)});
   }
 
+  void Local::delete_swap(const state::SwapLocation &)
+  {
+    // FIXME: warning log
+    // We cannot remove swaps on other machines.
+  }
+
 } // namespace praas::control_plane::deployment

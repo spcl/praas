@@ -71,6 +71,7 @@ if(WITH_TESTING)
             tests/unit/process.cpp
             tests/unit/deployment.cpp
             tests/unit/proc_swap.cpp
+            tests/unit/proc_delete.cpp
   )
   foreach(test ${TESTS})
 

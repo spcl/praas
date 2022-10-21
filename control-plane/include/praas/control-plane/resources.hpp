@@ -80,7 +80,7 @@ namespace praas::control_plane {
 
     void swapped_process(std::string process_name);
 
-    void delete_process(std::string process_name);
+    void delete_process(std::string process_name, deployment::Deployment& deployment);
 
     /**
      * @brief

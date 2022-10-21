@@ -115,7 +115,7 @@ namespace praas::control_plane {
     auto proc_lock = proc.write_lock();
 
     if (proc.status() != process::Status::ALLOCATED) {
-      throw praas::common::SwappingNotAllocatedProcess("Cannot swap a non-allocated process");
+      throw praas::common::InvalidProcessState("Cannot swap a non-allocated process");
     }
 
     // We no longer need to prevent modifications to the collection of processes.
@@ -144,9 +144,7 @@ namespace praas::control_plane {
     auto proc_lock = proc.write_lock();
 
     if (proc.status() != process::Status::SWAPPING_OUT) {
-      throw praas::common::SwappingNotAllocatedProcess(
-          "Cannot confirm a swap of non-swapping process"
-      );
+      throw praas::common::InvalidProcessState("Cannot confirm a swap of non-swapping process");
     }
 
     // Remove process from the container
@@ -160,7 +158,7 @@ namespace praas::control_plane {
     _swapped_processes.insert(std::move(nh));
   }
 
-  void Application::delete_process(std::string process_name)
+  void Application::delete_process(std::string process_name, deployment::Deployment& deployment)
   {
     if (process_name.length() == 0) {
       throw praas::common::InvalidConfigurationError("Application name cannot be empty");
@@ -170,18 +168,16 @@ namespace praas::control_plane {
 
     // We cannot close it immediately because we need to first lock the process
     auto iter = _swapped_processes.find(process_name);
-
-    if (iter != _swapped_processes.end()) {
-
-      process::Process& proc = (*iter).second;
-      auto proc_lock = proc.write_lock();
-
-      // FIXME: delete the swap
-
-      _swapped_processes.erase(iter);
+    if (iter == _swapped_processes.end()) {
+      throw praas::common::ObjectDoesNotExist{process_name};
     }
 
-    throw praas::common::ObjectDoesNotExist{process_name};
+    process::Process& proc = (*iter).second;
+    auto proc_lock = proc.write_lock();
+
+    deployment.delete_swap(*proc.state().swap);
+
+    _swapped_processes.erase(iter);
   }
 
   ///**

@@ -36,9 +36,9 @@ namespace praas::common {
     FailedAllocationError(const std::string& name) : PraaSException(name) {}
   };
 
-  struct SwappingNotAllocatedProcess : PraaSException {
+  struct InvalidProcessState : PraaSException {
 
-    SwappingNotAllocatedProcess(const std::string& name) : PraaSException(name) {}
+    InvalidProcessState(const std::string& name) : PraaSException(name) {}
   };
 
 } // namespace praas::common
