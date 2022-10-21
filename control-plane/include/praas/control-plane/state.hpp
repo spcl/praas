@@ -7,23 +7,21 @@
 namespace praas::control_plane::state {
 
   struct SwapLocation {
+    SwapLocation() = default;
     SwapLocation(const SwapLocation&) = default;
     SwapLocation(SwapLocation&&) = delete;
     SwapLocation& operator=(const SwapLocation&) = default;
     SwapLocation& operator=(SwapLocation&&) = delete;
     virtual ~SwapLocation() = default;
-
-    virtual std::string location() const = 0;
   };
 
-  class SessionState {
-  public:
-  private:
-    int32_t _size;
+  struct SessionState {
 
-    std::unique_ptr<SwapLocation> _swap;
+    int32_t size{};
 
-    std::string _session_id;
+    std::unique_ptr<SwapLocation> swap{};
+
+    std::string session_id{};
   };
 
 } // namespace praas::control_plane::state

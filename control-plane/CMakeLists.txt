@@ -66,7 +66,7 @@ control_plane_link(control_plane)
 
 if(WITH_TESTING)
 
-  set(TESTS tests/unit/resources.cpp tests/unit/config.cpp tests/unit/process.cpp)
+  set(TESTS tests/unit/resources.cpp tests/unit/config.cpp tests/unit/process.cpp tests/unit/deployment.cpp)
   foreach(test ${TESTS})
 
     string(REPLACE "." "_" test_name ${test})

@@ -8,17 +8,21 @@
 #include <praas/control-plane/aws.hpp>
 #endif
 
-#if defined(WITH_AWS_DEPLOYMENT)
+#include <filesystem>
 
 namespace praas::control_plane::state {
 
-  class DiskSwapLocation : SwapLocation {};
+  struct DiskSwapLocation : public SwapLocation {
+    std::filesystem::path path;
 
+    DiskSwapLocation(std::filesystem::path path) : SwapLocation(), path(path) {}
+  };
+
+#if defined(WITH_AWS_DEPLOYMENT)
   class AWSS3SwapLocation : SwapLocation {};
+#endif
 
 } // namespace praas::control_plane::state
-
-#endif
 
 namespace praas::control_plane::deployment {
 
@@ -30,11 +34,18 @@ namespace praas::control_plane::deployment {
   };
 
   class Deployment {
+  public:
     virtual std::unique_ptr<state::SwapLocation> get_location(std::string process_name) = 0;
   };
 
   class Local : Deployment {
-    virtual std::unique_ptr<state::SwapLocation> get_location(std::string process_name) {}
+  public:
+    Local(std::string fs_path) : _path(fs_path) {}
+
+    std::unique_ptr<state::SwapLocation> get_location(std::string process_name) override;
+
+  private:
+    std::filesystem::path _path;
   };
 
 } // namespace praas::control_plane::deployment
