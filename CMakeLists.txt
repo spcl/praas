@@ -68,6 +68,7 @@ if(WITH_TESTING)
 
   enable_testing()
   include(GoogleTest)
+  add_compile_definitions(WITH_TESTING)
   add_feature_info(testing ON "enabled")
 
 endif()

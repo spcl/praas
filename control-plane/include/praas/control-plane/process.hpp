@@ -55,8 +55,8 @@ namespace praas::control_plane::process {
     using write_lock_t = std::unique_lock<lock_t>;
     using read_lock_t = std::shared_lock<lock_t>;
 
-    Process(std::string name, Resources&& resources)
-        : _status(Status::ALLOCATING), _name(std::move(name)), _handle(std::nullopt),
+    Process(std::string name, ProcessHandle&& handle, Resources&& resources)
+        : _status(Status::ALLOCATING), _handle(std::move(handle)), _name(std::move(name)),
           _resources(resources)
     {
     }
@@ -71,6 +71,7 @@ namespace praas::control_plane::process {
       write_lock_t lock{obj._mutex};
       this->_name = obj._name;
       this->_status = obj._status;
+      this->_handle = std::move(obj._handle);
       this->_status = std::move(obj._status);
       this->_resources = std::move(obj._resources);
     }
@@ -83,6 +84,7 @@ namespace praas::control_plane::process {
         std::lock(lhs_lk, rhs_lk);
 
         this->_name = obj._name;
+        this->_handle = std::move(obj._handle);
         this->_status = obj._status;
         this->_status = obj._status;
         this->_resources = std::move(obj._resources);
@@ -92,9 +94,9 @@ namespace praas::control_plane::process {
 
     std::string name() const;
 
-    const process::ProcessHandle& handle() const;
+    const process::ProcessHandle& c_handle() const;
 
-    bool has_handle() const;
+    process::ProcessHandle& handle();
 
     Status status() const;
 
@@ -116,9 +118,9 @@ namespace praas::control_plane::process {
 
     Status _status;
 
-    std::string _name;
-
     std::optional<ProcessHandle> _handle;
+
+    std::string _name;
 
     Resources _resources;
 

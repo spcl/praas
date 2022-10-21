@@ -35,7 +35,7 @@ namespace praas::control_plane::backend {
     Backend& operator=(Backend&&) = delete;
     virtual ~Backend() = default;
 
-    virtual process::ProcessHandle allocate_process(const process::Resources& resources) = 0;
+    virtual void allocate_process(process::ProcessHandle& handle, const process::Resources& resources) = 0;
 
     // close process
     // swap process

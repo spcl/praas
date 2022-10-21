@@ -15,6 +15,11 @@ namespace BS {
 
 namespace praas::http {
 
+  struct HTTPResponse {
+
+
+  };
+
   struct HttpServer {
     BS::thread_pool& _pool;
     crow::SimpleApp _server;

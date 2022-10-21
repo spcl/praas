@@ -13,14 +13,14 @@ namespace praas::control_plane::process {
     _status = Status::ALLOCATED;
   }
 
-  const ProcessHandle& process::Process::handle() const
+  const ProcessHandle& process::Process::c_handle() const
   {
     return _handle.value();
   }
 
-  bool Process::has_handle() const
+  ProcessHandle& process::Process::handle()
   {
-    return _handle.has_value();
+    return _handle.value();
   }
 
   Status Process::status() const

@@ -3,6 +3,7 @@
 #define PRAAS_CONTROLL_PLANE_RESOURCES_HPP
 
 #include <praas/control-plane/backend.hpp>
+#include <praas/control-plane/poller.hpp>
 #include <praas/control-plane/process.hpp>
 
 #include <memory>
@@ -59,8 +60,10 @@ namespace praas::control_plane {
       return *this;
     }
 
-    void
-    add_process(backend::Backend& backend, const std::string& name, process::Resources&& resources);
+    void add_process(
+        backend::Backend& backend, poller::Poller& poller, const std::string& name,
+        process::Resources&& resources
+    );
 
     std::tuple<process::Process::read_lock_t, process::Process*> get_process(const std::string& name
     );
@@ -75,7 +78,7 @@ namespace praas::control_plane {
      * @param process_id [TODO:description]
      */
     void
-    update_metrics(std::string process_id, std::string auth_token, const process::DataPlaneMetrics&);
+    update_metrics(std::string process_id, const process::DataPlaneMetrics&);
 
     void invoke(std::string fname, std::string process_id = "");
 

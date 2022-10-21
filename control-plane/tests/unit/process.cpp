@@ -2,6 +2,8 @@
 #include <praas/common/exceptions.hpp>
 #include <praas/control-plane/backend.hpp>
 #include <praas/control-plane/handle.hpp>
+#include <praas/control-plane/poller.hpp>
+#include <praas/control-plane/process.hpp>
 #include <praas/control-plane/resources.hpp>
 
 #include <gmock/gmock-actions.h>
@@ -10,9 +12,15 @@
 
 using namespace praas::control_plane;
 
+class MockPoller : public poller::Poller {
+public:
+  MOCK_METHOD(void, add_handle, (const process::ProcessHandle*), (override));
+  MOCK_METHOD(void, remove_handle, (const process::ProcessHandle*), (override));
+};
+
 class MockBackend : public backend::Backend {
 public:
-  MOCK_METHOD(process::ProcessHandle, allocate_process, (const process::Resources&), ());
+  MOCK_METHOD(void, allocate_process, (process::ProcessHandle&, const process::Resources&), ());
   MOCK_METHOD(int, max_memory, (), (const));
   MOCK_METHOD(int, max_vcpus, (), (const));
 };
@@ -23,12 +31,13 @@ protected:
   {
     _app_create = Application{"app"};
 
-    EXPECT_CALL(backend, max_memory()).WillRepeatedly(testing::Return(4096));
-    EXPECT_CALL(backend, max_vcpus()).WillRepeatedly(testing::Return(4));
+    ON_CALL(backend, max_memory()).WillByDefault(testing::Return(4096));
+    ON_CALL(backend, max_vcpus()).WillByDefault(testing::Return(4));
   }
 
   Application _app_create;
   MockBackend backend;
+  MockPoller poller;
 };
 
 TEST_F(ProcessTest, CreateProcess)
@@ -38,19 +47,30 @@ TEST_F(ProcessTest, CreateProcess)
   {
     std::string proc_name{"proc1"};
     std::string resource_name{"sandbox"};
-    process::ProcessHandle handle{backend, "id", resource_name};
+    process::ProcessHandle handle{_app_create, backend};
+    handle.instance_id = "id";
+    handle.resource_id = resource_name;
     process::Resources resources{1, 128, resource_name};
 
-    EXPECT_CALL(backend, allocate_process(testing::_))
+    EXPECT_CALL(backend, allocate_process(testing::_, testing::_))
         .Times(testing::Exactly(1))
-        .WillOnce(testing::Return(testing::ByMove(std::move(handle))));
+        .WillOnce([&](process::ProcessHandle& handle, const process::Resources&) -> void {
+          handle.resource_id = resource_name;
+          handle.instance_id = "id";
+        });
 
-    _app_create.add_process(backend, proc_name, std::move(resources));
+    EXPECT_CALL(poller, add_handle(testing::_)).Times(1);
+    EXPECT_CALL(poller, remove_handle(testing::_)).Times(0);
+
+    // Constraints should be verified
+    EXPECT_CALL(backend, max_memory()).Times(1);
+    EXPECT_CALL(backend, max_vcpus()).Times(1);
+
+    _app_create.add_process(backend, poller, proc_name, std::move(resources));
     auto [lock, proc] = _app_create.get_process(proc_name);
 
     EXPECT_EQ(proc->name(), proc_name);
-    EXPECT_EQ(proc->status(), process::Status::ALLOCATED);
-    ASSERT_TRUE(proc->has_handle());
+    EXPECT_EQ(proc->status(), process::Status::ALLOCATING);
     EXPECT_EQ(&proc->handle().backend.get(), &backend);
     EXPECT_EQ(proc->handle().resource_id, resource_name);
   }
@@ -62,10 +82,14 @@ TEST_F(ProcessTest, CreateProcess)
     std::string resource_name{"sandbox"};
     process::Resources resources{1, 128, resource_name};
 
-    EXPECT_CALL(backend, allocate_process(testing::_)).Times(testing::Exactly(0));
+    EXPECT_CALL(backend, allocate_process(testing::_, testing::_)).Times(testing::Exactly(0));
+
+    // Constraints should be verified
+    EXPECT_CALL(backend, max_memory()).Times(1);
+    EXPECT_CALL(backend, max_vcpus()).Times(1);
 
     EXPECT_THROW(
-        _app_create.add_process(backend, proc_name, std::move(resources)),
+        _app_create.add_process(backend, poller, proc_name, std::move(resources)),
         praas::common::ObjectExists
     );
   }
@@ -80,10 +104,10 @@ TEST_F(ProcessTest, CreateProcessIncorrectConfig)
 
     std::string resource_name{"sandbox"};
     process::Resources resources{1, 128, resource_name};
-    EXPECT_CALL(backend, allocate_process(testing::_)).Times(testing::Exactly(0));
+    EXPECT_CALL(backend, allocate_process(testing::_, testing::_)).Times(testing::Exactly(0));
 
     EXPECT_THROW(
-        _app_create.add_process(backend, "", std::move(resources)),
+        _app_create.add_process(backend, poller, "", std::move(resources)),
         praas::common::InvalidConfigurationError
     );
 
@@ -91,10 +115,11 @@ TEST_F(ProcessTest, CreateProcessIncorrectConfig)
 
     std::string proc_name{"proc2"};
     resources = process::Resources{5, 128, resource_name};
-    EXPECT_CALL(backend, allocate_process(testing::_)).Times(testing::Exactly(0));
+    EXPECT_CALL(backend, allocate_process(testing::_, testing::_)).Times(testing::Exactly(0));
+    EXPECT_CALL(backend, max_vcpus()).Times(1);
 
     EXPECT_THROW(
-        _app_create.add_process(backend, proc_name, std::move(resources)),
+        _app_create.add_process(backend, poller, proc_name, std::move(resources)),
         praas::common::InvalidConfigurationError
     );
     EXPECT_THROW(_app_create.get_process(proc_name), praas::common::ObjectDoesNotExist);
@@ -102,10 +127,11 @@ TEST_F(ProcessTest, CreateProcessIncorrectConfig)
     // Incorrect amount of memory
 
     resources = process::Resources{1, 8192, resource_name};
-    EXPECT_CALL(backend, allocate_process(testing::_)).Times(testing::Exactly(0));
+    EXPECT_CALL(backend, allocate_process(testing::_, testing::_)).Times(testing::Exactly(0));
+    EXPECT_CALL(backend, max_memory()).Times(1);
 
     EXPECT_THROW(
-        _app_create.add_process(backend, proc_name, std::move(resources)),
+        _app_create.add_process(backend, poller, proc_name, std::move(resources)),
         praas::common::InvalidConfigurationError
     );
     EXPECT_THROW(_app_create.get_process(proc_name), praas::common::ObjectDoesNotExist);
@@ -117,15 +143,22 @@ TEST_F(ProcessTest, CreateProcessFailure)
 
   std::string proc_name{"proc3"};
   std::string resource_name{"sandbox"};
-  process::ProcessHandle handle{backend, "id", resource_name};
   process::Resources resources{1, 128, resource_name};
 
-  EXPECT_CALL(backend, allocate_process(testing::_))
+  EXPECT_CALL(backend, allocate_process(testing::_, testing::_))
       .Times(testing::Exactly(1))
       .WillOnce(testing::Throw(praas::common::FailedAllocationError{"fail"}));
 
+  // Call poll + remove poll
+  EXPECT_CALL(poller, add_handle(testing::_)).Times(1);
+  EXPECT_CALL(poller, remove_handle(testing::_)).Times(1);
+
+  // Constraints should be verified
+  EXPECT_CALL(backend, max_memory()).Times(1);
+  EXPECT_CALL(backend, max_vcpus()).Times(1);
+
   EXPECT_THROW(
-    _app_create.add_process(backend, proc_name, std::move(resources)),
+    _app_create.add_process(backend, poller, proc_name, std::move(resources)),
     praas::common::FailedAllocationError
   );
   // Verify that there is no leftover left

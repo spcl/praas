@@ -11,7 +11,7 @@
 namespace praas::control_plane {
 
   void Application::add_process(
-      backend::Backend& backend, const std::string& name, process::Resources&& resources
+      backend::Backend& backend,  poller::Poller& poller, const std::string& name, process::Resources&& resources
   )
   {
 
@@ -37,7 +37,8 @@ namespace praas::control_plane {
     {
       write_lock_t lock(_active_mutex);
 
-      process::Process process{name, std::move(resources)};
+      process::Process process{name, {*this, backend}, std::move(resources)};
+
       std::tie(iter, succeed) = _active_processes.try_emplace(process.name(), std::move(process));
 
       if (!succeed) {
@@ -45,14 +46,20 @@ namespace praas::control_plane {
       }
     }
 
+    // Ensure that process is not modified.
+    process::Process& p = (*iter).second;
+    p.read_lock();
+
     try {
-      process::ProcessHandle handle = backend.allocate_process(resources);
-      handle.set_application(this);
-      auto lock = (*iter).second.write_lock();
-      (*iter).second.set_handle(std::move(handle));
+
+      poller.add_handle(&p.c_handle());
+
+      backend.allocate_process(p.handle(), resources);
+
     } catch (common::FailedAllocationError& err) {
 
       write_lock_t lock(_active_mutex);
+      poller.remove_handle(&p.c_handle());
       _active_processes.erase(iter);
       throw err;
     }

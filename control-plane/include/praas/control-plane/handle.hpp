@@ -27,15 +27,14 @@ namespace praas::control_plane::state {
 namespace praas::control_plane::process {
 
   struct ProcessHandle {
+    std::reference_wrapper<Application> application;
     std::reference_wrapper<backend::Backend> backend;
-    std::string instance_id;
-    std::string resource_id;
-    std::optional<sockpp::tcp_socket> connection;
-    Application* application{};
+    std::optional<std::string> instance_id{};
+    std::optional<std::string> resource_id{};
+    std::optional<sockpp::tcp_socket> connection{};
 
-    ProcessHandle(backend::Backend& backend, std::string instance_id, std::string resource_id)
-        : backend(backend), instance_id(std::move(instance_id)),
-          resource_id(std::move(resource_id)), connection(std::nullopt)
+    ProcessHandle(Application& application, backend::Backend& backend)
+        : application(application), backend(backend)
     {
     }
 
@@ -45,7 +44,6 @@ namespace praas::control_plane::process {
     ProcessHandle& operator=(ProcessHandle&&) = default;
     ~ProcessHandle() = default;
 
-    void set_application(Application*);
     void swap(state::SwapLocation& swap_loc);
   };
 
