@@ -1,6 +1,7 @@
 
 #include <praas/common/exceptions.hpp>
 #include <praas/control-plane/backend.hpp>
+#include <praas/control-plane/deployment.hpp>
 #include <praas/control-plane/handle.hpp>
 #include <praas/control-plane/poller.hpp>
 #include <praas/control-plane/process.hpp>
@@ -18,6 +19,11 @@ public:
   MOCK_METHOD(void, remove_handle, (const process::ProcessHandle*), (override));
 };
 
+class MockDeployment : public deployment::Deployment {
+public:
+  MOCK_METHOD(std::unique_ptr<state::SwapLocation>, get_location, (std::string), (override));
+};
+
 class MockBackend : public backend::Backend {
 public:
   MOCK_METHOD(void, allocate_process, (process::ProcessHandle&, const process::Resources&), ());
@@ -25,7 +31,7 @@ public:
   MOCK_METHOD(int, max_vcpus, (), (const));
 };
 
-class ProcessTest : public ::testing::Test {
+class CreateProcessTest : public ::testing::Test {
 protected:
   void SetUp() override
   {
@@ -38,9 +44,10 @@ protected:
   Application _app_create;
   MockBackend backend;
   MockPoller poller;
+  MockDeployment deployment;
 };
 
-TEST_F(ProcessTest, CreateProcess)
+TEST_F(CreateProcessTest, CreateProcess)
 {
 
   // Correct allocation
@@ -95,7 +102,7 @@ TEST_F(ProcessTest, CreateProcess)
   }
 }
 
-TEST_F(ProcessTest, CreateProcessIncorrectConfig)
+TEST_F(CreateProcessTest, CreateProcessIncorrectConfig)
 {
   // Incorrect config, no call
   {
@@ -138,7 +145,7 @@ TEST_F(ProcessTest, CreateProcessIncorrectConfig)
   }
 }
 
-TEST_F(ProcessTest, CreateProcessFailure)
+TEST_F(CreateProcessTest, CreateProcessFailure)
 {
 
   std::string proc_name{"proc3"};
@@ -158,10 +165,9 @@ TEST_F(ProcessTest, CreateProcessFailure)
   EXPECT_CALL(backend, max_vcpus()).Times(1);
 
   EXPECT_THROW(
-    _app_create.add_process(backend, poller, proc_name, std::move(resources)),
-    praas::common::FailedAllocationError
+      _app_create.add_process(backend, poller, proc_name, std::move(resources)),
+      praas::common::FailedAllocationError
   );
   // Verify that there is no leftover left
   EXPECT_THROW(_app_create.get_process(proc_name), praas::common::ObjectDoesNotExist);
-
 }

@@ -28,6 +28,11 @@ namespace praas::control_plane::process {
     return _status;
   }
 
+  state::SessionState& Process::state()
+  {
+    return _state;
+  }
+
   void Process::set_status(Status status)
   {
     _status = status;

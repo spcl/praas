@@ -3,6 +3,7 @@
 #define PRAAS_CONTROLL_PLANE_RESOURCES_HPP
 
 #include <praas/control-plane/backend.hpp>
+#include <praas/control-plane/deployment.hpp>
 #include <praas/control-plane/poller.hpp>
 #include <praas/control-plane/process.hpp>
 
@@ -42,6 +43,8 @@ namespace praas::control_plane {
     Application(Application&& obj) noexcept
     {
       write_lock_t lock{obj._active_mutex};
+      write_lock_t swapped_lock{obj._swapped_mutex};
+      std::lock(lock, swapped_lock);
       this->_name = obj._name;
       this->_active_processes = std::move(obj._active_processes);
       this->_swapped_processes = std::move(obj._swapped_processes);
@@ -50,9 +53,11 @@ namespace praas::control_plane {
     Application& operator=(Application&& obj) noexcept
     {
       if (this != &obj) {
-        write_lock_t lhs_lk(_active_mutex, std::defer_lock);
-        write_lock_t rhs_lk(obj._active_mutex, std::defer_lock);
-        std::lock(lhs_lk, rhs_lk);
+        write_lock_t active_lock(_active_mutex, std::defer_lock);
+        write_lock_t swapped_lock(_swapped_mutex, std::defer_lock);
+        write_lock_t other_active_lock(obj._active_mutex, std::defer_lock);
+        write_lock_t other_swapped_lock(obj._swapped_mutex, std::defer_lock);
+        std::lock(active_lock, swapped_lock, other_active_lock, other_swapped_lock);
         this->_name = obj._name;
         this->_active_processes = std::move(obj._active_processes);
         this->_swapped_processes = std::move(obj._swapped_processes);
@@ -68,17 +73,21 @@ namespace praas::control_plane {
     std::tuple<process::Process::read_lock_t, process::Process*> get_process(const std::string& name
     );
 
-    void swap_process(std::string process_id);
+    std::tuple<process::Process::read_lock_t, process::Process*>
+    get_swapped_process(const std::string& name);
 
-    void delete_process(std::string process_id);
+    void swap_process(std::string process_name, deployment::Deployment& deployment);
+
+    void swapped_process(std::string process_name);
+
+    void delete_process(std::string process_name);
 
     /**
      * @brief
      *
      * @param process_id [TODO:description]
      */
-    void
-    update_metrics(std::string process_id, const process::DataPlaneMetrics&);
+    void update_metrics(std::string process_id, const process::DataPlaneMetrics&);
 
     void invoke(std::string fname, std::string process_id = "");
 
@@ -96,6 +105,7 @@ namespace praas::control_plane {
     lock_t _active_mutex;
     std::unordered_map<std::string, process::Process> _active_processes;
 
+    lock_t _swapped_mutex;
     std::unordered_map<std::string, process::Process> _swapped_processes;
   };
 

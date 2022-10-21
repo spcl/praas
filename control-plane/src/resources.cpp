@@ -4,6 +4,7 @@
 #include <praas/common/exceptions.hpp>
 #include <praas/common/messages.hpp>
 #include <praas/control-plane/backend.hpp>
+#include <praas/control-plane/deployment.hpp>
 #include <praas/control-plane/process.hpp>
 
 #include <fmt/format.h>
@@ -11,7 +12,8 @@
 namespace praas::control_plane {
 
   void Application::add_process(
-      backend::Backend& backend,  poller::Poller& poller, const std::string& name, process::Resources&& resources
+      backend::Backend& backend, poller::Poller& poller, const std::string& name,
+      process::Resources&& resources
   )
   {
 
@@ -72,13 +74,26 @@ namespace praas::control_plane {
 
     auto iter = _active_processes.find(name);
     if (iter != _active_processes.end()) {
-      return std::make_tuple(std::move(iter->second.read_lock()), &iter->second);
+      return std::make_tuple(iter->second.read_lock(), &iter->second);
     } else {
       throw praas::common::ObjectDoesNotExist{name};
     }
   }
 
-  void Application::swap_process(std::string process_name)
+  std::tuple<process::Process::read_lock_t, process::Process*>
+  Application::get_swapped_process(const std::string& name)
+  {
+    read_lock_t lock(_swapped_mutex);
+
+    auto iter = _swapped_processes.find(name);
+    if (iter != _swapped_processes.end()) {
+      return std::make_tuple(iter->second.read_lock(), &iter->second);
+    } else {
+      throw praas::common::ObjectDoesNotExist{name};
+    }
+  }
+
+  void Application::swap_process(std::string process_name, deployment::Deployment& deployment)
   {
     if (process_name.length() == 0) {
       throw praas::common::InvalidConfigurationError("Application name cannot be empty");
@@ -105,28 +120,44 @@ namespace praas::control_plane {
 
     // We no longer need to prevent modifications to the collection of processes.
     // Others will not be able to remove our process.
-    application_lock.release();
+    application_lock.unlock();
 
     // No one else will now try to modify this process
     proc.set_status(process::Status::SWAPPING_OUT);
 
-    proc_lock.release();
-
     // Swap the process
-    // FIXME: generate swap location
-    // proc.handle().backend.get().swap();
+    proc.state().swap = std::move(deployment.get_location(process_name));
+    proc.handle().swap(*proc.state().swap);
+  }
+
+  void Application::swapped_process(std::string process_name)
+  {
+    // Modify internal collections
+    write_lock_t application_lock(_active_mutex);
+
+    auto iter = _active_processes.find(process_name);
+    if (iter == _active_processes.end()) {
+      throw praas::common::ObjectDoesNotExist{process_name};
+    }
+
+    process::Process& proc = (*iter).second;
+    auto proc_lock = proc.write_lock();
+
+    if (proc.status() != process::Status::SWAPPING_OUT) {
+      throw praas::common::SwappingNotAllocatedProcess(
+          "Cannot confirm a swap of non-swapping process"
+      );
+    }
+
+    // Remove process from the container
+    auto nh = _active_processes.extract(iter);
+    application_lock.unlock();
 
     proc.set_status(process::Status::SWAPPED_OUT);
 
-    // Modify internal collections
-    {
-      write_lock_t application_lock(_active_mutex);
-
-      // Remove process from the container
-      auto nh = _active_processes.extract(iter);
-
-      _swapped_processes.insert(std::move(nh));
-    }
+    // Insert into swapped
+    write_lock_t swapped_lock(_swapped_mutex);
+    _swapped_processes.insert(std::move(nh));
   }
 
   void Application::delete_process(std::string process_name)

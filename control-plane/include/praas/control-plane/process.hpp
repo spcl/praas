@@ -3,6 +3,8 @@
 
 #include <praas/control-plane/backend.hpp>
 
+#include <praas/control-plane/state.hpp>
+
 #include <chrono>
 #include <memory>
 #include <mutex>
@@ -100,9 +102,10 @@ namespace praas::control_plane::process {
 
     Status status() const;
 
+    state::SessionState& state();
+
     read_lock_t read_lock() const;
 
-  private:
     /**
      * @brief Acquires an exclusive write lock to the class.
      * This is only allowed to be called by the resource management explicitly.
@@ -116,6 +119,8 @@ namespace praas::control_plane::process {
     void set_handle(process::ProcessHandle&& handle);
     void set_status(Status status);
 
+  private:
+
     Status _status;
 
     std::optional<ProcessHandle> _handle;
@@ -126,7 +131,7 @@ namespace praas::control_plane::process {
 
     // DataPlaneMetrics _metrics;
 
-    // state::SessionState _state;
+    state::SessionState _state;
 
     mutable lock_t _mutex;
   };
