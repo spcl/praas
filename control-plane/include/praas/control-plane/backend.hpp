@@ -2,9 +2,13 @@
 #ifndef PRAAS_CONTROLL_PLANE_BACKEND_HPP
 #define PRAAS_CONTROLL_PLANE_BACKEND_HPP
 
+#include <praas/control-plane/handle.hpp>
+
 #include <memory>
 #include <optional>
 #include <string>
+
+#include <sockpp/socket.h>
 
 namespace praas::control_plane::config {
 
@@ -22,8 +26,6 @@ namespace praas::control_plane::backend {
 
   enum class Type { LOCAL = 0 };
 
-  struct ProcessHandle;
-
   struct Backend {
 
     Backend() = default;
@@ -33,9 +35,7 @@ namespace praas::control_plane::backend {
     Backend& operator=(Backend&&) = delete;
     virtual ~Backend() = default;
 
-    virtual ProcessHandle allocate_process(
-      const process::Resources& resources
-    ) = 0;
+    virtual process::ProcessHandle allocate_process(const process::Resources& resources) = 0;
 
     // close process
     // swap process
@@ -45,12 +45,6 @@ namespace praas::control_plane::backend {
     virtual int max_vcpus() const = 0;
 
     static std::unique_ptr<Backend> construct(const config::Config&);
-  };
-
-  struct ProcessHandle {
-    std::reference_wrapper<Backend> backend;
-    std::string instance_id;
-    std::string resource_id;
   };
 
   // struct Backend {

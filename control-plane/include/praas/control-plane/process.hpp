@@ -61,6 +61,8 @@ namespace praas::control_plane::process {
     {
     }
 
+    ~Process() = default;
+
     Process(const Process& obj) = delete;
     Process& operator=(const Process& obj) = delete;
 
@@ -82,7 +84,7 @@ namespace praas::control_plane::process {
 
         this->_name = obj._name;
         this->_status = obj._status;
-        this->_status = std::move(obj._status);
+        this->_status = obj._status;
         this->_resources = std::move(obj._resources);
       }
       return *this;
@@ -90,7 +92,7 @@ namespace praas::control_plane::process {
 
     std::string name() const;
 
-    const backend::ProcessHandle& handle() const;
+    const process::ProcessHandle& handle() const;
 
     bool has_handle() const;
 
@@ -109,14 +111,14 @@ namespace praas::control_plane::process {
      */
     write_lock_t write_lock() const;
 
-    void set_handle(backend::ProcessHandle&& handle);
+    void set_handle(process::ProcessHandle&& handle);
     void set_status(Status status);
 
     Status _status;
 
     std::string _name;
 
-    std::optional<backend::ProcessHandle> _handle;
+    std::optional<ProcessHandle> _handle;
 
     Resources _resources;
 

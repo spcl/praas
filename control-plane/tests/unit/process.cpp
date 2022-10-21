@@ -1,8 +1,10 @@
 
 #include <praas/common/exceptions.hpp>
 #include <praas/control-plane/backend.hpp>
+#include <praas/control-plane/handle.hpp>
 #include <praas/control-plane/resources.hpp>
 
+#include <gmock/gmock-actions.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -10,7 +12,7 @@ using namespace praas::control_plane;
 
 class MockBackend : public backend::Backend {
 public:
-  MOCK_METHOD(backend::ProcessHandle, allocate_process, (const process::Resources&), ());
+  MOCK_METHOD(process::ProcessHandle, allocate_process, (const process::Resources&), ());
   MOCK_METHOD(int, max_memory, (), (const));
   MOCK_METHOD(int, max_vcpus, (), (const));
 };
@@ -36,12 +38,12 @@ TEST_F(ProcessTest, CreateProcess)
   {
     std::string proc_name{"proc1"};
     std::string resource_name{"sandbox"};
-    backend::ProcessHandle handle{backend, "id", resource_name};
+    process::ProcessHandle handle{backend, "id", resource_name};
     process::Resources resources{1, 128, resource_name};
 
     EXPECT_CALL(backend, allocate_process(testing::_))
         .Times(testing::Exactly(1))
-        .WillOnce(testing::Return(handle));
+        .WillOnce(testing::Return(testing::ByMove(std::move(handle))));
 
     _app_create.add_process(backend, proc_name, std::move(resources));
     auto [lock, proc] = _app_create.get_process(proc_name);
@@ -115,7 +117,7 @@ TEST_F(ProcessTest, CreateProcessFailure)
 
   std::string proc_name{"proc3"};
   std::string resource_name{"sandbox"};
-  backend::ProcessHandle handle{backend, "id", resource_name};
+  process::ProcessHandle handle{backend, "id", resource_name};
   process::Resources resources{1, 128, resource_name};
 
   EXPECT_CALL(backend, allocate_process(testing::_))

@@ -93,7 +93,6 @@ namespace praas::control_plane {
     lock_t _active_mutex;
     std::unordered_map<std::string, process::Process> _active_processes;
 
-    lock_t _swapped_mutex;
     std::unordered_map<std::string, process::Process> _swapped_processes;
   };
 

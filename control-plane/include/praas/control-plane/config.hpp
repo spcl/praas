@@ -57,6 +57,10 @@ namespace praas::control_plane::config {
 
   struct BackendLocal : Backend {};
 
+  struct Deployment {
+
+  };
+
   struct Config {
 
     HTTPServer http;

@@ -2,45 +2,43 @@
 
 namespace praas::control_plane::process {
 
-  std::string process::Process::name() const
+  std::string Process::name() const
   {
     return _name;
   }
 
-  void process::Process::set_handle(backend::ProcessHandle&& handle)
+  void Process::set_handle(ProcessHandle&& handle)
   {
-    auto lock = write_lock();
     _handle = std::move(handle);
     _status = Status::ALLOCATED;
   }
 
-  const backend::ProcessHandle& process::Process::handle() const
+  const ProcessHandle& process::Process::handle() const
   {
     return _handle.value();
   }
 
-  bool process::Process::has_handle() const
+  bool Process::has_handle() const
   {
     return _handle.has_value();
   }
 
-  process::Status process::Process::status() const
+  Status Process::status() const
   {
     return _status;
   }
 
-  void process::Process::set_status(Status status)
+  void Process::set_status(Status status)
   {
-    auto lock = write_lock();
     _status = status;
   }
 
-  process::Process::read_lock_t process::Process::read_lock() const
+  Process::read_lock_t Process::read_lock() const
   {
-    return std::move(read_lock_t{_mutex});
+    return read_lock_t{_mutex};
   }
 
-  process::Process::write_lock_t process::Process::write_lock() const
+  Process::write_lock_t Process::write_lock() const
   {
     return write_lock_t{_mutex};
   }
