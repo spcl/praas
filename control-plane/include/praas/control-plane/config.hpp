@@ -53,6 +53,16 @@ namespace praas::control_plane::config {
     void set_defaults();
   };
 
+  struct TCPServer {
+    static constexpr int DEFAULT_PORT = 1000;
+
+    int port;
+
+    void load(cereal::JSONInputArchive & archive);
+    void set_defaults();
+  };
+
+
   struct Backend {};
 
   struct BackendLocal : Backend {};
@@ -66,6 +76,7 @@ namespace praas::control_plane::config {
     HTTPServer http;
     Workers workers;
     DownScaler down_scaler;
+    TCPServer tcpserver;
 
     deployment::Type deployment_type;
 

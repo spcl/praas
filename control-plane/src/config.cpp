@@ -60,6 +60,16 @@ namespace praas::control_plane::config {
     swapping_threshold = DEFAULT_SWAPPING_THRESHOLD;
   }
 
+  void TCPServer::load(cereal::JSONInputArchive& archive)
+  {
+    archive(CEREAL_NVP(port));
+  }
+
+  void TCPServer::set_defaults()
+  {
+    port = DEFAULT_PORT;
+  }
+
   Config Config::deserialize(std::istream& in_stream)
   {
     Config cfg;
@@ -100,6 +110,8 @@ namespace praas::control_plane::config {
     load_optional(archive, "http", this->http);
     load_optional(archive, "workers", this->workers);
     load_optional(archive, "downscaler", this->down_scaler);
+    load_optional(archive, "tcpserver", this->tcpserver);
+
   }
 
 } // namespace praas::control_plane::config

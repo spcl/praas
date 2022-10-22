@@ -29,6 +29,8 @@ TEST(Config, BasicConfig)
 
   EXPECT_EQ(cfg.down_scaler.polling_interval, DownScaler::DEFAULT_POLLING_INTERVAL);
   EXPECT_EQ(cfg.down_scaler.swapping_threshold, DownScaler::DEFAULT_SWAPPING_THRESHOLD);
+
+  EXPECT_EQ(cfg.tcpserver.port, TCPServer::DEFAULT_PORT);
 }
 
 TEST(Config, HTTPConfig)
@@ -154,6 +156,38 @@ TEST(Config, DownScalerConfig)
         "verbose": true,
         "downscaler": {
           "polling_interval": 30
+        }
+      }
+    )";
+
+    std::stringstream stream{config};
+    EXPECT_THROW(Config::deserialize(stream), praas::common::InvalidConfigurationError);
+  }
+}
+
+TEST(Config, TCPServerConfig)
+{
+  {
+    std::string config = R"(
+      {
+        "verbose": true,
+        "tcpserver": {
+          "port": 2000
+        }
+      }
+    )";
+
+    std::stringstream stream{config};
+    Config cfg = Config::deserialize(stream);
+
+    EXPECT_EQ(cfg.tcpserver.port, 2000);
+  }
+
+  {
+    std::string config = R"(
+      {
+        "verbose": true,
+        "tcpserver": {
         }
       }
     )";
