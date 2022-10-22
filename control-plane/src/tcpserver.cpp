@@ -5,7 +5,7 @@
 
 namespace praas::control_plane::tcpserver {
 
-  TCPServer::TCPServer(config::TCPServer& options)
+  TCPServer::TCPServer(const config::TCPServer& options)
   {
     _listen.open(options.port);
   }

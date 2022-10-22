@@ -12,7 +12,7 @@
 namespace praas::control_plane {
 
   void Application::add_process(
-      backend::Backend& backend, poller::Poller& poller, const std::string& name,
+      backend::Backend& backend, tcpserver::TCPServer& poller, const std::string& name,
       process::Resources&& resources
   )
   {

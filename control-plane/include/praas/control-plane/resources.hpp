@@ -4,7 +4,7 @@
 
 #include <praas/control-plane/backend.hpp>
 #include <praas/control-plane/deployment.hpp>
-#include <praas/control-plane/poller.hpp>
+#include <praas/control-plane/tcpserver.hpp>
 #include <praas/control-plane/process.hpp>
 
 #include <memory>
@@ -66,7 +66,7 @@ namespace praas::control_plane {
     }
 
     void add_process(
-        backend::Backend& backend, poller::Poller& poller, const std::string& name,
+        backend::Backend& backend, tcpserver::TCPServer& poller, const std::string& name,
         process::Resources&& resources
     );
 

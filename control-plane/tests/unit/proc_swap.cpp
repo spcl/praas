@@ -1,11 +1,12 @@
 
 #include <praas/common/exceptions.hpp>
 #include <praas/control-plane/backend.hpp>
+#include <praas/control-plane/config.hpp>
 #include <praas/control-plane/deployment.hpp>
 #include <praas/control-plane/handle.hpp>
-#include <praas/control-plane/poller.hpp>
 #include <praas/control-plane/process.hpp>
 #include <praas/control-plane/resources.hpp>
+#include <praas/control-plane/tcpserver.hpp>
 
 #include <gmock/gmock-actions.h>
 #include <gmock/gmock.h>
@@ -13,8 +14,10 @@
 
 using namespace praas::control_plane;
 
-class MockPoller : public poller::Poller {
+class MockTCPServer : public tcpserver::TCPServer {
 public:
+  MockTCPServer() : tcpserver::TCPServer(config::TCPServer{}) {}
+
   MOCK_METHOD(void, add_handle, (const process::ProcessHandle*), (override));
   MOCK_METHOD(void, remove_handle, (const process::ProcessHandle*), (override));
 };
@@ -22,7 +25,7 @@ public:
 class MockDeployment : public deployment::Deployment {
 public:
   MOCK_METHOD(std::unique_ptr<state::SwapLocation>, get_location, (std::string), (override));
-  MOCK_METHOD(void, delete_swap, (const state::SwapLocation& ), (override));
+  MOCK_METHOD(void, delete_swap, (const state::SwapLocation&), (override));
 };
 
 class MockBackend : public backend::Backend {
@@ -44,7 +47,7 @@ protected:
 
   Application _app_create;
   MockBackend backend;
-  MockPoller poller;
+  MockTCPServer poller;
   MockDeployment deployment;
 };
 
@@ -93,10 +96,7 @@ TEST_F(SwapProcessTest, SwapProcess)
 
   EXPECT_CALL(deployment, get_location(testing::_)).Times(0);
 
-  EXPECT_THROW(
-    _app_create.swap_process(proc_name, deployment),
-    praas::common::InvalidProcessState
-  );
+  EXPECT_THROW(_app_create.swap_process(proc_name, deployment), praas::common::InvalidProcessState);
 }
 
 TEST_F(SwapProcessTest, SwapProcessFail)
@@ -115,20 +115,13 @@ TEST_F(SwapProcessTest, SwapProcessFail)
 
   EXPECT_CALL(deployment, get_location(testing::_)).Times(0);
 
-  EXPECT_THROW(
-    _app_create.swap_process(proc_name, deployment),
-    praas::common::InvalidProcessState
-  );
+  EXPECT_THROW(_app_create.swap_process(proc_name, deployment), praas::common::InvalidProcessState);
 
   // Non-existing process
 
   EXPECT_CALL(deployment, get_location(testing::_)).Times(0);
 
-  EXPECT_THROW(
-    _app_create.swap_process("proc2", deployment),
-    praas::common::ObjectDoesNotExist
-  );
-
+  EXPECT_THROW(_app_create.swap_process("proc2", deployment), praas::common::ObjectDoesNotExist);
 }
 
 TEST_F(SwapProcessTest, FullSwapProcess)
@@ -163,10 +156,7 @@ TEST_F(SwapProcessTest, FullSwapProcess)
     // Manually progress swapping and verify it is swapped
     _app_create.swapped_process(proc_name);
 
-    EXPECT_THROW(
-      _app_create.get_process(proc_name),
-      praas::common::ObjectDoesNotExist
-    );
+    EXPECT_THROW(_app_create.get_process(proc_name), praas::common::ObjectDoesNotExist);
 
     auto [lock, proc] = _app_create.get_swapped_process(proc_name);
     EXPECT_EQ(proc->name(), proc_name);
@@ -177,8 +167,5 @@ TEST_F(SwapProcessTest, FullSwapProcess)
 
   EXPECT_CALL(deployment, get_location(testing::_)).Times(0);
 
-  EXPECT_THROW(
-    _app_create.swap_process(proc_name, deployment),
-    praas::common::ObjectDoesNotExist
-  );
+  EXPECT_THROW(_app_create.swap_process(proc_name, deployment), praas::common::ObjectDoesNotExist);
 }

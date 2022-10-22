@@ -32,7 +32,7 @@ namespace praas::control_plane::tcpserver {
 
   class TCPServer {
   public:
-    TCPServer(config::TCPServer&);
+    TCPServer(const config::TCPServer&);
 
 #if defined(WITH_TESTING)
     virtual void add_handle(const process::ProcessHandle*);

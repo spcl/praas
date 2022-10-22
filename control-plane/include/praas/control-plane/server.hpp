@@ -46,29 +46,6 @@ namespace praas::control_plane {
     //// subprocesses/sessions, or to read new messages from subprocesses.
     //int _epoll_fd;
 
-    //// This assumes that the pointer to the socket does NOT change after
-    //// submitting to epoll.
-    //template <typename T>
-    //bool mod_epoll(int handle, T* data, uint32_t epoll_events)
-    //{
-    //  spdlog::debug(
-    //      "Adding to epoll connection, fd {}, ptr {}, events {}", handle,
-    //      fmt::ptr(static_cast<void*>(data)), epoll_events
-    //  );
-
-    //  epoll_event event;
-    //  memset(&event, 0, sizeof(epoll_event));
-    //  event.events = epoll_events;
-    //  event.data.ptr = static_cast<void*>(data);
-
-    //  if (epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, handle, &event) == -1) {
-    //    spdlog::error(
-    //        "Adding socket to epoll failed, reason: {}", strerror(errno)
-    //    );
-    //    return false;
-    //  }
-    //  return true;
-    //}
 
     //// This assumes that the pointer to the socket does NOT change after
     //// submitting to epoll.

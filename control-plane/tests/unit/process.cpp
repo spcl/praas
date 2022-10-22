@@ -1,11 +1,12 @@
 
 #include <praas/common/exceptions.hpp>
 #include <praas/control-plane/backend.hpp>
+#include <praas/control-plane/config.hpp>
 #include <praas/control-plane/deployment.hpp>
 #include <praas/control-plane/handle.hpp>
-#include <praas/control-plane/poller.hpp>
 #include <praas/control-plane/process.hpp>
 #include <praas/control-plane/resources.hpp>
+#include <praas/control-plane/tcpserver.hpp>
 
 #include <gmock/gmock-actions.h>
 #include <gmock/gmock.h>
@@ -13,8 +14,10 @@
 
 using namespace praas::control_plane;
 
-class MockPoller : public poller::Poller {
+class MockTCPServer : public tcpserver::TCPServer {
 public:
+  MockTCPServer() : tcpserver::TCPServer(config::TCPServer{}) {}
+
   MOCK_METHOD(void, add_handle, (const process::ProcessHandle*), (override));
   MOCK_METHOD(void, remove_handle, (const process::ProcessHandle*), (override));
 };
@@ -22,7 +25,7 @@ public:
 class MockDeployment : public deployment::Deployment {
 public:
   MOCK_METHOD(std::unique_ptr<state::SwapLocation>, get_location, (std::string), (override));
-  MOCK_METHOD(void, delete_swap, (const state::SwapLocation& ), (override));
+  MOCK_METHOD(void, delete_swap, (const state::SwapLocation&), (override));
 };
 
 class MockBackend : public backend::Backend {
@@ -44,7 +47,7 @@ protected:
 
   Application _app_create;
   MockBackend backend;
-  MockPoller poller;
+  MockTCPServer poller;
   MockDeployment deployment;
 };
 
