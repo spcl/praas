@@ -75,16 +75,11 @@ if(WITH_TESTING)
   )
   foreach(test ${TESTS})
 
-    string(REPLACE "." "_" test_name ${test})
-    string(REPLACE "/" "_" test_name ${test})
-    add_executable(${test_name} ${test})
+    PraaS_AddTest(test_name ${test})
     control_plane_dependencies(${test_name})
     target_link_libraries(${test_name} PRIVATE control_plane_lib)
-    target_link_libraries(${test_name} PRIVATE GTest::gtest_main)
-    target_link_libraries(${test_name} PRIVATE GTest::gmock_main)
     control_plane_link(${test_name})
 
-    gtest_discover_tests(${test_name})
   endforeach()
 
 endif()

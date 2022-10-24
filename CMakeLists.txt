@@ -54,24 +54,25 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake;${CMAKE_MODULE_PATH}")
 include(dependencies)
 
 ###
-# Common system library.
-###
-file(GLOB common_library_files "common/src/*.cpp")
-add_library(common_library STATIC ${common_library_files})
-target_include_directories(common_library PUBLIC "common/include")
-set_target_properties(common_library PROPERTIES RUNTIME_OUTPUT_DIRECTORY lib)
-
-###
 # Enable testing
 ###
 if(WITH_TESTING)
 
   enable_testing()
   include(GoogleTest)
+  include(AddTest)
   add_compile_definitions(WITH_TESTING)
   add_feature_info(testing ON "enabled")
 
 endif()
+
+###
+# Common system library.
+###
+file(GLOB common_library_files "common/src/*.cpp")
+add_library(common_library STATIC ${common_library_files})
+target_include_directories(common_library PUBLIC "common/include")
+set_target_properties(common_library PROPERTIES RUNTIME_OUTPUT_DIRECTORY lib)
 
 if(NOT PRAAS_DEPLOYMENTS)
 
