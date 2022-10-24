@@ -57,6 +57,7 @@ namespace praas::control_plane::config {
     static constexpr int DEFAULT_PORT = 1000;
 
     int port;
+    bool use_threadpool;
 
     void load(cereal::JSONInputArchive & archive);
     void set_defaults();

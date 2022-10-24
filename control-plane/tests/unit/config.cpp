@@ -31,6 +31,7 @@ TEST(Config, BasicConfig)
   EXPECT_EQ(cfg.down_scaler.swapping_threshold, DownScaler::DEFAULT_SWAPPING_THRESHOLD);
 
   EXPECT_EQ(cfg.tcpserver.port, TCPServer::DEFAULT_PORT);
+  EXPECT_EQ(cfg.tcpserver.use_threadpool, false);
 }
 
 TEST(Config, HTTPConfig)
@@ -172,7 +173,8 @@ TEST(Config, TCPServerConfig)
       {
         "verbose": true,
         "tcpserver": {
-          "port": 2000
+          "port": 2000,
+          "use_threadpool": true
         }
       }
     )";
@@ -181,6 +183,7 @@ TEST(Config, TCPServerConfig)
     Config cfg = Config::deserialize(stream);
 
     EXPECT_EQ(cfg.tcpserver.port, 2000);
+    EXPECT_EQ(cfg.tcpserver.use_threadpool, true);
   }
 
   {
