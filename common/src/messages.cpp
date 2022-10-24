@@ -1,150 +1,223 @@
+#include <praas/common/messages.hpp>
+
+#include <praas/common/exceptions.hpp>
 
 #include <cstring>
 
-#include <praas/common/messages.hpp>
+#include <fmt/format.h>
 
-namespace praas::common {
+namespace praas::common::message {
 
-  std::unique_ptr<MessageType> Header::parse()
+  Message::Type Message::type() const
   {
-    int16_t type = *reinterpret_cast<int16_t*>(data.data());
-    if (type == static_cast<int16_t>(MessageType::Type::PROCESS_CONNECTION)) {
-      return std::make_unique<ProcessConnectionMessage>(data.data() + 2);
-    } else if (type == static_cast<int16_t>(MessageType::Type::SWAP_CONFIRMATION)) {
-      return std::make_unique<SwapConfirmation>(data.data() + 2);
-    } else if (type == static_cast<int16_t>(MessageType::Type::INVOCATION_RESPONSE)) {
-      return std::make_unique<InvocationResponseMessage>(data.data() + 2);
-    } else if (type == static_cast<int16_t>(MessageType::Type::DATAPLANE_METRICS)) {
-      return std::make_unique<DataPlaneMetricsMessage>(data.data() + 2);
-    } else if (type == static_cast<int16_t>(MessageType::Type::PROCESS_CLOSURE)) {
-      return std::make_unique<ClosureMessage>(data.data() + 2);
-    } else {
-      return nullptr;
+    int16_t type = *reinterpret_cast<const int16_t*>(data.data());
+
+    if (type >= static_cast<int16_t>(Type::END_FLAG) ||
+        type < static_cast<int16_t>(Type::GENERIC_HEADER)) {
+      throw common::InvalidMessage{fmt::format("Invalid type value for Message: {}", type)};
     }
+
+    return static_cast<Type>(type);
   }
 
-  std::string ProcessConnectionMessage::process_name() const
+  Message::MessageVariants Message::parse()
   {
-    return std::string{reinterpret_cast<char*>(buf + 2), Header::NAME_LENGTH};
+    Type type = this->type();
+
+    if (type == Type::PROCESS_CONNECTION) {
+      return MessageVariants{ProcessConnectionParsed(data.data() + HEADER_OFFSET)};
+    }
+
+    if (type == Type::SWAP_CONFIRMATION) {
+      return MessageVariants{SwapConfirmationParsed(data.data() + HEADER_OFFSET)};
+    }
+
+    if (type == Type::INVOCATION_REQUEST) {
+      return MessageVariants{InvocationRequestParsed(data.data() + HEADER_OFFSET)};
+    }
+
+    if (type == Type::INVOCATION_RESULT) {
+      return MessageVariants{InvocationResultParsed(data.data() + HEADER_OFFSET)};
+    }
+
+    if (type == Type::INVOCATION_RESULT) {
+      return MessageVariants{InvocationResultParsed(data.data() + HEADER_OFFSET)};
+    }
+
+    if (type == Type::DATAPLANE_METRICS) {
+      return MessageVariants{DataPlaneMetricsParsed(data.data() + HEADER_OFFSET)};
+    }
+
+    if (type == Type::PROCESS_CLOSURE) {
+      return MessageVariants{ProcessClosureParsed(data.data() + HEADER_OFFSET)};
+    }
+
+    throw common::NotImplementedError{};
   }
 
-  MessageType::Type ProcessConnectionMessage::type() const
+  std::string_view ProcessConnectionParsed::process_name() const
   {
-    return MessageType::Type::PROCESS_CONNECTION;
+    // NOLINTNEXTLINE
+    return std::string_view{reinterpret_cast<char*>(buf), process_name_len};
   }
 
-  MessageType::Type SwapConfirmation::type() const
+  void ProcessConnection::process_name(const std::string& name)
   {
-    return MessageType::Type::SWAP_CONFIRMATION;
+    if (name.length() > Message::NAME_LENGTH) {
+      throw common::InvalidArgument{
+          fmt::format("Process name too long: {} > {}", name.length(), Message::NAME_LENGTH)};
+    }
+    std::strncpy(
+        // NOLINTNEXTLINE
+        reinterpret_cast<char*>(data.data() + HEADER_OFFSET), name.data(), Message::NAME_LENGTH
+    );
+    process_name_len = name.length();
   }
 
-  std::string InvocationResponseMessage::invocation_id() const
+  Message::Type ProcessConnectionParsed::type()
   {
-    return std::string{reinterpret_cast<char*>(buf), Header::NAME_LENGTH};
+    return Message::Type::PROCESS_CONNECTION;
   }
 
-  int32_t InvocationResponseMessage::response_size() const
+  Message::Type SwapConfirmationParsed::type()
   {
-    return *reinterpret_cast<int32_t*>(buf + Header::NAME_LENGTH);
+    return Message::Type::SWAP_CONFIRMATION;
   }
 
-  MessageType::Type InvocationResponseMessage::type() const
+  std::string_view InvocationRequestParsed::invocation_id() const
   {
-    return MessageType::Type::INVOCATION_RESPONSE;
+    // NOLINTNEXTLINE
+    return std::string_view{reinterpret_cast<char*>(buf), invocation_id_len};
   }
 
-  int32_t DataPlaneMetricsMessage::invocations() const
+  int32_t InvocationRequestParsed::payload_size() const
   {
+    // NOLINTNEXTLINE
+    return *reinterpret_cast<int32_t*>(buf + Message::NAME_LENGTH);
+  }
+
+  Message::Type InvocationRequestParsed::type()
+  {
+    return Message::Type::INVOCATION_REQUEST;
+  }
+
+  void InvocationRequest::invocation_id(const std::string& name)
+  {
+    if (name.length() > Message::NAME_LENGTH) {
+      throw common::InvalidArgument{
+          fmt::format("Invocation ID too long: {} > {}", name.length(), Message::NAME_LENGTH)};
+    }
+    std::strncpy(
+        // NOLINTNEXTLINE
+        reinterpret_cast<char*>(data.data() + HEADER_OFFSET), name.data(), Message::NAME_LENGTH
+    );
+    invocation_id_len = name.length();
+  }
+
+  void InvocationRequest::payload_size(int32_t size)
+  {
+    if (size < 0) {
+      throw common::InvalidArgument{fmt::format("Payload size too small: {}", size)};
+    }
+
+    // NOLINTNEXTLINE
+    *reinterpret_cast<int32_t*>(buf + Message::NAME_LENGTH) = size;
+  }
+
+  std::string_view InvocationResultParsed::invocation_id() const
+  {
+    // NOLINTNEXTLINE
+    return std::string_view{reinterpret_cast<char*>(buf), invocation_id_len};
+  }
+
+  int32_t InvocationResultParsed::response_size() const
+  {
+    // NOLINTNEXTLINE
+    return *reinterpret_cast<int32_t*>(buf + Message::NAME_LENGTH);
+  }
+
+  Message::Type InvocationResultParsed::type()
+  {
+    return Message::Type::INVOCATION_RESULT;
+  }
+
+  void InvocationResult::invocation_id(const std::string& invocation_id)
+  {
+    if (invocation_id.length() > Message::NAME_LENGTH) {
+      throw common::InvalidArgument{fmt::format(
+          "Invocation ID too long: {} > {}", invocation_id.length(), Message::NAME_LENGTH
+      )};
+    }
+    std::strncpy(
+        // NOLINTNEXTLINE
+        reinterpret_cast<char*>(data.data() + HEADER_OFFSET), invocation_id.data(),
+        Message::NAME_LENGTH
+    );
+    invocation_id_len = invocation_id.length();
+  }
+
+  void InvocationResult::response_size(int32_t size)
+  {
+    if (size < 0) {
+      throw common::InvalidArgument{fmt::format("Response size too small: {}", size)};
+    }
+
+    // NOLINTNEXTLINE
+    *reinterpret_cast<int32_t*>(buf + Message::NAME_LENGTH) = size;
+  }
+
+  int32_t DataPlaneMetricsParsed::invocations() const
+  {
+    // NOLINTNEXTLINE
     return *reinterpret_cast<int32_t*>(buf);
   }
 
-  int32_t DataPlaneMetricsMessage::computation_time() const
+  int32_t DataPlaneMetricsParsed::computation_time() const
   {
+    // NOLINTNEXTLINE
     return *reinterpret_cast<int32_t*>(buf + 4);
   }
 
-  uint64_t DataPlaneMetricsMessage::last_invocation_timestamp() const
+  uint64_t DataPlaneMetricsParsed::last_invocation_timestamp() const
   {
+    // NOLINTNEXTLINE
     return *reinterpret_cast<uint64_t*>(buf + 8);
   }
 
-  MessageType::Type DataPlaneMetricsMessage::type() const
+  void DataPlaneMetrics::invocations(int32_t invocations)
   {
-    return MessageType::Type::DATAPLANE_METRICS;
+    if (invocations < 0) {
+      throw common::InvalidArgument{fmt::format("Incorrect number of invocations {}", invocations)};
+    }
+
+    // NOLINTNEXTLINE
+    *reinterpret_cast<int32_t*>(buf) = invocations;
   }
 
-  MessageType::Type ClosureMessage::type() const
+  void DataPlaneMetrics::computation_time(int32_t time)
   {
-    return MessageType::Type::PROCESS_CLOSURE;
+    if (time < 0) {
+      throw common::InvalidArgument{fmt::format("Incorrect computation time {}", time)};
+    }
+
+    // NOLINTNEXTLINE
+    *reinterpret_cast<int32_t*>(buf + 4) = time;
   }
 
-  //int16_t SessionRequest::max_functions()
-  //{
-  //  return *reinterpret_cast<int16_t*>(data.data() + 2);
-  //}
+  void DataPlaneMetrics::last_invocation_timestamp(uint64_t timestamp)
+  {
+    // NOLINTNEXTLINE
+    *reinterpret_cast<uint64_t*>(buf + 8) = timestamp;
+  }
 
-  //int32_t SessionRequest::memory_size()
-  //{
-  //  return *reinterpret_cast<int32_t*>(data.data() + 4);
-  //}
+  Message::Type DataPlaneMetricsParsed::type()
+  {
+    return Message::Type::DATAPLANE_METRICS;
+  }
 
-  //std::string SessionRequest::session_id()
-  //{
-  //  return std::string{reinterpret_cast<char*>(data.data() + 10), 16};
-  //}
+  Message::Type ProcessClosureParsed::type()
+  {
+    return Message::Type::PROCESS_CLOSURE;
+  }
 
-  //ssize_t SessionRequest::fill(std::string session_id, int32_t max_functions, int32_t memory_size)
-  //{
-  //  *reinterpret_cast<int16_t*>(data.data()) =
-  //      static_cast<int16_t>(Request::Type::SESSION_ALLOCATION);
-  //  *reinterpret_cast<int32_t*>(data.data() + 2) = max_functions;
-  //  *reinterpret_cast<int32_t*>(data.data() + 6) = memory_size;
-  //  std::strncpy(reinterpret_cast<char*>(data.data() + 10), session_id.data(), 16);
-  //  return EXPECTED_LENGTH;
-  //}
-
-  //int16_t ProcessRequest::max_sessions()
-  //{
-  //  return *reinterpret_cast<int16_t*>(data.data() + 2);
-  //}
-
-  //int32_t ProcessRequest::port()
-  //{
-  //  return *reinterpret_cast<int32_t*>(data.data() + 4);
-  //}
-
-  //std::string ProcessRequest::ip_address()
-  //{
-  //  return std::string{reinterpret_cast<char*>(data.data() + 8), 15};
-  //}
-
-  //std::string ProcessRequest::process_id()
-  //{
-  //  return std::string{reinterpret_cast<char*>(data.data() + 23), 16};
-  //}
-
-  //ssize_t ProcessRequest::fill(
-  //    int16_t sessions, int32_t port, std::string ip_address, std::string process_id
-  //)
-  //{
-  //  *reinterpret_cast<int16_t*>(data.data()) =
-  //      static_cast<int16_t>(Request::Type::PROCESS_ALLOCATION);
-  //  *reinterpret_cast<int16_t*>(data.data() + 2) = sessions;
-  //  *reinterpret_cast<int32_t*>(data.data() + 4) = port;
-  //  std::strncpy(reinterpret_cast<char*>(data.data() + 8), ip_address.data(), 15);
-  //  std::strncpy(reinterpret_cast<char*>(data.data() + 23), process_id.data(), 16);
-  //  return EXPECTED_LENGTH;
-  //}
-
-  //ssize_t
-  //FunctionRequest::fill(std::string function_name, std::string function_id, int32_t payload_size)
-  //{
-  //  *reinterpret_cast<int16_t*>(data.data()) =
-  //      static_cast<int16_t>(Request::Type::FUNCTION_INVOCATION);
-  //  *reinterpret_cast<int16_t*>(data.data() + 2) = payload_size;
-  //  std::strncpy(reinterpret_cast<char*>(data.data() + 6), function_name.data(), 16);
-  //  std::strncpy(reinterpret_cast<char*>(data.data() + 22), function_id.data(), 16);
-  //  return EXPECTED_LENGTH;
-  //}
-
-} // namespace praas::common
+} // namespace praas::common::message

@@ -41,6 +41,16 @@ namespace praas::common {
     InvalidProcessState(const std::string& name) : PraaSException(name) {}
   };
 
+  struct InvalidMessage : PraaSException {
+
+    InvalidMessage(const std::string& name) : PraaSException(name) {}
+  };
+
+  struct InvalidArgument : PraaSException {
+
+    InvalidArgument(const std::string& name) : PraaSException(name) {}
+  };
+
 } // namespace praas::common
 
 #endif
