@@ -82,37 +82,50 @@ TEST(Messages, InvocationRequestMsg)
 {
   {
     std::string invoc_id{"invoc-id-42"};
+    std::string fname{"test-name"};
     int32_t payload_size{32};
 
     InvocationRequest req;
     req.invocation_id(invoc_id);
+    req.function_name(fname);
     req.payload_size(payload_size);
 
     EXPECT_EQ(req.invocation_id(), invoc_id);
     EXPECT_EQ(req.payload_size(), payload_size);
+    EXPECT_EQ(req.function_name(), fname);
     EXPECT_EQ(req.type(), Message::Type::INVOCATION_REQUEST);
   }
 
   {
-    std::string invoc_id(ProcessConnection::NAME_LENGTH, 't');
+    std::string invoc_id(ProcessConnection::ID_LENGTH, 't');
+    std::string fname(ProcessConnection::NAME_LENGTH, 'a');
     int32_t payload_size{0};
 
     InvocationRequest req;
     req.invocation_id(invoc_id);
     req.payload_size(payload_size);
+    req.function_name(fname);
 
     EXPECT_EQ(req.invocation_id(), invoc_id);
     EXPECT_EQ(req.payload_size(), payload_size);
+    EXPECT_EQ(req.function_name(), fname);
   }
 }
 
 TEST(Messages, InvocationRequestMsgIncorrect)
 {
   {
-    std::string invoc_id(ProcessConnection::NAME_LENGTH + 1, 't');
+    std::string invoc_id(ProcessConnection::ID_LENGTH + 1, 't');
 
     InvocationRequest req;
     EXPECT_THROW(req.invocation_id(invoc_id), praas::common::InvalidArgument);
+  }
+
+  {
+    std::string fname(ProcessConnection::NAME_LENGTH + 1, 'c');
+
+    InvocationRequest req;
+    EXPECT_THROW(req.function_name(fname), praas::common::InvalidArgument);
   }
 
   {
@@ -124,11 +137,13 @@ TEST(Messages, InvocationRequestMsgIncorrect)
 TEST(Messages, InvocationRequestMsgParse)
 {
   std::string invoc_id{"invoc-id-42"};
+    std::string fname{"test-name"};
   int32_t payload_size{32};
 
   InvocationRequest req;
   req.invocation_id(invoc_id);
   req.payload_size(payload_size);
+  req.function_name(fname);
 
   Message& msg = *static_cast<Message*>(&req);
   auto parsed = msg.parse();

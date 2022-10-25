@@ -86,14 +86,21 @@ namespace praas::common::message {
 
   std::string_view InvocationRequestParsed::invocation_id() const
   {
+    return std::string_view{
     // NOLINTNEXTLINE
-    return std::string_view{reinterpret_cast<char*>(buf), invocation_id_len};
+        reinterpret_cast<char*>(buf + Message::NAME_LENGTH + 4), invocation_id_len};
+  }
+
+  std::string_view InvocationRequestParsed::function_name() const
+  {
+    // NOLINTNEXTLINE
+    return std::string_view{reinterpret_cast<char*>(buf + 4), fname_len};
   }
 
   int32_t InvocationRequestParsed::payload_size() const
   {
     // NOLINTNEXTLINE
-    return *reinterpret_cast<int32_t*>(buf + Message::NAME_LENGTH);
+    return *reinterpret_cast<int32_t*>(buf);
   }
 
   Message::Type InvocationRequestParsed::type()
@@ -103,15 +110,29 @@ namespace praas::common::message {
 
   void InvocationRequest::invocation_id(const std::string& name)
   {
-    if (name.length() > Message::NAME_LENGTH) {
+    if (name.length() > Message::ID_LENGTH) {
       throw common::InvalidArgument{
-          fmt::format("Invocation ID too long: {} > {}", name.length(), Message::NAME_LENGTH)};
+          fmt::format("Invocation ID too long: {} > {}", name.length(), Message::ID_LENGTH)};
     }
     std::strncpy(
         // NOLINTNEXTLINE
-        reinterpret_cast<char*>(data.data() + HEADER_OFFSET), name.data(), Message::NAME_LENGTH
+        reinterpret_cast<char*>(buf + Message::NAME_LENGTH + 4),
+        name.data(), Message::ID_LENGTH
     );
     invocation_id_len = name.length();
+  }
+
+  void InvocationRequest::function_name(const std::string& name)
+  {
+    if (name.length() > Message::NAME_LENGTH) {
+      throw common::InvalidArgument{
+          fmt::format("Function name too long: {} > {}", name.length(), Message::NAME_LENGTH)};
+    }
+    std::strncpy(
+        // NOLINTNEXTLINE
+        reinterpret_cast<char*>(buf + 4), name.data(), Message::NAME_LENGTH
+    );
+    fname_len = name.length();
   }
 
   void InvocationRequest::payload_size(int32_t size)
@@ -121,7 +142,7 @@ namespace praas::common::message {
     }
 
     // NOLINTNEXTLINE
-    *reinterpret_cast<int32_t*>(buf + Message::NAME_LENGTH) = size;
+    *reinterpret_cast<int32_t*>(buf) = size;
   }
 
   std::string_view InvocationResultParsed::invocation_id() const

@@ -51,9 +51,10 @@ namespace praas::common::message {
 
     // Invocation request
     // 2 bytes of identifier: 3
-    // 32 bytes of invocation id
+    // 16 bytes of invocation id
+    // 32 bytes of function name
     // 8 bytes payload length
-    // 42 bytes
+    // 58 bytes
 
     // Invocation response
     // 2 bytes of identifier: 4
@@ -74,7 +75,8 @@ namespace praas::common::message {
 
     static constexpr uint16_t HEADER_OFFSET = 2;
     static constexpr uint16_t NAME_LENGTH = 32;
-    static constexpr uint16_t BUF_SIZE = 42;
+    static constexpr uint16_t ID_LENGTH = 16;
+    static constexpr uint16_t BUF_SIZE = 58;
     std::array<int8_t, BUF_SIZE> data{};
 
     Message(Type type = Type::GENERIC_HEADER)
@@ -140,22 +142,27 @@ namespace praas::common::message {
 
   struct InvocationRequestParsed {
     int8_t* buf;
+    size_t fname_len;
     size_t invocation_id_len;
 
     InvocationRequestParsed(int8_t* buf)
         // NOLINTNEXTLINE
-        : buf(buf), invocation_id_len(strnlen(reinterpret_cast<char*>(buf), Message::NAME_LENGTH))
+        : buf(buf), fname_len(strnlen(reinterpret_cast<char*>(buf + 4), Message::NAME_LENGTH)),
+          invocation_id_len(
+              strnlen(reinterpret_cast<char*>(buf + Message::NAME_LENGTH + 4), Message::ID_LENGTH)
+          )
     {
     }
 
     std::string_view invocation_id() const;
+    std::string_view function_name() const;
     int32_t payload_size() const;
 
     static Message::Type type();
   };
 
   struct InvocationRequest : Message, InvocationRequestParsed {
-    static constexpr uint16_t EXPECTED_LENGTH = 42;
+    static constexpr uint16_t EXPECTED_LENGTH = 58;
 
     InvocationRequest()
         : Message(Type::INVOCATION_REQUEST),
@@ -164,11 +171,13 @@ namespace praas::common::message {
       static_assert(EXPECTED_LENGTH <= BUF_SIZE);
     }
 
+    using InvocationRequestParsed::function_name;
     using InvocationRequestParsed::invocation_id;
     using InvocationRequestParsed::payload_size;
     using InvocationRequestParsed::type;
 
     void invocation_id(const std::string& invocation_id);
+    void function_name(const std::string& function_name);
     void payload_size(int32_t);
   };
 
