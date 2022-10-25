@@ -75,6 +75,18 @@ if(NOT fmt_FOUND)
 endif()
 
 ###
+# stduuid
+###
+find_package(stduuid QUIET)
+if(NOT stduuid_FOUND)
+  message(STATUS "Downloading and building stduuid dependency")
+  FetchContent_Declare(stduuid
+    GIT_REPOSITORY https://github.com/mariusbancila/stduuid.git
+  )
+  FetchContent_MakeAvailable(stduuid)
+endif()
+
+###
 # threadpool
 ###
 FetchContent_Declare(threadpool

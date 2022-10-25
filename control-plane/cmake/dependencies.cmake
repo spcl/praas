@@ -2,18 +2,6 @@
 set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
 
 ###
-# stduuid
-###
-find_package(stduuid QUIET)
-if(NOT stduuid_FOUND)
-  message(STATUS "Downloading and building stduuid dependency")
-  FetchContent_Declare(stduuid
-    GIT_REPOSITORY https://github.com/mariusbancila/stduuid.git
-  )
-  FetchContent_MakeAvailable(stduuid)
-endif()
-
-###
 # redis
 ###
 find_path(HIREDIS_HEADER hiredis)

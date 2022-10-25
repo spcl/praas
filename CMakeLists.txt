@@ -11,7 +11,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # disable checking for fetch content updates in every reconfiguration
 set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 ###
@@ -71,8 +71,25 @@ endif()
 ###
 file(GLOB common_library_files "common/src/*.cpp")
 add_library(common_library STATIC ${common_library_files})
+add_dependencies(common_library fmt)
+add_dependencies(common_library stduuid)
 target_include_directories(common_library PUBLIC "common/include")
+target_include_directories(common_library SYSTEM PRIVATE $<TARGET_PROPERTY:fmt::fmt,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(common_library SYSTEM INTERFACE $<TARGET_PROPERTY:stduuid,INTERFACE_INCLUDE_DIRECTORIES>)
 set_target_properties(common_library PROPERTIES RUNTIME_OUTPUT_DIRECTORY lib)
+target_link_libraries(common_library PRIVATE fmt::fmt)
+target_link_libraries(common_library PRIVATE stduuid)
+
+if(WITH_TESTING)
+
+  set(TESTS common/tests/unit/messages.cpp common/tests/unit/uuid.cpp)
+  foreach(test ${TESTS})
+    PraaS_AddTest(test_name ${test})
+    add_dependencies(${test_name} common_library)
+    target_link_libraries(${test_name} PRIVATE common_library)
+  endforeach()
+
+endif()
 
 if(NOT PRAAS_DEPLOYMENTS)
 
