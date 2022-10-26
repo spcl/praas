@@ -7,6 +7,7 @@
 #include <praas/control-plane/process.hpp>
 #include <praas/control-plane/resources.hpp>
 #include <praas/control-plane/tcpserver.hpp>
+#include <praas/control-plane/worker.hpp>
 
 #include <gmock/gmock-actions.h>
 #include <gmock/gmock.h>
@@ -14,12 +15,17 @@
 
 using namespace praas::control_plane;
 
+class MockWorkers : public worker::Workers {
+public:
+  MockWorkers() : worker::Workers(config::Workers{}) {}
+};
+
 class MockTCPServer : public tcpserver::TCPServer {
 public:
-  MockTCPServer() : tcpserver::TCPServer(config::TCPServer{}) {}
+  MockTCPServer(MockWorkers& workers) : tcpserver::TCPServer(config::TCPServer{}, workers) {}
 
-  MOCK_METHOD(void, add_handle, (const process::ProcessHandle*), (override));
-  MOCK_METHOD(void, remove_handle, (const process::ProcessHandle*), (override));
+  MOCK_METHOD(void, add_process, (process::ProcessObserver && ptr), (override));
+  MOCK_METHOD(void, remove_process, (const process::Process&), (override));
 };
 
 class MockDeployment : public deployment::Deployment {
@@ -30,13 +36,15 @@ public:
 
 class MockBackend : public backend::Backend {
 public:
-  MOCK_METHOD(void, allocate_process, (process::ProcessHandle&, const process::Resources&), ());
+  MOCK_METHOD(void, allocate_process, (process::ProcessPtr, const process::Resources&), ());
   MOCK_METHOD(int, max_memory, (), (const));
   MOCK_METHOD(int, max_vcpus, (), (const));
 };
 
 class CreateProcessTest : public ::testing::Test {
 protected:
+  CreateProcessTest() : poller(workers) {}
+
   void SetUp() override
   {
     _app_create = Application{"app"};
@@ -47,6 +55,7 @@ protected:
 
   Application _app_create;
   MockBackend backend;
+  MockWorkers workers;
   MockTCPServer poller;
   MockDeployment deployment;
 };
@@ -58,20 +67,17 @@ TEST_F(CreateProcessTest, CreateProcess)
   {
     std::string proc_name{"proc1"};
     std::string resource_name{"sandbox"};
-    process::ProcessHandle handle{_app_create, backend};
-    handle.instance_id = "id";
-    handle.resource_id = resource_name;
     process::Resources resources{1, 128, resource_name};
 
     EXPECT_CALL(backend, allocate_process(testing::_, testing::_))
         .Times(testing::Exactly(1))
-        .WillOnce([&](process::ProcessHandle& handle, const process::Resources&) -> void {
-          handle.resource_id = resource_name;
-          handle.instance_id = "id";
+        .WillOnce([&](process::ProcessPtr ptr, const process::Resources&) -> void {
+          ptr->handle().resource_id = resource_name;
+          ptr->handle().instance_id = "id";
         });
 
-    EXPECT_CALL(poller, add_handle(testing::_)).Times(1);
-    EXPECT_CALL(poller, remove_handle(testing::_)).Times(0);
+    EXPECT_CALL(poller, add_process(testing::_)).Times(1);
+    EXPECT_CALL(poller, remove_process(testing::_)).Times(0);
 
     // Constraints should be verified
     EXPECT_CALL(backend, max_memory()).Times(1);
@@ -82,8 +88,8 @@ TEST_F(CreateProcessTest, CreateProcess)
 
     EXPECT_EQ(proc->name(), proc_name);
     EXPECT_EQ(proc->status(), process::Status::ALLOCATING);
-    EXPECT_EQ(&proc->handle().backend.get(), &backend);
-    EXPECT_EQ(proc->handle().resource_id, resource_name);
+    ASSERT_TRUE(proc->handle().resource_id.has_value());
+    EXPECT_EQ(proc->handle().resource_id.value(), resource_name);
   }
 
   // Duplicated name, no backend call
@@ -161,8 +167,8 @@ TEST_F(CreateProcessTest, CreateProcessFailure)
       .WillOnce(testing::Throw(praas::common::FailedAllocationError{"fail"}));
 
   // Call poll + remove poll
-  EXPECT_CALL(poller, add_handle(testing::_)).Times(1);
-  EXPECT_CALL(poller, remove_handle(testing::_)).Times(1);
+  EXPECT_CALL(poller, add_process(testing::_)).Times(1);
+  EXPECT_CALL(poller, remove_process(testing::_)).Times(1);
 
   // Constraints should be verified
   EXPECT_CALL(backend, max_memory()).Times(1);

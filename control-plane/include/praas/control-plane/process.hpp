@@ -1,8 +1,6 @@
 #ifndef PRAAS_CONTROLL_PLANE_PROCESS_HPP
 #define PRAAS_CONTROLL_PLANE_PROCESS_HPP
 
-#include <praas/control-plane/backend.hpp>
-
 #include <praas/control-plane/state.hpp>
 
 #include <chrono>
@@ -10,8 +8,11 @@
 #include <mutex>
 #include <optional>
 #include <shared_mutex>
+#include <sockpp/tcp_socket.h>
 #include <string>
 #include <unordered_map>
+
+#include <uuid.h>
 
 namespace praas::control_plane {
 
@@ -34,32 +35,56 @@ namespace praas::control_plane::process {
 
   struct DataPlaneMetrics {
 
-    int32_t invocations;
-    int32_t computation_time;
+    int32_t invocations{};
+    int32_t computation_time{};
     std::chrono::time_point<std::chrono::system_clock> last_invocation;
     std::chrono::time_point<std::chrono::system_clock> last_report;
 
     DataPlaneMetrics() = default;
   };
 
+  struct DataPlaneConnection {
+    using lock_t = std::shared_mutex;
+    using write_lock_t = std::unique_lock<lock_t>;
+    using read_lock_t = std::shared_lock<lock_t>;
+
+    std::optional<sockpp::tcp_socket> connection{};
+
+    read_lock_t read_lock() const;
+    write_lock_t write_lock() const;
+
+    mutable lock_t _mutex;
+  };
+
   struct Resources {
 
-    int32_t vcpus;
-    int32_t memory;
+    int32_t vcpus{};
+    int32_t memory{};
     std::string sandbox_id;
   };
 
-  class Process {
+  struct Invocation {
+    // using callback_t = std::function<void (const HttpResponsePtr &)>;
+    using callback_t = std::function<void(const int&)>;
+    callback_t callback;
+    uuids::uuid invocation_id;
+  };
+
+  struct Handle {
+    std::optional<std::string> instance_id{};
+    std::optional<std::string> resource_id{};
+  };
+
+  class Process : public std::enable_shared_from_this<Process> {
   public:
-    friend class control_plane::Application;
+    friend class praas::control_plane::Application;
 
     using lock_t = std::shared_mutex;
     using write_lock_t = std::unique_lock<lock_t>;
     using read_lock_t = std::shared_lock<lock_t>;
 
-    Process(std::string name, ProcessHandle&& handle, Resources&& resources)
-        : _status(Status::ALLOCATING), _handle(std::move(handle)), _name(std::move(name)),
-          _resources(resources)
+    Process(std::string name, Application* application, Resources&& resources)
+        : _name(std::move(name)), _resources(resources), _application(application)
     {
     }
 
@@ -94,15 +119,17 @@ namespace praas::control_plane::process {
       return *this;
     }
 
-    std::string name() const;
-
-    const process::ProcessHandle& c_handle() const;
-
-    process::ProcessHandle& handle();
+    const std::string& name() const;
 
     Status status() const;
 
     state::SessionState& state();
+
+    Handle& handle();
+
+    const Handle& c_handle() const;
+
+    DataPlaneConnection& connection();
 
     read_lock_t read_lock() const;
 
@@ -116,25 +143,35 @@ namespace praas::control_plane::process {
      */
     write_lock_t write_lock() const;
 
-    void set_handle(process::ProcessHandle&& handle);
+    // Modify the map of invocations.
+    void add_invocation(Invocation);
+    void finish_invocation(Invocation);
+
     void set_status(Status status);
 
   private:
-
-    Status _status;
-
-    std::optional<ProcessHandle> _handle;
-
     std::string _name;
+
+    Status _status{};
 
     Resources _resources;
 
-    // DataPlaneMetrics _metrics;
+    DataPlaneMetrics _metrics;
+
+    DataPlaneConnection _connection;
 
     state::SessionState _state;
 
+    Application* _application;
+    // std::reference_wrapper<backend::Backend> backend;
+
+    Handle _handle;
+
     mutable lock_t _mutex;
   };
+
+  using ProcessObserver = std::weak_ptr<Process>;
+  using ProcessPtr = std::shared_ptr<Process>;
 
 } // namespace praas::control_plane::process
 

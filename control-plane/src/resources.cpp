@@ -36,32 +36,34 @@ namespace praas::control_plane {
     // We lock the internal collection to write the new process.
     typename decltype(_active_processes)::iterator iter;
     bool succeed = false;
+    process::ProcessPtr process;
     {
       write_lock_t lock(_active_mutex);
 
-      process::Process process{name, {*this, backend}, std::move(resources)};
+      process = std::make_shared<process::Process>(name, this, std::move(resources));
 
-      std::tie(iter, succeed) = _active_processes.try_emplace(process.name(), std::move(process));
+      std::tie(iter, succeed) = _active_processes.try_emplace(process->name(), process);
 
       if (!succeed) {
-        throw praas::common::ObjectExists{process.name()};
+        throw praas::common::ObjectExists{process->name()};
       }
     }
 
     // Ensure that process is not modified.
-    process::Process& p = (*iter).second;
-    p.read_lock();
+    //process::Process& p = (*iter).second;
+    //p.read_lock();
 
     try {
 
-      poller.add_handle(&p.c_handle());
+      poller.add_process(process::ProcessObserver{process});
 
-      backend.allocate_process(p.handle(), resources);
+      // FIXME: non-blocking, callback
+      backend.allocate_process(process, resources);
 
     } catch (common::FailedAllocationError& err) {
 
       write_lock_t lock(_active_mutex);
-      poller.remove_handle(&p.c_handle());
+      poller.remove_process(*process);
       _active_processes.erase(iter);
       throw err;
     }
@@ -74,7 +76,7 @@ namespace praas::control_plane {
 
     auto iter = _active_processes.find(name);
     if (iter != _active_processes.end()) {
-      return std::make_tuple(iter->second.read_lock(), &iter->second);
+      return std::make_tuple(iter->second->read_lock(), iter->second.get());
     } else {
       throw praas::common::ObjectDoesNotExist{name};
     }
@@ -87,7 +89,7 @@ namespace praas::control_plane {
 
     auto iter = _swapped_processes.find(name);
     if (iter != _swapped_processes.end()) {
-      return std::make_tuple(iter->second.read_lock(), &iter->second);
+      return std::make_tuple(iter->second->read_lock(), iter->second.get());
     } else {
       throw praas::common::ObjectDoesNotExist{name};
     }
@@ -108,7 +110,7 @@ namespace praas::control_plane {
       throw praas::common::ObjectDoesNotExist{process_name};
     }
 
-    process::Process& proc = (*iter).second;
+    process::Process& proc = *(*iter).second;
 
     // Exclusive access to the process
     // Keep lock to prevent others from modifying the process while we are modifying its state
@@ -127,7 +129,8 @@ namespace praas::control_plane {
 
     // Swap the process
     proc.state().swap = std::move(deployment.get_location(process_name));
-    proc.handle().swap(*proc.state().swap);
+    // FIXME: implement proper swap
+    //proc.swap(*proc.state().swap);
   }
 
   void Application::swapped_process(std::string process_name)
@@ -140,7 +143,7 @@ namespace praas::control_plane {
       throw praas::common::ObjectDoesNotExist{process_name};
     }
 
-    process::Process& proc = (*iter).second;
+    process::Process& proc = *(*iter).second;
     auto proc_lock = proc.write_lock();
 
     if (proc.status() != process::Status::SWAPPING_OUT) {
@@ -172,7 +175,7 @@ namespace praas::control_plane {
       throw praas::common::ObjectDoesNotExist{process_name};
     }
 
-    process::Process& proc = (*iter).second;
+    process::Process& proc = *(*iter).second;
     auto proc_lock = proc.write_lock();
 
     deployment.delete_swap(*proc.state().swap);

@@ -1,21 +1,50 @@
+#include <praas/control-plane/process.hpp>
+#include <praas/control-plane/worker.hpp>
 #include <praas/control-plane/tcpserver.hpp>
 
 #include <praas/common/exceptions.hpp>
+#include <praas/common/messages.hpp>
 #include <praas/control-plane/config.hpp>
+#include <sockpp/tcp_socket.h>
+#include <variant>
 
 namespace praas::control_plane::tcpserver {
 
-  TCPServer::TCPServer(const config::TCPServer& options)
+  TCPServer::TCPServer(const config::TCPServer& options, worker::Workers & workers, bool enable_listen):
+    _workers(workers)
   {
-    _listen.open(options.port);
+    // FIXME: reference to a thread pool
+    if (enable_listen) {
+      bool val = _listen.open(options.port);
+      if(!val) {
+        spdlog::error("Failed to open a TCP listen at port {}", options.port);
+        throw common::PraaSException{"Failed TCP listen"};
+      }
+    }
+    _ending = false;
   }
 
-  void TCPServer::add_handle(const process::ProcessHandle*)
+  void TCPServer::add_process(process::ProcessObserver&& ptr)
   {
-    throw common::NotImplementedError{};
+    auto process = ptr.lock();
+    if (!process) {
+      spdlog::error("Adding non-existing process!");
+      return;
+    }
+
+    // Store weak pointer for future accesses
+    ConcurrentTable<process::ProcessObserver>::rw_acc_t acc;
+    bool inserted = _handles.insert(acc, process->name());
+    if (inserted) {
+      acc->second = std::move(ptr);
+    } else {
+      throw praas::common::ObjectExists(
+          fmt::format("Cannot add process {} again to the server!", process->name())
+      );
+    }
   }
 
-  void TCPServer::remove_handle(const process::ProcessHandle*)
+  void TCPServer::remove_process(const process::Process&)
   {
     throw common::NotImplementedError{};
   }
@@ -31,11 +60,66 @@ namespace praas::control_plane::tcpserver {
     if (!conn) {
       spdlog::error("Error accepting incoming connection: {}", _listen.last_error_str());
     } else {
-      add_epoll<void>(conn.handle(), nullptr, EPOLLIN | EPOLLPRI);
-      _sockets.emplace(conn.handle(), std::move(conn));
+      // We are not going to store the socket wrapper for now.
+      epoll_add<void>(_epoll_fd, conn.release(), nullptr, EPOLLIN | EPOLLPRI);
     }
 
     return conn;
+  }
+
+  void TCPServer::handle_message(
+      process::ProcessObserver* process, praas::common::message::Message&& msg, sockpp::tcp_socket && socket
+  )
+  {
+    // Is there a process attached? Then let the process handle the message.
+    if (process != nullptr) {
+      socket.release();
+      _workers.add_task(process, std::move(msg));
+    }
+    // No pointer? Then we only accept "connect" message"
+    else {
+
+      auto parsed_msg = msg.parse();
+      // Connects the newly allocated socket to a process handle.
+      // Requires a write access to the process data plane connection structure.
+      if (std::holds_alternative<common::message::ProcessConnectionParsed>(parsed_msg)) {
+
+        auto& conn_msg = std::get<common::message::ProcessConnectionParsed>(parsed_msg);
+
+        // We do not really modify it here, but we want to get a non-const pointer to
+        // store in epoll.
+        ConcurrentTable<process::ProcessObserver>::rw_acc_t acc;
+        _handles.find(acc, std::string{conn_msg.process_name()});
+        if(acc.empty()) {
+          spdlog::error("Received acceptation of an unknown process {}", conn_msg.process_name());
+        } else {
+          auto process_ptr = acc->second.lock();
+          if(process_ptr != nullptr) {
+            auto& conn = process_ptr->connection();
+            int fd = socket.handle();
+            {
+              conn.write_lock();
+              conn.connection = std::move(sockpp::tcp_socket{});
+            }
+            epoll_mod(_epoll_fd, fd, &acc->second, EPOLLIN | EPOLLPRI | EPOLLRDHUP | EPOLLONESHOT);
+          } else {
+            spdlog::error("Received confirmation message from process {}, but it is deleted", conn_msg.process_name());
+            // FIXME: delete from epoll
+          }
+        }
+
+      } else {
+        spdlog::error("Received unacceptable message from an unregistered process");
+      }
+
+    }
+  }
+
+  void TCPServer::handle_error(const process::ProcessObserver* process, sockpp::tcp_socket &&)
+  {
+    // FIXME:
+    spdlog::error("Received incomplete header data");
+    throw common::NotImplementedError{};
   }
 
   void TCPServer::start()
@@ -52,14 +136,15 @@ namespace praas::control_plane::tcpserver {
       spdlog::error("Incorrect epoll initialization! {}", strerror(errno));
       return;
     }
-    if (!add_epoll(_listen.handle(), &_listen, EPOLLIN | EPOLLPRI)) {
+    if (!epoll_add(_epoll_fd, _listen.handle(), &_listen, EPOLLIN | EPOLLPRI)) {
+      spdlog::error("ok");
       return;
     }
 
-    epoll_event events[MAX_EPOLL_EVENTS];
-    while (!_ending) {
+    std::array<epoll_event, MAX_EPOLL_EVENTS> events;
+    while (true) {
 
-      int events_count = epoll_wait(_epoll_fd, events, MAX_EPOLL_EVENTS, 0);
+      int events_count = epoll_wait(_epoll_fd, events.data(), MAX_EPOLL_EVENTS, EPOLL_TIMEOUT);
 
       // Finish if we failed (but we were not interrupted), or when end was
       // requested.
@@ -69,17 +154,24 @@ namespace praas::control_plane::tcpserver {
 
       for (int i = 0; i < events_count; ++i) {
 
+        // FIXME: Handle event errors here
+
         if (events[i].data.ptr == &_listen) {
 
           accept_connection();
 
         } else {
 
-          // FIXME: aggregate multiple messages from the same connection
-          praas::common::Header msg;
-          auto [socket, handle] = *static_cast<conn_t*>(events[i].data.ptr);
-          ssize_t recv_data = socket->read_n(msg.data.data(), praas::common::Header::BUF_SIZE);
+          praas::common::message::Message msg;
+          sockpp::tcp_socket socket{events[i].data.fd};
+          auto* process = static_cast<process::ProcessObserver*>(events[i].data.ptr);
 
+          ssize_t recv_data = socket.read_n(msg.data.data(), decltype(msg)::BUF_SIZE);
+          if (recv_data == decltype(msg)::BUF_SIZE) {
+            handle_message(process, std::move(msg), std::move(socket));
+          } else {
+            handle_error(process, std::move(socket));
+          }
         }
       }
     }

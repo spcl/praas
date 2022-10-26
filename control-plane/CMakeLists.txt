@@ -72,6 +72,7 @@ if(WITH_TESTING)
             tests/unit/deployment.cpp
             tests/unit/proc_swap.cpp
             tests/unit/proc_delete.cpp
+            tests/unit/tcpserver.cpp
   )
   foreach(test ${TESTS})
 

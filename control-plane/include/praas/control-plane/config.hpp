@@ -5,15 +5,15 @@
 #include <praas/control-plane/backend.hpp>
 #include <praas/control-plane/deployment.hpp>
 
-#include <string>
 #include <istream>
 #include <optional>
+#include <string>
 
 #include <cereal/archives/json.hpp>
 
 namespace cereal {
   struct JSONInputArchive;
-}
+} // namespace cereal
 
 namespace praas::control_plane::config {
 
@@ -28,7 +28,7 @@ namespace praas::control_plane::config {
     std::optional<std::string> ssl_server_cert;
     std::optional<std::string> ssl_server_key;
 
-    void load(cereal::JSONInputArchive & archive);
+    void load(cereal::JSONInputArchive& archive);
     void set_defaults();
   };
 
@@ -37,7 +37,7 @@ namespace praas::control_plane::config {
 
     int threads;
 
-    void load(cereal::JSONInputArchive & archive);
+    void load(cereal::JSONInputArchive& archive);
     void set_defaults();
   };
 
@@ -49,7 +49,7 @@ namespace praas::control_plane::config {
     int polling_interval;
     int swapping_threshold;
 
-    void load(cereal::JSONInputArchive & archive);
+    void load(cereal::JSONInputArchive& archive);
     void set_defaults();
   };
 
@@ -59,18 +59,15 @@ namespace praas::control_plane::config {
     int port;
     bool use_threadpool;
 
-    void load(cereal::JSONInputArchive & archive);
+    void load(cereal::JSONInputArchive& archive);
     void set_defaults();
   };
-
 
   struct Backend {};
 
   struct BackendLocal : Backend {};
 
-  struct Deployment {
-
-  };
+  struct Deployment {};
 
   struct Config {
 
@@ -86,9 +83,9 @@ namespace praas::control_plane::config {
 
     bool verbose;
 
-    void load(cereal::JSONInputArchive & archive);
+    void load(cereal::JSONInputArchive& archive);
 
-    static Config deserialize(std::istream & in_stream);
+    static Config deserialize(std::istream& in_stream);
   };
 
 } // namespace praas::control_plane::config

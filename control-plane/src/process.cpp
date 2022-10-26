@@ -2,25 +2,35 @@
 
 namespace praas::control_plane::process {
 
-  std::string Process::name() const
+
+  DataPlaneConnection::read_lock_t DataPlaneConnection::read_lock() const
+  {
+    return read_lock_t{_mutex};
+  }
+
+  DataPlaneConnection::write_lock_t DataPlaneConnection::write_lock() const
+  {
+    return write_lock_t{_mutex};
+  }
+
+  DataPlaneConnection& Process::connection()
+  {
+    return _connection;
+  }
+
+  const std::string& Process::name() const
   {
     return _name;
   }
 
-  void Process::set_handle(ProcessHandle&& handle)
+  const Handle& process::Process::c_handle() const
   {
-    _handle = std::move(handle);
-    _status = Status::ALLOCATED;
+    return _handle;
   }
 
-  const ProcessHandle& process::Process::c_handle() const
+  Handle& process::Process::handle()
   {
-    return _handle.value();
-  }
-
-  ProcessHandle& process::Process::handle()
-  {
-    return _handle.value();
+    return _handle;
   }
 
   Status Process::status() const

@@ -4,8 +4,8 @@
 
 #include <praas/control-plane/backend.hpp>
 #include <praas/control-plane/deployment.hpp>
-#include <praas/control-plane/tcpserver.hpp>
 #include <praas/control-plane/process.hpp>
+#include <praas/control-plane/tcpserver.hpp>
 
 #include <memory>
 #include <mutex>
@@ -103,10 +103,10 @@ namespace praas::control_plane {
     // We need to be able to iterate across all processes.
     // Thus, we apply a read lock over the collection instead of using a concurrent map.
     lock_t _active_mutex;
-    std::unordered_map<std::string, process::Process> _active_processes;
+    std::unordered_map<std::string, process::ProcessPtr> _active_processes;
 
     lock_t _swapped_mutex;
-    std::unordered_map<std::string, process::Process> _swapped_processes;
+    std::unordered_map<std::string, process::ProcessPtr> _swapped_processes;
   };
 
   class Resources {

@@ -7,6 +7,7 @@
 #include <praas/control-plane/process.hpp>
 #include <praas/control-plane/resources.hpp>
 #include <praas/control-plane/tcpserver.hpp>
+#include <praas/control-plane/worker.hpp>
 
 #include <gmock/gmock-actions.h>
 #include <gmock/gmock.h>
@@ -14,23 +15,33 @@
 
 using namespace praas::control_plane;
 
+class MockWorkers : public worker::Workers{
+public:
+  MockWorkers() : worker::Workers(config::Workers{}) {}
+};
+
 class MockTCPServer : public tcpserver::TCPServer {
 public:
-  MockTCPServer() : tcpserver::TCPServer(config::TCPServer{}) {}
+  MockTCPServer(MockWorkers & workers) : tcpserver::TCPServer(config::TCPServer{}, workers) {}
 
-  MOCK_METHOD(void, add_handle, (const process::ProcessHandle*), (override));
-  MOCK_METHOD(void, remove_handle, (const process::ProcessHandle*), (override));
+  MOCK_METHOD(void, add_process, (process::ProcessObserver && ptr), (override));
+  MOCK_METHOD(void, remove_process, (const process::Process &), (override));
 };
 
 class MockBackend : public backend::Backend {
 public:
-  MOCK_METHOD(void, allocate_process, (process::ProcessHandle&, const process::Resources&), ());
+  MOCK_METHOD(void, allocate_process, (process::ProcessPtr, const process::Resources&), ());
   MOCK_METHOD(int, max_memory, (), (const));
   MOCK_METHOD(int, max_vcpus, (), (const));
 };
 
 class DeleteProcessTest : public ::testing::Test {
 protected:
+
+  DeleteProcessTest():
+    poller(workers)
+    {}
+
   void SetUp() override
   {
     _app_create = Application{"app"};
@@ -41,6 +52,7 @@ protected:
 
   Application _app_create;
   MockBackend backend;
+  MockWorkers workers;
   MockTCPServer poller;
   deployment::Local deployment{"/"};
 };

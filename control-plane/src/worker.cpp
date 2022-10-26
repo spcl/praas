@@ -1,4 +1,5 @@
 
+#include <praas/common/messages.hpp>
 #include <praas/control-plane/worker.hpp>
 
 #include <praas/control-plane/backend.hpp>
@@ -8,10 +9,71 @@
 #include <charconv>
 #include <thread>
 
+#include <spdlog/spdlog.h>
 #include <redis++.h>
 #include <sockpp/tcp_connector.h>
 
-namespace praas::control_plane {
+namespace praas::control_plane::worker {
+
+  void
+  Workers::handle_message(process::ProcessObserver* process, praas::common::message::Message msg)
+  {
+    auto parsed = msg.parse();
+    auto ptr = process->lock();
+
+    if (!ptr) {
+      spdlog::error("Could not acquire pointer access to a process {} - deleted?", fmt::ptr(process));
+      return;
+    }
+
+    std::visit(
+        common::message::overloaded{
+          [&ptr](const common::message::ProcessClosureParsed&) mutable -> void {
+            handle_closure(ptr);
+          },
+          [&ptr](const common::message::DataPlaneMetricsParsed& metrics) mutable -> void {
+            handle_data_metrics(ptr, metrics);
+          },
+          [&ptr](const common::message::InvocationResultParsed& res) mutable -> void {
+            handle_invocation_result(ptr, res);
+          },
+          [&ptr](const common::message::SwapConfirmationParsed&) mutable -> void {
+            handle_swap(ptr);
+          },
+          [](const common::message::ProcessConnectionParsed&) -> void {
+            spdlog::error("");
+          },
+          [](const common::message::InvocationRequestParsed&) mutable -> void {
+            spdlog::error("");
+          }
+          //[](auto&) -> void {
+          //  spdlog::error("");
+          //}
+        },
+        parsed
+    );
+  }
+
+  void
+  Workers::handle_invocation_result(const process::ProcessPtr& ptr, const praas::common::message::InvocationResultParsed&)
+  {
+  }
+
+  void Workers::handle_swap(const process::ProcessPtr& ptr)
+  {}
+
+  void
+  Workers::handle_data_metrics(const process::ProcessPtr& ptr, const praas::common::message::DataPlaneMetricsParsed&)
+  {}
+
+  void Workers::handle_closure(const process::ProcessPtr& ptr)
+  {}
+
+  void Workers::swap(const process::ProcessPtr& ptr, state::SwapLocation& swap_loc)
+  {}
+
+  void Workers::invoke(const process::ProcessPtr& ptr, const praas::common::message::InvocationRequestParsed&)
+  {}
 
   // FIXME: move to utils
   // std::tuple<std::string_view, std::string_view>
@@ -513,4 +575,4 @@ namespace praas::control_plane {
   //     return *ptr;
   //   }
   // }
-} // namespace praas::control_plane
+} // namespace praas::control_plane::worker
