@@ -3,7 +3,6 @@
 #include <praas/control-plane/backend.hpp>
 #include <praas/control-plane/config.hpp>
 #include <praas/control-plane/deployment.hpp>
-#include <praas/control-plane/handle.hpp>
 #include <praas/control-plane/process.hpp>
 #include <praas/control-plane/resources.hpp>
 #include <praas/control-plane/tcpserver.hpp>
@@ -72,9 +71,6 @@ TEST_F(DeleteProcessTest, DeleteCorrect)
 
   std::string proc_name{"proc1"};
   std::string resource_name{"sandbox"};
-  process::ProcessHandle handle{_app_create, backend};
-  handle.instance_id = "id";
-  handle.resource_id = resource_name;
   process::Resources resources{1, 128, resource_name};
 
   {
@@ -110,9 +106,6 @@ TEST_F(DeleteProcessTest, DeleteWhileSwapping)
 
   std::string proc_name{"proc2"};
   std::string resource_name{"sandbox"};
-  process::ProcessHandle handle{_app_create, backend};
-  handle.instance_id = "id";
-  handle.resource_id = resource_name;
   process::Resources resources{1, 128, resource_name};
 
   {

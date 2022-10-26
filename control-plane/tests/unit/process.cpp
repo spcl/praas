@@ -3,7 +3,6 @@
 #include <praas/control-plane/backend.hpp>
 #include <praas/control-plane/config.hpp>
 #include <praas/control-plane/deployment.hpp>
-#include <praas/control-plane/handle.hpp>
 #include <praas/control-plane/process.hpp>
 #include <praas/control-plane/resources.hpp>
 #include <praas/control-plane/tcpserver.hpp>

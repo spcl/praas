@@ -3,7 +3,6 @@
 #include <praas/control-plane/backend.hpp>
 #include <praas/control-plane/config.hpp>
 #include <praas/control-plane/deployment.hpp>
-#include <praas/control-plane/handle.hpp>
 #include <praas/control-plane/process.hpp>
 #include <praas/control-plane/resources.hpp>
 #include <praas/control-plane/tcpserver.hpp>
@@ -81,9 +80,6 @@ TEST_F(SwapProcessTest, SwapProcess)
 
   std::string proc_name{"proc1"};
   std::string resource_name{"sandbox"};
-  process::ProcessHandle handle{_app_create, backend};
-  handle.instance_id = "id";
-  handle.resource_id = resource_name;
   process::Resources resources{1, 128, resource_name};
 
   _app_create.add_process(backend, poller, proc_name, std::move(resources));
@@ -116,9 +112,6 @@ TEST_F(SwapProcessTest, SwapProcessFail)
 
   std::string proc_name{"proc1"};
   std::string resource_name{"sandbox"};
-  process::ProcessHandle handle{_app_create, backend};
-  handle.instance_id = "id";
-  handle.resource_id = resource_name;
   process::Resources resources{1, 128, resource_name};
 
   _app_create.add_process(backend, poller, proc_name, std::move(resources));
@@ -141,9 +134,6 @@ TEST_F(SwapProcessTest, FullSwapProcess)
 
   std::string proc_name{"proc2"};
   std::string resource_name{"sandbox"};
-  process::ProcessHandle handle{_app_create, backend};
-  handle.instance_id = "id";
-  handle.resource_id = resource_name;
   process::Resources resources{1, 128, resource_name};
 
   _app_create.add_process(backend, poller, proc_name, std::move(resources));
