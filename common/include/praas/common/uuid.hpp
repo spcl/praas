@@ -19,6 +19,11 @@ namespace praas::common {
       std::copy_n(uuid.as_bytes().begin(), UUID_LEN, dest.begin());
     }
 
+    uuids::uuid generate()
+    {
+      return _uuid_generator();
+    }
+
     static std::string str(std::span<const std::byte, UUID_LEN> dest)
     {
       // they expose std::byte, but constructors accept uint8_- why?
