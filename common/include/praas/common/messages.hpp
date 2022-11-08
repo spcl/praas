@@ -87,6 +87,11 @@ namespace praas::common::message {
 
     Type type() const;
 
+    const int8_t* bytes() const
+    {
+      return data.data();
+    }
+
     using MessageVariants = std::variant<
         ProcessConnectionParsed, SwapConfirmationParsed, InvocationRequestParsed,
         InvocationResultParsed, DataPlaneMetricsParsed, ProcessClosureParsed>;
