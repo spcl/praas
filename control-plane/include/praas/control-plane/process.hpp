@@ -12,6 +12,7 @@
 #include <string>
 #include <unordered_map>
 
+#include <trantor/net/TcpConnection.h>
 #include <uuid.h>
 
 namespace praas::control_plane {
@@ -129,7 +130,9 @@ namespace praas::control_plane::process {
 
     const Handle& c_handle() const;
 
-    DataPlaneConnection& connection();
+    // DataPlaneConnection& connection();
+
+    void connect(const trantor::TcpConnectionPtr& connectionPtr);
 
     read_lock_t read_lock() const;
 
@@ -158,7 +161,8 @@ namespace praas::control_plane::process {
 
     DataPlaneMetrics _metrics;
 
-    DataPlaneConnection _connection;
+    // DataPlaneConnection _connection;
+    trantor::TcpConnectionPtr _connection;
 
     state::SessionState _state;
 

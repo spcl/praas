@@ -9,7 +9,6 @@
 #include <string>
 #include <unordered_set>
 
-#include <sockpp/tcp_acceptor.h>
 #include <spdlog/spdlog.h>
 #include <trantor/net/EventLoopThread.h>
 #include <trantor/net/TcpServer.h>
@@ -61,8 +60,14 @@ namespace praas::control_plane::tcpserver {
 
     int port() const;
 
+    int num_connected_processes() const;
+
+    int num_registered_processes() const;
+
   protected:
     void handle_disconnection(const trantor::TcpConnectionPtr& connPtr);
+
+    void handle_message(const trantor::TcpConnectionPtr &connectionPtr, trantor::MsgBuffer *buffer);
 
     //
     //    void handle_message(process::ProcessObserver* process, praas::common::message::Message&&
@@ -78,6 +83,10 @@ namespace praas::control_plane::tcpserver {
     //    // Accept incoming connections
     //    sockpp::tcp_acceptor _listen;
     //
+
+    std::atomic<int> _num_registered_processes;
+
+    std::atomic<int> _num_connected_processes;
 
     // Main event loop thread
     trantor::EventLoopThread _loop_thread;
