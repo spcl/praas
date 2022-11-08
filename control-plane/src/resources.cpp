@@ -161,6 +161,39 @@ namespace praas::control_plane {
     _swapped_processes.insert(std::move(nh));
   }
 
+  void Application::closed_process(const process::ProcessPtr& ptr)
+  {
+    auto proc_lock = ptr->write_lock();
+
+    if(ptr->status() != process::Status::SWAPPED_OUT){
+
+      spdlog::error("Failure! Closing process {}, state {}", _name, ptr->status());
+
+      ptr->set_status(process::Status::FAILURE);
+
+      // Modify internal collections
+      write_lock_t application_lock(_active_mutex);
+
+      auto iter = _active_processes.find(ptr->name());
+      if (iter != _active_processes.end()) {
+        _active_processes.erase(iter);
+      } else {
+
+        auto iter = _swapped_processes.find(ptr->name());
+        if (iter != _swapped_processes.end()) {
+          _swapped_processes.erase(iter);
+        } else {
+          spdlog::error("Unknown proces {}", ptr->name());
+        }
+
+      }
+
+    } else {
+      ptr->close_connection();
+    }
+
+  }
+
   void Application::delete_process(std::string process_name, deployment::Deployment& deployment)
   {
     if (process_name.length() == 0) {

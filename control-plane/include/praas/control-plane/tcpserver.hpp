@@ -69,6 +69,26 @@ namespace praas::control_plane::tcpserver {
 
     void handle_message(const trantor::TcpConnectionPtr &connectionPtr, trantor::MsgBuffer *buffer);
 
+    // Looks up the associated invocation in a process and calls the callback.
+    // Requires a read/write access to the list of invocations.
+    void
+    handle_invocation_result(const process::ProcessPtr& ptr, const praas::common::message::InvocationResultParsed&);
+
+    // Calls to process to finish and swap.
+    // Needs to call the application to handle the change of process state.
+    void handle_swap(const process::ProcessPtr& ptr);
+
+    // Update data plane metrics of a process
+    // Requires write access to this process component.
+    void
+    handle_data_metrics(const process::ProcessPtr& ptr, const praas::common::message::DataPlaneMetricsParsed&);
+
+    // Close down a process.
+    // Requires write access to the application.
+    void handle_closure(const trantor::TcpConnectionPtr&);
+
+    void handle_connection(const trantor::TcpConnectionPtr&, const common::message::ProcessConnectionParsed & msg);
+
     //
     //    void handle_message(process::ProcessObserver* process, praas::common::message::Message&&
     //    msg, sockpp::tcp_socket &&);

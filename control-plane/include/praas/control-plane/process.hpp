@@ -30,7 +30,8 @@ namespace praas::control_plane::process {
     SWAPPED_OUT,
     SWAPPING_OUT,
     SWAPPING_IN,
-    DELETED
+    CLOSED,
+    FAILURE
 
   };
 
@@ -130,6 +131,8 @@ namespace praas::control_plane::process {
 
     const Handle& c_handle() const;
 
+    Application& application() const;
+
     // DataPlaneConnection& connection();
 
     void connect(const trantor::TcpConnectionPtr& connectionPtr);
@@ -152,6 +155,8 @@ namespace praas::control_plane::process {
 
     void set_status(Status status);
 
+    void close_connection();
+
   private:
     std::string _name;
 
@@ -166,8 +171,9 @@ namespace praas::control_plane::process {
 
     state::SessionState _state;
 
+    // Application reference does not change throughout process lifetime.
+    //
     Application* _application;
-    // std::reference_wrapper<backend::Backend> backend;
 
     Handle _handle;
 

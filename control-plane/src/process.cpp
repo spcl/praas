@@ -1,5 +1,6 @@
 #include <praas/control-plane/process.hpp>
 #include <praas/common/exceptions.hpp>
+#include <spdlog/spdlog.h>
 
 namespace praas::control_plane::process {
 
@@ -19,14 +20,19 @@ namespace praas::control_plane::process {
     return _name;
   }
 
-  const Handle& process::Process::c_handle() const
+  const Handle& Process::c_handle() const
   {
     return _handle;
   }
 
-  Handle& process::Process::handle()
+  Handle& Process::handle()
   {
     return _handle;
+  }
+
+  Application& Process::application() const
+  {
+    return *_application;
   }
 
   Status Process::status() const
@@ -62,6 +68,12 @@ namespace praas::control_plane::process {
 
     _connection = std::move(connectionPtr);
     _status = Status::ALLOCATED;
+  }
+
+  void Process::close_connection()
+  {
+    _status = Status::CLOSED;
+    _connection.reset();
   }
 
 } // namespace praas::control_plane::process
