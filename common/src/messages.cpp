@@ -6,6 +6,8 @@
 
 #include <fmt/format.h>
 
+#include <iostream>
+
 namespace praas::common::message {
 
   Message::Type Message::type() const
@@ -22,34 +24,50 @@ namespace praas::common::message {
 
   Message::MessageVariants Message::parse()
   {
-    Type type = this->type();
+    return parse_message(data.data());
+  }
+
+  Message::MessageVariants Message::parse_message(const char* data)
+  {
+    return parse_message(reinterpret_cast<const int8_t*>(data));
+  }
+
+  Message::MessageVariants Message::parse_message(const int8_t* data)
+  {
+
+    int16_t type_val = *reinterpret_cast<const int16_t*>(data);
+    if (type_val >= static_cast<int16_t>(Type::END_FLAG) ||
+        type_val < static_cast<int16_t>(Type::GENERIC_HEADER)) {
+      throw common::InvalidMessage{fmt::format("Invalid type value for Message: {}", type_val)};
+    }
+    Type type = static_cast<Type>(type_val);
 
     if (type == Type::PROCESS_CONNECTION) {
-      return MessageVariants{ProcessConnectionParsed(data.data() + HEADER_OFFSET)};
+      return MessageVariants{ProcessConnectionParsed(data + HEADER_OFFSET)};
     }
 
     if (type == Type::SWAP_CONFIRMATION) {
-      return MessageVariants{SwapConfirmationParsed(data.data() + HEADER_OFFSET)};
+      return MessageVariants{SwapConfirmationParsed(data + HEADER_OFFSET)};
     }
 
     if (type == Type::INVOCATION_REQUEST) {
-      return MessageVariants{InvocationRequestParsed(data.data() + HEADER_OFFSET)};
+      return MessageVariants{InvocationRequestParsed(data + HEADER_OFFSET)};
     }
 
     if (type == Type::INVOCATION_RESULT) {
-      return MessageVariants{InvocationResultParsed(data.data() + HEADER_OFFSET)};
+      return MessageVariants{InvocationResultParsed(data + HEADER_OFFSET)};
     }
 
     if (type == Type::INVOCATION_RESULT) {
-      return MessageVariants{InvocationResultParsed(data.data() + HEADER_OFFSET)};
+      return MessageVariants{InvocationResultParsed(data + HEADER_OFFSET)};
     }
 
     if (type == Type::DATAPLANE_METRICS) {
-      return MessageVariants{DataPlaneMetricsParsed(data.data() + HEADER_OFFSET)};
+      return MessageVariants{DataPlaneMetricsParsed(data + HEADER_OFFSET)};
     }
 
     if (type == Type::PROCESS_CLOSURE) {
-      return MessageVariants{ProcessClosureParsed(data.data() + HEADER_OFFSET)};
+      return MessageVariants{ProcessClosureParsed(data + HEADER_OFFSET)};
     }
 
     throw common::NotImplementedError{};
@@ -58,7 +76,7 @@ namespace praas::common::message {
   std::string_view ProcessConnectionParsed::process_name() const
   {
     // NOLINTNEXTLINE
-    return std::string_view{reinterpret_cast<char*>(buf), process_name_len};
+    return std::string_view{reinterpret_cast<const char*>(buf), process_name_len};
   }
 
   void ProcessConnection::process_name(const std::string& name)
@@ -88,19 +106,19 @@ namespace praas::common::message {
   {
     return std::string_view{
     // NOLINTNEXTLINE
-        reinterpret_cast<char*>(buf + Message::NAME_LENGTH + 4), invocation_id_len};
+        reinterpret_cast<const char*>(buf + Message::NAME_LENGTH + 4), invocation_id_len};
   }
 
   std::string_view InvocationRequestParsed::function_name() const
   {
     // NOLINTNEXTLINE
-    return std::string_view{reinterpret_cast<char*>(buf + 4), fname_len};
+    return std::string_view{reinterpret_cast<const char*>(buf + 4), fname_len};
   }
 
   int32_t InvocationRequestParsed::payload_size() const
   {
     // NOLINTNEXTLINE
-    return *reinterpret_cast<int32_t*>(buf);
+    return *reinterpret_cast<const int32_t*>(buf);
   }
 
   Message::Type InvocationRequestParsed::type()
@@ -116,7 +134,7 @@ namespace praas::common::message {
     }
     std::strncpy(
         // NOLINTNEXTLINE
-        reinterpret_cast<char*>(buf + Message::NAME_LENGTH + 4),
+        reinterpret_cast<char*>(data.data() + HEADER_OFFSET + Message::NAME_LENGTH + 4),
         name.data(), Message::ID_LENGTH
     );
     invocation_id_len = name.length();
@@ -130,7 +148,7 @@ namespace praas::common::message {
     }
     std::strncpy(
         // NOLINTNEXTLINE
-        reinterpret_cast<char*>(buf + 4), name.data(), Message::NAME_LENGTH
+        reinterpret_cast<char*>(data.data() + HEADER_OFFSET + 4), name.data(), Message::NAME_LENGTH
     );
     fname_len = name.length();
   }
@@ -142,19 +160,19 @@ namespace praas::common::message {
     }
 
     // NOLINTNEXTLINE
-    *reinterpret_cast<int32_t*>(buf) = size;
+    *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET) = size;
   }
 
   std::string_view InvocationResultParsed::invocation_id() const
   {
     // NOLINTNEXTLINE
-    return std::string_view{reinterpret_cast<char*>(buf), invocation_id_len};
+    return std::string_view{reinterpret_cast<const char*>(buf), invocation_id_len};
   }
 
   int32_t InvocationResultParsed::response_size() const
   {
     // NOLINTNEXTLINE
-    return *reinterpret_cast<int32_t*>(buf + Message::NAME_LENGTH);
+    return *reinterpret_cast<const int32_t*>(buf + Message::NAME_LENGTH);
   }
 
   Message::Type InvocationResultParsed::type()
@@ -184,25 +202,25 @@ namespace praas::common::message {
     }
 
     // NOLINTNEXTLINE
-    *reinterpret_cast<int32_t*>(buf + Message::NAME_LENGTH) = size;
+    *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + Message::NAME_LENGTH) = size;
   }
 
   int32_t DataPlaneMetricsParsed::invocations() const
   {
     // NOLINTNEXTLINE
-    return *reinterpret_cast<int32_t*>(buf);
+    return *reinterpret_cast<const int32_t*>(buf);
   }
 
   int32_t DataPlaneMetricsParsed::computation_time() const
   {
     // NOLINTNEXTLINE
-    return *reinterpret_cast<int32_t*>(buf + 4);
+    return *reinterpret_cast<const int32_t*>(buf + 4);
   }
 
   uint64_t DataPlaneMetricsParsed::last_invocation_timestamp() const
   {
     // NOLINTNEXTLINE
-    return *reinterpret_cast<uint64_t*>(buf + 8);
+    return *reinterpret_cast<const uint64_t*>(buf + 8);
   }
 
   void DataPlaneMetrics::invocations(int32_t invocations)
@@ -212,7 +230,7 @@ namespace praas::common::message {
     }
 
     // NOLINTNEXTLINE
-    *reinterpret_cast<int32_t*>(buf) = invocations;
+    *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET) = invocations;
   }
 
   void DataPlaneMetrics::computation_time(int32_t time)
@@ -222,13 +240,13 @@ namespace praas::common::message {
     }
 
     // NOLINTNEXTLINE
-    *reinterpret_cast<int32_t*>(buf + 4) = time;
+    *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + 4) = time;
   }
 
   void DataPlaneMetrics::last_invocation_timestamp(uint64_t timestamp)
   {
     // NOLINTNEXTLINE
-    *reinterpret_cast<uint64_t*>(buf + 8) = timestamp;
+    *reinterpret_cast<uint64_t*>(data.data() + HEADER_OFFSET + 8) = timestamp;
   }
 
   Message::Type DataPlaneMetricsParsed::type()

@@ -92,16 +92,19 @@ namespace praas::common::message {
         InvocationResultParsed, DataPlaneMetricsParsed, ProcessClosureParsed>;
 
     MessageVariants parse();
+    static MessageVariants parse_message(const int8_t* data);
+    static MessageVariants parse_message(const char* data);
   };
+
 
   struct ProcessConnectionParsed {
     static constexpr uint16_t EXPECTED_LENGTH = 34;
-    int8_t* buf{};
+    const int8_t* buf{};
     size_t process_name_len;
 
-    ProcessConnectionParsed(int8_t* buf)
+    ProcessConnectionParsed(const int8_t* buf)
         // NOLINTNEXTLINE
-        : buf(buf), process_name_len(strnlen(reinterpret_cast<char*>(buf), Message::NAME_LENGTH))
+        : buf(buf), process_name_len(strnlen(reinterpret_cast<const char*>(buf), Message::NAME_LENGTH))
     {
     }
 
@@ -128,7 +131,7 @@ namespace praas::common::message {
 
   struct SwapConfirmationParsed {
 
-    SwapConfirmationParsed(int8_t* /*unused*/ = nullptr) {}
+    SwapConfirmationParsed(const int8_t* /*unused*/ = nullptr) {}
 
     static Message::Type type();
   };
@@ -141,16 +144,17 @@ namespace praas::common::message {
   };
 
   struct InvocationRequestParsed {
-    int8_t* buf;
+    const int8_t* buf;
     size_t fname_len;
     size_t invocation_id_len;
 
-    InvocationRequestParsed(int8_t* buf)
+    InvocationRequestParsed(const int8_t* buf)
         // NOLINTNEXTLINE
-        : buf(buf), fname_len(strnlen(reinterpret_cast<char*>(buf + 4), Message::NAME_LENGTH)),
-          invocation_id_len(
-              strnlen(reinterpret_cast<char*>(buf + Message::NAME_LENGTH + 4), Message::ID_LENGTH)
-          )
+        : buf(buf),
+          fname_len(strnlen(reinterpret_cast<const char*>(buf + 4), Message::NAME_LENGTH)),
+          invocation_id_len(strnlen(
+              reinterpret_cast<const char*>(buf + Message::NAME_LENGTH + 4), Message::ID_LENGTH
+          ))
     {
     }
 
@@ -182,12 +186,13 @@ namespace praas::common::message {
   };
 
   struct InvocationResultParsed {
-    int8_t* buf;
+    const int8_t* buf;
     size_t invocation_id_len;
 
-    InvocationResultParsed(int8_t* buf)
+    InvocationResultParsed(const int8_t* buf)
         // NOLINTNEXTLINE
-        : buf(buf), invocation_id_len(strnlen(reinterpret_cast<char*>(buf), Message::NAME_LENGTH))
+        : buf(buf),
+          invocation_id_len(strnlen(reinterpret_cast<const char*>(buf), Message::NAME_LENGTH))
     {
     }
 
@@ -215,9 +220,9 @@ namespace praas::common::message {
   };
 
   struct DataPlaneMetricsParsed {
-    int8_t* buf;
+    const int8_t* buf;
 
-    DataPlaneMetricsParsed(int8_t* buf) : buf(buf) {}
+    DataPlaneMetricsParsed(const int8_t* buf) : buf(buf) {}
 
     // 4 bytes of invocations
     // 4 bytes of computation time
@@ -250,7 +255,7 @@ namespace praas::common::message {
 
   struct ProcessClosureParsed {
 
-    ProcessClosureParsed(int8_t* /* unused */ = nullptr) {}
+    ProcessClosureParsed(const int8_t* /* unused */ = nullptr) {}
 
     static Message::Type type();
   };
