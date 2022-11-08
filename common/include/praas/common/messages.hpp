@@ -76,8 +76,8 @@ namespace praas::common::message {
     static constexpr uint16_t HEADER_OFFSET = 2;
     static constexpr uint16_t NAME_LENGTH = 32;
     static constexpr uint16_t ID_LENGTH = 16;
-    static constexpr uint16_t BUF_SIZE = 58;
-    std::array<int8_t, BUF_SIZE> data{};
+    static constexpr uint16_t MSG_SIZE = 58;
+    std::array<int8_t, MSG_SIZE> data{};
 
     Message(Type type = Type::GENERIC_HEADER)
     {
@@ -117,7 +117,7 @@ namespace praas::common::message {
         : Message(Type::PROCESS_CONNECTION),
           ProcessConnectionParsed(this->data.data() + HEADER_OFFSET)
     {
-      static_assert(EXPECTED_LENGTH <= BUF_SIZE);
+      static_assert(EXPECTED_LENGTH <= MSG_SIZE);
     }
 
     using ProcessConnectionParsed::process_name;
@@ -168,7 +168,7 @@ namespace praas::common::message {
         : Message(Type::INVOCATION_REQUEST),
           InvocationRequestParsed(this->data.data() + HEADER_OFFSET)
     {
-      static_assert(EXPECTED_LENGTH <= BUF_SIZE);
+      static_assert(EXPECTED_LENGTH <= MSG_SIZE);
     }
 
     using InvocationRequestParsed::function_name;
@@ -203,7 +203,7 @@ namespace praas::common::message {
         : Message(Type::INVOCATION_RESULT),
           InvocationResultParsed(this->data.data() + HEADER_OFFSET)
     {
-      static_assert(EXPECTED_LENGTH <= BUF_SIZE);
+      static_assert(EXPECTED_LENGTH <= MSG_SIZE);
     }
 
     using InvocationResultParsed::invocation_id;
@@ -235,7 +235,7 @@ namespace praas::common::message {
         : Message(Type::DATAPLANE_METRICS),
           DataPlaneMetricsParsed(this->data.data() + HEADER_OFFSET)
     {
-      static_assert(EXPECTED_LENGTH <= BUF_SIZE);
+      static_assert(EXPECTED_LENGTH <= MSG_SIZE);
     }
 
     using DataPlaneMetricsParsed::computation_time;

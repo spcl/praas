@@ -55,7 +55,7 @@ namespace praas::control_plane::tcpserver {
       // NOLINTNEXTLINE
       event.data.ptr = reinterpret_cast<void*>(data);
 
-      if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event) == -1) {
+      if (epoll_ctl(epoll_fd, flags, fd, &event) == -1) {
         spdlog::error("Adding socket to epoll failed, reason: {}", strerror(errno));
         return false;
       }
@@ -75,6 +75,11 @@ namespace praas::control_plane::tcpserver {
     }
   }
 
+  class TCPConnection {
+    sockpp::tcp_acceptor;
+
+  };
+
   template <typename Value, typename Key = std::string>
   struct ConcurrentTable {
 
@@ -92,6 +97,8 @@ namespace praas::control_plane::tcpserver {
 
   class TCPServer {
   public:
+
+
     TCPServer(const config::TCPServer&, worker::Workers & workers, bool enable_listen = true);
 
 #if defined(WITH_TESTING)
@@ -115,6 +122,10 @@ namespace praas::control_plane::tcpserver {
 
     void shutdown();
 
+    int num_connected_processes() const;
+
+    int num_registered_processes() const;
+
   protected:
 
     void handle_message(process::ProcessObserver* process, praas::common::message::Message&& msg, sockpp::tcp_socket &&);
@@ -136,6 +147,8 @@ namespace praas::control_plane::tcpserver {
     // subprocesses/sessions, or to read new messages from subprocesses.
     int _epoll_fd;
 
+    std::atomic<int> _registered_processes{};
+
     std::atomic<bool> _ending;
 
     // There are following requirements on the data structures
@@ -150,7 +163,9 @@ namespace praas::control_plane::tcpserver {
     // A single hash table would be sufficient if it wasn't for the fact that we need to
     // store connections *before* process is recognized.
 
-    ConcurrentTable<process::ProcessObserver>::table_t _handles;
+    using entry_t = std::tuple<int, process::ProcessObserver>;
+    ConcurrentTable<entry_t>::table_t _processes;
+    std::unordered_set<entry_t> _handles;
   };
 
 } // namespace praas::control_plane::tcpserver
