@@ -22,7 +22,7 @@ namespace praas::http {
         "Configuring HTTPS sever at port {}, server cert {}, server key {}", port, server_cert,
         server_key
     );
-    _server.port(port).ssl_file(server_cert, server_key);
+    //_server.port(port).ssl_file(server_cert, server_key);
 
     // create application
     // creates application with given name
@@ -141,24 +141,24 @@ namespace praas::http {
     //    });
 
     // We have our own handling of signals
-    _server.signal_clear();
-    if (verbose)
-      _server.loglevel(crow::LogLevel::INFO);
-    else
-      _server.loglevel(crow::LogLevel::ERROR);
+    //_server.signal_clear();
+    //if (verbose)
+    //  _server.loglevel(crow::LogLevel::INFO);
+    //else
+    //  _server.loglevel(crow::LogLevel::ERROR);
   }
 
   void HttpServer::run()
   {
-    _server_thread = std::thread(&crow::App<>::run, &_server);
+    //_server_thread = std::thread(&crow::App<>::run, &_server);
   }
 
   void HttpServer::shutdown()
   {
     spdlog::info("Stopping HTTP server");
-    _server.stop();
-    if (_server_thread.joinable())
-      _server_thread.join();
+    //_server.stop();
+    //if (_server_thread.joinable())
+    //  _server_thread.join();
     spdlog::info("Stopped HTTP server");
   }
 

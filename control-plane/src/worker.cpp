@@ -10,7 +10,6 @@
 #include <thread>
 
 #include <spdlog/spdlog.h>
-#include <redis++.h>
 #include <sockpp/tcp_connector.h>
 
 namespace praas::control_plane::worker {

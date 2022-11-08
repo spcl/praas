@@ -111,6 +111,18 @@ if(NOT TBB_FOUND)
   FetchContent_MakeAvailable(TBB)
 endif()
 
+###
+# drogon
+###
+find_package(drogon QUIET)
+if(NOT DROGON_FOUND)
+  message(STATUS "Downloading and building drogon dependency")
+  FetchContent_Declare(drogon
+    GIT_REPOSITORY https://github.com/drogonframework/drogon
+  )
+  FetchContent_MakeAvailable(drogon)
+endif()
+
 if(WITH_TESTING)
 
   ###

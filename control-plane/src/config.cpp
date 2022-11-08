@@ -63,13 +63,13 @@ namespace praas::control_plane::config {
   void TCPServer::load(cereal::JSONInputArchive& archive)
   {
     archive(CEREAL_NVP(port));
-    archive(CEREAL_NVP(use_threadpool));
+    archive(CEREAL_NVP(io_threads));
   }
 
   void TCPServer::set_defaults()
   {
     port = DEFAULT_PORT;
-    use_threadpool = false;
+    io_threads = 1;
   }
 
   Config Config::deserialize(std::istream& in_stream)

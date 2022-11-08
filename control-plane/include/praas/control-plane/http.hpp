@@ -5,8 +5,6 @@
 #include <string>
 #include <thread>
 
-#include <crow.h>
-
 namespace BS {
 
   struct thread_pool;
@@ -22,7 +20,6 @@ namespace praas::http {
 
   struct HttpServer {
     BS::thread_pool& _pool;
-    crow::SimpleApp _server;
     std::thread _server_thread;
 
     HttpServer(

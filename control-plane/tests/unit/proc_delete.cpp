@@ -23,7 +23,7 @@ class MockTCPServer : public tcpserver::TCPServer {
 public:
   MockTCPServer(MockWorkers & workers) : tcpserver::TCPServer(config::TCPServer{}, workers) {}
 
-  MOCK_METHOD(void, add_process, (process::ProcessObserver && ptr), (override));
+  MOCK_METHOD(void, add_process, (const process::ProcessPtr& ptr), (override));
   MOCK_METHOD(void, remove_process, (const process::Process &), (override));
 };
 

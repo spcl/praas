@@ -54,10 +54,10 @@ namespace praas::control_plane::config {
   };
 
   struct TCPServer {
-    static constexpr int DEFAULT_PORT = 1000;
+    static constexpr int DEFAULT_PORT = 0;
 
     int port;
-    bool use_threadpool;
+    int io_threads;
 
     void load(cereal::JSONInputArchive& archive);
     void set_defaults();

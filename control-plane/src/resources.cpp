@@ -55,7 +55,7 @@ namespace praas::control_plane {
 
     try {
 
-      poller.add_process(process::ProcessObserver{process});
+      poller.add_process(process);
 
       // FIXME: non-blocking, callback
       backend.allocate_process(process, resources);

@@ -7,7 +7,6 @@
 #include <praas/control-plane/resources.hpp>
 
 #include <BS_thread_pool.hpp>
-#include <redis++.h>
 #include <sockpp/tcp_acceptor.h>
 #include <spdlog/spdlog.h>
 
