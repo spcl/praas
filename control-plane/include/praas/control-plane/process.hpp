@@ -39,7 +39,7 @@ namespace praas::control_plane::process {
 
     int32_t invocations{};
     int32_t computation_time{};
-    std::chrono::time_point<std::chrono::system_clock> last_invocation;
+    uint64_t last_invocation{};
     std::chrono::time_point<std::chrono::system_clock> last_report;
 
     DataPlaneMetrics() = default;
@@ -133,7 +133,9 @@ namespace praas::control_plane::process {
 
     Application& application() const;
 
-    // DataPlaneConnection& connection();
+    void update_metrics(int32_t time, int32_t invocations, uint64_t timestamp);
+
+    DataPlaneMetrics get_metrics() const;
 
     void connect(const trantor::TcpConnectionPtr& connectionPtr);
 
@@ -178,6 +180,8 @@ namespace praas::control_plane::process {
     Handle _handle;
 
     mutable lock_t _mutex;
+
+    mutable std::mutex _metrics_mutex;
   };
 
   using ProcessObserver = std::weak_ptr<Process>;

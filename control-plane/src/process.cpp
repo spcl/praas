@@ -1,9 +1,8 @@
-#include <praas/control-plane/process.hpp>
 #include <praas/common/exceptions.hpp>
+#include <praas/control-plane/process.hpp>
 #include <spdlog/spdlog.h>
 
 namespace praas::control_plane::process {
-
 
   DataPlaneConnection::read_lock_t DataPlaneConnection::read_lock() const
   {
@@ -60,9 +59,9 @@ namespace praas::control_plane::process {
     return write_lock_t{_mutex};
   }
 
-  void Process::connect(const trantor::TcpConnectionPtr &connectionPtr)
+  void Process::connect(const trantor::TcpConnectionPtr& connectionPtr)
   {
-    if(_status != Status::ALLOCATING){
+    if (_status != Status::ALLOCATING) {
       throw praas::common::InvalidProcessState{"Can't register process"};
     }
 
@@ -74,6 +73,26 @@ namespace praas::control_plane::process {
   {
     _status = Status::CLOSED;
     _connection.reset();
+  }
+
+  void Process::update_metrics(int32_t time, int32_t invocations, uint64_t timestamp)
+  {
+    std::unique_lock<std::mutex> lock{_metrics_mutex};
+
+    auto cur_timestamp = std::chrono::system_clock::now();
+    if (cur_timestamp >= _metrics.last_report) {
+      _metrics.computation_time = time;
+      _metrics.invocations = invocations;
+      _metrics.last_invocation = timestamp;
+      _metrics.last_report = cur_timestamp;
+    }
+  }
+
+  DataPlaneMetrics Process::get_metrics() const
+  {
+    std::unique_lock<std::mutex> lock{_metrics_mutex};
+
+    return _metrics;
   }
 
 } // namespace praas::control_plane::process

@@ -70,6 +70,7 @@ if(WITH_TESTING)
             tests/unit/proc_swap.cpp
             tests/unit/proc_delete.cpp
             tests/unit/tcpserver.cpp
+            tests/unit/tcpserver_dataplane.cpp
   )
   foreach(test ${TESTS})
 
