@@ -28,7 +28,7 @@ namespace praas::common {
 
   struct ObjectDoesNotExist : PraaSException {
 
-    ObjectDoesNotExist(const std::string& name) : PraaSException(name) {}
+    ObjectDoesNotExist(const std::string& name) : PraaSException("Object does not exist: " + name) {}
   };
 
   struct FailedAllocationError : PraaSException {
