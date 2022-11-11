@@ -164,6 +164,7 @@ namespace praas::common::message {
     using SwapRequestParsed::path;
 
     void path(const std::string& function_name);
+    void path(std::string_view function_name);
   };
 
   struct SwapConfirmationParsed {

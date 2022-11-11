@@ -114,6 +114,11 @@ namespace praas::common::message {
 
   void SwapRequest::path(const std::string& path)
   {
+    this->path(std::string_view{path});
+  }
+
+  void SwapRequest::path(std::string_view path)
+  {
     if (path.length() > Message::ID_LENGTH) {
       throw common::InvalidArgument{
           fmt::format("Swap location ID too long: {} > {}", path.length(), Message::ID_LENGTH)};
@@ -124,6 +129,7 @@ namespace praas::common::message {
         path.data(), Message::ID_LENGTH
     );
     path_len = path.length();
+
   }
 
   Message::Type SwapConfirmationParsed::type()
