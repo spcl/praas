@@ -16,6 +16,7 @@ namespace praas::common::message {
   overloaded(Ts...) -> overloaded<Ts...>;
 
   struct ProcessConnectionParsed;
+  struct SwapRequestParsed;
   struct SwapConfirmationParsed;
   struct InvocationRequestParsed;
   struct InvocationResultParsed;
@@ -27,12 +28,13 @@ namespace praas::common::message {
     enum class Type : int16_t {
       GENERIC_HEADER = 0,
       PROCESS_CONNECTION = 1,
-      SWAP_CONFIRMATION = 2,
-      INVOCATION_REQUEST = 3,
-      INVOCATION_RESULT = 4,
-      DATAPLANE_METRICS = 5,
-      PROCESS_CLOSURE = 6,
-      END_FLAG = 7
+      SWAP_REQUEST,
+      SWAP_CONFIRMATION,
+      INVOCATION_REQUEST,
+      INVOCATION_RESULT,
+      DATAPLANE_METRICS,
+      PROCESS_CLOSURE,
+      END_FLAG
     };
 
     // Connection Headers
@@ -43,11 +45,14 @@ namespace praas::common::message {
     // 34 bytes
 
     // Swap request message
-    // FIXME:
+    // 2 bytes of identiifer
+    // 4 bytes of length of swap path
+    // Message is followed by the swap path
 
     // Swap confirmation
     // 2 bytes of identifier: 2
-    // 2 bytes
+    // 4 bytes of swap size
+    // 6 bytes
 
     // Invocation request
     // 2 bytes of identifier: 3
@@ -93,14 +98,13 @@ namespace praas::common::message {
     }
 
     using MessageVariants = std::variant<
-        ProcessConnectionParsed, SwapConfirmationParsed, InvocationRequestParsed,
+        ProcessConnectionParsed, SwapRequestParsed, SwapConfirmationParsed, InvocationRequestParsed,
         InvocationResultParsed, DataPlaneMetricsParsed, ProcessClosureParsed>;
 
     MessageVariants parse();
     static MessageVariants parse_message(const int8_t* data);
     static MessageVariants parse_message(const char* data);
   };
-
 
   struct ProcessConnectionParsed {
     static constexpr uint16_t EXPECTED_LENGTH = 34;
@@ -109,7 +113,8 @@ namespace praas::common::message {
 
     ProcessConnectionParsed(const int8_t* buf)
         // NOLINTNEXTLINE
-        : buf(buf), process_name_len(strnlen(reinterpret_cast<const char*>(buf), Message::NAME_LENGTH))
+        : buf(buf),
+          process_name_len(strnlen(reinterpret_cast<const char*>(buf), Message::NAME_LENGTH))
     {
     }
 
@@ -134,18 +139,54 @@ namespace praas::common::message {
     using ProcessConnectionParsed::type;
   };
 
-  struct SwapConfirmationParsed {
+  struct SwapRequestParsed {
+    const int8_t* buf;
+    size_t path_len;
 
-    SwapConfirmationParsed(const int8_t* /*unused*/ = nullptr) {}
+    SwapRequestParsed(const int8_t* buf)
+        : buf(buf),
+          // NOLINTNEXTLINE
+          path_len(strnlen(reinterpret_cast<const char*>(buf), Message::ID_LENGTH))
+    {}
+
+    std::string_view path() const;
+
+    static Message::Type type();
+  };
+
+  struct SwapRequest : Message, SwapRequestParsed {
+
+    SwapRequest()
+        : Message(Type::SWAP_REQUEST), SwapRequestParsed(this->data.data() + HEADER_OFFSET)
+    {}
+
+    using SwapRequestParsed::type;
+    using SwapRequestParsed::path;
+
+    void path(const std::string& function_name);
+  };
+
+  struct SwapConfirmationParsed {
+    const int8_t* buf;
+
+    SwapConfirmationParsed(const int8_t* buf) : buf(buf) {}
+
+    int32_t swap_size() const;
 
     static Message::Type type();
   };
 
   struct SwapConfirmation : Message, SwapConfirmationParsed {
 
-    SwapConfirmation() : Message(Type::SWAP_CONFIRMATION) {}
+    SwapConfirmation()
+        : Message(Type::SWAP_CONFIRMATION),
+          SwapConfirmationParsed(this->data.data() + HEADER_OFFSET)
+    {}
 
     using SwapConfirmationParsed::type;
+    using SwapConfirmationParsed::swap_size;
+
+    void swap_size(int32_t);
   };
 
   struct InvocationRequestParsed {

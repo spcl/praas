@@ -46,6 +46,10 @@ namespace praas::common::message {
       return MessageVariants{ProcessConnectionParsed(data + HEADER_OFFSET)};
     }
 
+    if (type == Type::SWAP_REQUEST) {
+      return MessageVariants{SwapRequestParsed(data + HEADER_OFFSET)};
+    }
+
     if (type == Type::SWAP_CONFIRMATION) {
       return MessageVariants{SwapConfirmationParsed(data + HEADER_OFFSET)};
     }
@@ -97,16 +101,53 @@ namespace praas::common::message {
     return Message::Type::PROCESS_CONNECTION;
   }
 
+  Message::Type SwapRequestParsed::type()
+  {
+    return Message::Type::SWAP_REQUEST;
+  }
+
+  std::string_view SwapRequestParsed::path() const
+  {
+    // NOLINTNEXTLINE
+    return std::string_view{reinterpret_cast<const char*>(buf), path_len};
+  }
+
+  void SwapRequest::path(const std::string& path)
+  {
+    if (path.length() > Message::ID_LENGTH) {
+      throw common::InvalidArgument{
+          fmt::format("Swap location ID too long: {} > {}", path.length(), Message::ID_LENGTH)};
+    }
+    std::strncpy(
+        // NOLINTNEXTLINE
+        reinterpret_cast<char*>(data.data() + HEADER_OFFSET),
+        path.data(), Message::ID_LENGTH
+    );
+    path_len = path.length();
+  }
+
   Message::Type SwapConfirmationParsed::type()
   {
     return Message::Type::SWAP_CONFIRMATION;
   }
 
+  int32_t SwapConfirmationParsed::swap_size() const
+  {
+    // NOLINTNEXTLINE
+    return *reinterpret_cast<const int32_t*>(buf);
+  }
+
+  void SwapConfirmation::swap_size(int32_t size)
+  {
+    // NOLINTNEXTLINE
+    *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET) = size;
+  }
+
   std::string_view InvocationRequestParsed::invocation_id() const
   {
-    return std::string_view{
-    // NOLINTNEXTLINE
-        reinterpret_cast<const char*>(buf + Message::NAME_LENGTH + 4), invocation_id_len};
+    return std::string_view{// NOLINTNEXTLINE
+                            reinterpret_cast<const char*>(buf + Message::NAME_LENGTH + 4),
+                            invocation_id_len};
   }
 
   std::string_view InvocationRequestParsed::function_name() const

@@ -54,11 +54,66 @@ TEST(Messages, ProcessConnectionMsgParse)
   ));
 }
 
+TEST(Messages, SwapRequestMsg)
+{
+
+  {
+    std::string swap_loc{"test-name"};
+
+    SwapRequest req;
+    req.path(swap_loc);
+
+    EXPECT_EQ(req.type(), Message::Type::SWAP_REQUEST);
+    EXPECT_EQ(req.path(), swap_loc);
+  }
+
+  {
+    std::string swap_loc(ProcessConnection::ID_LENGTH, 't');
+
+    SwapRequest req;
+    req.path(swap_loc);
+
+    EXPECT_EQ(req.type(), Message::Type::SWAP_REQUEST);
+    EXPECT_EQ(req.path(), swap_loc);
+    EXPECT_EQ(req.path().length(), Message::ID_LENGTH);
+  }
+
+}
+
+TEST(Messages, SwapRequestMsgIncorrect)
+{
+  std::string swap_loc(Message::ID_LENGTH + 1, 't');
+
+  SwapRequest req;
+  EXPECT_THROW(req.path(swap_loc), praas::common::InvalidArgument);
+}
+
+TEST(Messages, SwapRequestMsgParse)
+{
+  SwapRequest req;
+
+  Message& msg = *static_cast<Message*>(&req);
+  auto parsed = msg.parse();
+
+  EXPECT_TRUE(std::holds_alternative<SwapRequestParsed>(parsed));
+
+  EXPECT_TRUE(std::visit(
+      overloaded{
+          [](SwapRequestParsed&) { return true; },
+          [](auto&) { return false; }},
+      parsed
+  ));
+}
+
 TEST(Messages, SwapConfirmationMsg)
 {
+  int32_t swap_size{32};
+
   SwapConfirmation req;
+  req.swap_size(swap_size);
 
   EXPECT_EQ(req.type(), Message::Type::SWAP_CONFIRMATION);
+  EXPECT_EQ(req.swap_size(), swap_size);
 }
 
 TEST(Messages, SwapConfirmationMsgParse)
@@ -137,7 +192,7 @@ TEST(Messages, InvocationRequestMsgIncorrect)
 TEST(Messages, InvocationRequestMsgParse)
 {
   std::string invoc_id{"invoc-id-42"};
-    std::string fname{"test-name"};
+  std::string fname{"test-name"};
   int32_t payload_size{32};
 
   InvocationRequest req;
