@@ -209,7 +209,6 @@ namespace praas::control_plane {
     }
 
     process::Process& proc = *(*iter).second;
-    auto proc_lock = proc.write_lock();
 
     deployment.delete_swap(*proc.state().swap);
 
