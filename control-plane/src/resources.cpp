@@ -129,8 +129,8 @@ namespace praas::control_plane {
 
     // Swap the process
     proc.state().swap = std::move(deployment.get_location(process_name));
-    // FIXME: implement proper swap
-    //proc.swap(*proc.state().swap);
+
+    proc.swap();
   }
 
   void Application::swapped_process(std::string process_name)
@@ -214,17 +214,6 @@ namespace praas::control_plane {
 
     _swapped_processes.erase(iter);
   }
-
-  ///**
-  // * @brief
-  // *
-  // * @param process_id [TODO:description]
-  // */
-  // void
-  // update_metrics(std::string process_id, std::string auth_token, const
-  // process::DataPlaneMetrics&);
-
-  // void invoke(std::string fname, std::string process_id = "");
 
   void Resources::add_application(Application&& application)
   {

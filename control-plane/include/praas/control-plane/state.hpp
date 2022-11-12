@@ -13,6 +13,9 @@ namespace praas::control_plane::state {
     SwapLocation& operator=(const SwapLocation&) = default;
     SwapLocation& operator=(SwapLocation&&) = delete;
     virtual ~SwapLocation() = default;
+
+    virtual std::string_view root_path() const = 0;
+    virtual std::string path(std::string process_name) const = 0;
   };
 
   struct SessionState {

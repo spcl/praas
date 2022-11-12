@@ -84,15 +84,6 @@ namespace praas::control_plane {
 
     void delete_process(std::string process_name, deployment::Deployment& deployment);
 
-    /**
-     * @brief
-     *
-     * @param process_id [TODO:description]
-     */
-    void update_metrics(std::string process_id, const process::DataPlaneMetrics&);
-
-    void invoke(std::string fname, std::string process_id = "");
-
     std::string name() const;
 
   private:

@@ -13,9 +13,12 @@
 namespace praas::control_plane::state {
 
   struct DiskSwapLocation : public SwapLocation {
-    std::filesystem::path path;
+    std::filesystem::path fs_path;
 
-    DiskSwapLocation(std::filesystem::path path) : SwapLocation(), path(path) {}
+    DiskSwapLocation(std::filesystem::path path) : SwapLocation(), fs_path(path) {}
+
+    std::string_view root_path() const;
+    std::string path(std::string process_name) const;
   };
 
 #if defined(WITH_AWS_DEPLOYMENT)

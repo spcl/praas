@@ -111,8 +111,18 @@ namespace praas::control_plane::tcpserver {
               [](const common::message::InvocationResultParsed& res) mutable -> void {
                 // FIXME:
               },
-              [](const common::message::SwapConfirmationParsed&) mutable -> void {
-                // FIXME:
+              [](const common::message::SwapRequestParsed&) mutable -> void {
+                spdlog::error("Ignoring swap request message - bug?");
+              },
+              [this, connectionPtr](const common::message::SwapConfirmationParsed&) mutable -> void {
+                if (connectionPtr->hasContext()) {
+                  handle_swap(connectionPtr->getContext<process::Process>());
+                } else {
+                  spdlog::error(
+                      "Ignoring swap confirmation metrics for an unknown process, from {}",
+                      connectionPtr->peerAddr().toIpPort()
+                  );
+                }
               },
               [this, connectionPtr](const common::message::ProcessConnectionParsed& msg
               ) mutable -> void { handle_connection(connectionPtr, msg); },
@@ -191,6 +201,15 @@ namespace praas::control_plane::tcpserver {
   {
     if (process_ptr) {
       process_ptr->update_metrics(msg.computation_time(), msg.invocations(), msg.last_invocation_timestamp());
+    } else {
+      spdlog::error("Ignoring data plane metrics for an unknown process");
+    }
+  }
+
+  void TCPServer::handle_swap(const process::ProcessPtr& process_ptr)
+  {
+    if (process_ptr) {
+      process_ptr->application().swapped_process(process_ptr->name());
     } else {
       spdlog::error("Ignoring data plane metrics for an unknown process");
     }

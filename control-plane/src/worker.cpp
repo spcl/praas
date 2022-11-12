@@ -25,32 +25,32 @@ namespace praas::control_plane::worker {
       return;
     }
 
-    std::visit(
-        common::message::overloaded{
-          [&ptr](const common::message::ProcessClosureParsed&) mutable -> void {
-            handle_closure(ptr);
-          },
-          [&ptr](const common::message::DataPlaneMetricsParsed& metrics) mutable -> void {
-            handle_data_metrics(ptr, metrics);
-          },
-          [&ptr](const common::message::InvocationResultParsed& res) mutable -> void {
-            handle_invocation_result(ptr, res);
-          },
-          [&ptr](const common::message::SwapConfirmationParsed&) mutable -> void {
-            handle_swap(ptr);
-          },
-          [](const common::message::ProcessConnectionParsed&) -> void {
-            spdlog::error("");
-          },
-          [](const common::message::InvocationRequestParsed&) mutable -> void {
-            spdlog::error("");
-          }
-          //[](auto&) -> void {
-          //  spdlog::error("");
-          //}
-        },
-        parsed
-    );
+    //std::visit(
+    //    common::message::overloaded{
+    //      [&ptr](const common::message::ProcessClosureParsed&) mutable -> void {
+    //        handle_closure(ptr);
+    //      },
+    //      [&ptr](const common::message::DataPlaneMetricsParsed& metrics) mutable -> void {
+    //        handle_data_metrics(ptr, metrics);
+    //      },
+    //      [&ptr](const common::message::InvocationResultParsed& res) mutable -> void {
+    //        handle_invocation_result(ptr, res);
+    //      },
+    //      [&ptr](const common::message::SwapConfirmationParsed&) mutable -> void {
+    //        handle_swap(ptr);
+    //      },
+    //      [](const common::message::ProcessConnectionParsed&) -> void {
+    //        spdlog::error("");
+    //      },
+    //      [](const common::message::InvocationRequestParsed&) mutable -> void {
+    //        spdlog::error("");
+    //      }
+    //      //[](auto&) -> void {
+    //      //  spdlog::error("");
+    //      //}
+    //    },
+    //    parsed
+    //);
   }
 
   void

@@ -152,7 +152,10 @@ namespace praas::control_plane::process {
     write_lock_t write_lock() const;
 
     // Modify the map of invocations.
-    void add_invocation(Invocation);
+    //void invoke(Invocation);
+
+    void swap();
+
     void finish_invocation(Invocation);
 
     void set_status(Status status);
@@ -168,7 +171,6 @@ namespace praas::control_plane::process {
 
     DataPlaneMetrics _metrics;
 
-    // DataPlaneConnection _connection;
     trantor::TcpConnectionPtr _connection;
 
     state::SessionState _state;

@@ -1,6 +1,8 @@
 #include <praas/common/exceptions.hpp>
+#include <praas/common/messages.hpp>
 #include <praas/control-plane/process.hpp>
 #include <spdlog/spdlog.h>
+#include <trantor/utils/MsgBuffer.h>
 
 namespace praas::control_plane::process {
 
@@ -93,6 +95,19 @@ namespace praas::control_plane::process {
     std::unique_lock<std::mutex> lock{_metrics_mutex};
 
     return _metrics;
+  }
+
+  void Process::swap()
+  {
+    if(!_connection) {
+      return;
+    }
+
+    std::string_view swap_path = _state.swap->root_path();
+    praas::common::message::SwapRequest msg;
+    msg.path(swap_path);
+
+    _connection->send(msg.bytes(), decltype(msg)::BUF_SIZE);
   }
 
 } // namespace praas::control_plane::process

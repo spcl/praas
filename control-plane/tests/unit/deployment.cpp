@@ -24,7 +24,8 @@ TEST(DeploymentTest, LocalLocation)
 
     state::DiskSwapLocation* ptr = dynamic_cast<state::DiskSwapLocation*>(loc.get());
     ASSERT_NE(ptr, nullptr);
-    ASSERT_EQ(ptr->path, root_path / "swaps" / proc_name);
+    ASSERT_EQ(ptr->path(proc_name), root_path / "swaps" / proc_name);
+    ASSERT_EQ(ptr->root_path(), root_path);
   }
 
   {
@@ -37,7 +38,8 @@ TEST(DeploymentTest, LocalLocation)
 
     state::DiskSwapLocation* ptr = dynamic_cast<state::DiskSwapLocation*>(loc.get());
     ASSERT_NE(ptr, nullptr);
-    ASSERT_EQ(ptr->path, root_path / "swaps" / proc_name);
+    ASSERT_EQ(ptr->path(proc_name), root_path / "swaps" / proc_name);
+    ASSERT_EQ(ptr->root_path(), root_path);
   }
 
 }
