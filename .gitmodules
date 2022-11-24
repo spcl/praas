@@ -1,6 +1,3 @@
 [submodule "sdk"]
 	path = sdk
 	url = git@github.com:spcl/praas-sdk.git
-[submodule "process"]
-	path = process
-	url = git@github.com:spcl/praas-process.git
