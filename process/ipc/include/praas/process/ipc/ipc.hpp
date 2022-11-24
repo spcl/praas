@@ -1,0 +1,73 @@
+#ifndef PRAAS_PROCESS_IPC_HPP
+#define PRAAS_PROCESS_IPC_HPP
+
+#include <praas/process/ipc/buffer.hpp>
+#include <praas/process/ipc/messages.hpp>
+
+#include <optional>
+#include <string>
+#include <tuple>
+
+#include <mqueue.h>
+
+namespace praas::process::ipc {
+
+  enum IPCMode {
+    POSIX_MQ,
+    NONE
+  };
+
+  IPCMode deserialize(std::string);
+
+  struct IPCChannel {
+
+    virtual ~IPCChannel() = 0;
+
+    virtual int fd() const = 0;
+
+    virtual void send(Message& msg, std::initializer_list<Buffer<char>> data) = 0;
+    virtual std::tuple<Message, Buffer<char>> receive() = 0;
+  };
+
+  struct POSIXMQChannel : public IPCChannel {
+
+    static constexpr int MAX_MSGS = 10;
+    static constexpr int MAX_MSG_SIZE = 8 * 1024;
+
+    static constexpr int BUFFER_ELEMS = 5;
+    static constexpr int BUFFER_SIZE = 1 * 1024 * 1024;
+
+    POSIXMQChannel(std::string queue_name, bool create = false, int msg_size = MAX_MSG_SIZE);
+    virtual ~POSIXMQChannel();
+
+    std::string name() const
+    {
+      return _name;
+    }
+
+    int fd() const override;
+
+    std::tuple<Message, Buffer<char>> receive() override;
+
+    void send(Message& msg, std::initializer_list<Buffer<char>> data) override;
+
+  private:
+    mqd_t _queue;
+
+    bool _created;
+
+    std::string _name;
+
+    size_t _msg_size;
+
+    BufferQueue<char> _buffers;
+
+    void _send(const char* data, size_t len) const;
+    void _send(const int8_t* data, size_t len) const;
+    void _recv(int8_t* data, size_t len) const;
+    void _recv(char* data, size_t len) const;
+  };
+
+}
+
+#endif
