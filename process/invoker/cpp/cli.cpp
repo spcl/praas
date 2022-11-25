@@ -11,8 +11,9 @@
 
 praas::process::Invoker* instance = nullptr;
 
-void signal_handler(int)
+void signal_handler(int signal)
 {
+  spdlog::info("Handlign signal {}", strsignal(signal));
   assert(instance);
   instance->shutdown();
 }
@@ -64,7 +65,7 @@ int main(int argc, char** argv)
 
   praas::process::Invoker invoker{config.ipc_mode, config.ipc_name};
   instance = &invoker;
-  invoker.poll();
+  auto invoc = invoker.poll();
 
   spdlog::info("Process invoker is closing down");
   return 0;

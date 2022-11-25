@@ -1,9 +1,12 @@
 #include <praas/process/ipc/ipc.hpp>
 
+#include <praas/common/exceptions.hpp>
 #include <praas/common/util.hpp>
+
 #include <iostream>
 #include <thread>
-#include "praas/common/exceptions.hpp"
+
+#include <sys/signal.h>
 
 namespace praas::process::ipc {
 
@@ -147,7 +150,6 @@ namespace praas::process::ipc {
 
   void POSIXMQChannel::_recv(char* data, int len) const
   {
-    int received_length = 0;
     for (int pos = 0; pos < len;) {
 
       //auto size = (len - pos < _msg_size) ? (len - pos) : _msg_size;
@@ -158,9 +160,8 @@ namespace praas::process::ipc {
       if (rcv_len == -1) {
         throw praas::common::PraaSException{
             fmt::format("Failed receiving with error {}, strerror {}", errno, strerror(errno))};
-      } else {
-        pos += rcv_len;
       }
+      pos += rcv_len;
 
     }
   }

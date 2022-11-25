@@ -14,7 +14,7 @@ namespace praas::process {
 
     Invoker(ipc::IPCMode ipc_mode, std::string ipc_name);
 
-    praas::function::Invocation poll();
+    std::optional<praas::function::Invocation> poll();
 
     // FIXME: move data
     void finish(praas::function::Invocation&);
@@ -22,10 +22,12 @@ namespace praas::process {
     void shutdown();
   private:
 
+    std::atomic<bool> _ending{};
+
     std::unique_ptr<ipc::IPCChannel> _ipc_channel_read;
     std::unique_ptr<ipc::IPCChannel> _ipc_channel_write;
   };
 
-} // namespace praas::function
+} // namespace praas::process
 
 #endif
