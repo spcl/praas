@@ -1,4 +1,5 @@
 #include <praas/common/exceptions.hpp>
+#include <praas/common/util.hpp>
 #include <praas/control-plane/config.hpp>
 
 #include <optional>
@@ -80,40 +81,14 @@ namespace praas::control_plane::config {
     return cfg;
   }
 
-  template <typename T>
-  void load_optional(cereal::JSONInputArchive& archive, const std::string& name, T& obj)
-  {
-
-    // Unfortunately, Cereal does not allow to skip non-existing objects easily.
-    // There is also no separate exception type for this.
-    try {
-      archive(cereal::make_nvp(name, obj));
-    } catch (cereal::Exception& exc) {
-
-      // Catch non existing object
-      if (std::string_view{exc.what()}.find(fmt::format("({}) not found", name)) !=
-          std::string::npos) {
-
-        archive.setNextName(nullptr);
-        obj.set_defaults();
-
-      } else {
-        throw common::InvalidConfigurationError(
-            "Could not parse HTTP configuration, reason: " + std::string{exc.what()}
-        );
-      }
-    }
-  }
-
   void Config::load(cereal::JSONInputArchive& archive)
   {
     archive(CEREAL_NVP(verbose));
 
-    load_optional(archive, "http", this->http);
-    load_optional(archive, "workers", this->workers);
-    load_optional(archive, "downscaler", this->down_scaler);
-    load_optional(archive, "tcpserver", this->tcpserver);
-
+    common::util::cereal_load_optional(archive, "http", this->http);
+    common::util::cereal_load_optional(archive, "workers", this->workers);
+    common::util::cereal_load_optional(archive, "downscaler", this->down_scaler);
+    common::util::cereal_load_optional(archive, "tcpserver", this->tcpserver);
   }
 
 } // namespace praas::control_plane::config

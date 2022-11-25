@@ -46,6 +46,11 @@ namespace praas::common {
     InvalidMessage(const std::string& name) : PraaSException(name) {}
   };
 
+  struct InvalidJSON : PraaSException {
+
+    InvalidJSON(const std::string& name) : PraaSException(name) {}
+  };
+
   struct InvalidArgument : PraaSException {
 
     InvalidArgument(const std::string& name) : PraaSException(name) {}

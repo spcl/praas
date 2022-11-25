@@ -1,8 +1,11 @@
 #ifndef PRAAS_COMMON_UTIL_HPP
 #define PRAAS_COMMON_UTIL_HPP
 
+#include <praas/common/exceptions.hpp>
+
 #include <execinfo.h>
 
+#include <cereal/archives/json.hpp>
 #include <spdlog/spdlog.h>
 
 namespace praas::common::util {
@@ -50,6 +53,32 @@ namespace praas::common::util {
     if (!expect_other(u, val))
       exit(1);
   }
+
+  template <typename T>
+  void cereal_load_optional(cereal::JSONInputArchive& archive, const std::string& name, T& obj)
+  {
+
+    // Unfortunately, Cereal does not allow to skip non-existing objects easily.
+    // There is also no separate exception type for this.
+    try {
+      archive(cereal::make_nvp(name, obj));
+    } catch (cereal::Exception& exc) {
+
+      // Catch non existing object
+      if (std::string_view{exc.what()}.find(fmt::format("({}) not found", name)) !=
+          std::string::npos) {
+
+        archive.setNextName(nullptr);
+        obj.set_defaults();
+
+      } else {
+        throw common::InvalidConfigurationError(
+            "Could not parse HTTP configuration, reason: " + std::string{exc.what()}
+        );
+      }
+    }
+  }
+
 } // namespace praas::common::util
 
 #endif
