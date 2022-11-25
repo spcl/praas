@@ -29,13 +29,13 @@ namespace praas::process::ipc {
       return MessageVariants{PutRequestParsed(data + HEADER_OFFSET)};
     }
 
-    //if (type == Type::INVOCATION_REQUEST) {
-    //  return MessageVariants{InvocationRequestParsed(data + HEADER_OFFSET)};
-    //}
+    if (type == Type::INVOCATION_REQUEST) {
+      return MessageVariants{InvocationRequestParsed(data + HEADER_OFFSET)};
+    }
 
-    //if (type == Type::INVOCATION_RESULT) {
-    //  return MessageVariants{InvocationResultParsed(data + HEADER_OFFSET)};
-    //}
+    if (type == Type::INVOCATION_RESULT) {
+      return MessageVariants{InvocationResultParsed(data + HEADER_OFFSET)};
+    }
 
     throw common::NotImplementedError{};
   }
@@ -117,6 +117,112 @@ namespace praas::process::ipc {
         name.data(), Message::NAME_LENGTH
     );
     name_len = name.length();
+  }
+
+  int32_t InvocationRequestParsed::buffers() const
+  {
+    // NOLINTNEXTLINE
+    return *reinterpret_cast<const int32_t*>(buf + Message::ID_LENGTH + Message::NAME_LENGTH);
+  }
+
+  const int32_t* InvocationRequestParsed::buffers_lengths() const
+  {
+    // NOLINTNEXTLINE
+    return reinterpret_cast<const int32_t*>(
+        buf + Message::ID_LENGTH + Message::NAME_LENGTH + sizeof(int32_t)
+    );
+  }
+
+  std::string_view InvocationRequestParsed::invocation_id() const
+  {
+    return std::string_view{// NOLINTNEXTLINE
+                            reinterpret_cast<const char*>(buf), id_len};
+  }
+
+  std::string_view InvocationRequestParsed::function_name() const
+  {
+    return std::string_view{// NOLINTNEXTLINE
+                            reinterpret_cast<const char*>(buf + Message::ID_LENGTH), name_len};
+  }
+
+  void InvocationRequest::invocation_id(const std::string& id)
+  {
+    if (id.length() > Message::ID_LENGTH) {
+      throw common::InvalidArgument{
+          fmt::format("Invocation ID too long: {} > {}", id.length(), Message::ID_LENGTH)};
+    }
+
+    std::strncpy(
+        // NOLINTNEXTLINE
+        reinterpret_cast<char*>(data.data() + HEADER_OFFSET), id.data(), Message::ID_LENGTH
+    );
+    id_len = id.length();
+  }
+
+  void InvocationRequest::function_name(const std::string& name)
+  {
+    if (name.length() > Message::NAME_LENGTH) {
+      throw common::InvalidArgument{
+          fmt::format("Function name too long: {} > {}", name.length(), Message::NAME_LENGTH)};
+    }
+
+    std::strncpy(
+        // NOLINTNEXTLINE
+        reinterpret_cast<char*>(data.data() + HEADER_OFFSET + Message::ID_LENGTH), name.data(),
+        Message::NAME_LENGTH
+    );
+    name_len = name.length();
+  }
+
+  void InvocationRequest::buffers(int32_t* begin, int32_t* end)
+  {
+    int elems = std::distance(begin, end);
+    if (elems > InvocationRequest::MAX_BUFFERS) {
+      throw common::InvalidArgument{
+          fmt::format("Number of buffers too large: {} > {}", elems, InvocationRequest::MAX_BUFFERS)};
+    }
+
+    // NOLINTNEXTLINE
+    auto ptr = reinterpret_cast<int32_t*>(
+        data.data() + HEADER_OFFSET + Message::NAME_LENGTH + Message::ID_LENGTH
+    );
+    *ptr++ = elems;
+
+    while (begin != end) {
+      *ptr++ = *begin++;
+    }
+  }
+
+  std::string_view InvocationResultParsed::invocation_id() const
+  {
+    return std::string_view{// NOLINTNEXTLINE
+                            reinterpret_cast<const char*>(buf), id_len};
+  }
+
+  int32_t InvocationResultParsed::buffer_length() const
+  {
+    // NOLINTNEXTLINE
+    return *reinterpret_cast<const int32_t*>(buf + Message::ID_LENGTH);
+  }
+
+  void InvocationResult::invocation_id(const std::string& id)
+  {
+    if (id.length() > Message::ID_LENGTH) {
+      throw common::InvalidArgument{
+          fmt::format("Invocation ID too long: {} > {}", id.length(), Message::ID_LENGTH)};
+    }
+
+    std::strncpy(
+        // NOLINTNEXTLINE
+        reinterpret_cast<char*>(data.data() + HEADER_OFFSET), id.data(), Message::ID_LENGTH
+    );
+    id_len = id.length();
+  }
+
+  void InvocationResult::buffer_length(int32_t len)
+  {
+    // NOLINTNEXTLINE
+    *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + Message::ID_LENGTH) = len;
   }
 
 } // namespace praas::process::ipc

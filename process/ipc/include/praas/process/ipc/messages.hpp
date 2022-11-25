@@ -8,6 +8,13 @@
 
 namespace praas::process::ipc {
 
+  template <class... Ts>
+  struct overloaded : Ts... {
+    using Ts::operator()...;
+  };
+  template <class... Ts>
+  overloaded(Ts...) -> overloaded<Ts...>;
+
   struct GetRequestParsed;
   struct PutRequestParsed;
   struct InvocationRequestParsed;
@@ -26,6 +33,7 @@ namespace praas::process::ipc {
 
     static constexpr uint16_t HEADER_OFFSET = 6;
     static constexpr uint16_t NAME_LENGTH = 32;
+    static constexpr uint16_t ID_LENGTH = 16;
     static constexpr uint16_t BUF_SIZE = 128;
 
     std::array<int8_t, BUF_SIZE> data{};
@@ -64,8 +72,8 @@ namespace praas::process::ipc {
           // NOLINTNEXTLINE
           id_len(strnlen(reinterpret_cast<const char*>(buf + 4), Message::NAME_LENGTH)),
           name_len(strnlen(
-            // NOLINTNEXTLINE
-            reinterpret_cast<const char*>(buf + 4 + Message::NAME_LENGTH), Message::NAME_LENGTH
+              // NOLINTNEXTLINE
+              reinterpret_cast<const char*>(buf + 4 + Message::NAME_LENGTH), Message::NAME_LENGTH
           ))
     {
     }
@@ -96,6 +104,14 @@ namespace praas::process::ipc {
 
     GetRequest() : GenericRequest(Type::GET_REQUEST) {}
 
+    using GenericRequest::data_len;
+    using GenericRequest::name;
+    using GenericRequest::process_id;
+    using GenericRequestParsed::data_len;
+    using GenericRequestParsed::name;
+    using GenericRequestParsed::process_id;
+
+    static constexpr Type TYPE = Type::GET_REQUEST;
   };
 
   struct PutRequestParsed : GenericRequestParsed {
@@ -107,27 +123,85 @@ namespace praas::process::ipc {
 
     PutRequest() : GenericRequest(Type::PUT_REQUEST) {}
 
+    using GenericRequest::data_len;
+    using GenericRequest::name;
+    using GenericRequest::process_id;
+    using GenericRequestParsed::data_len;
+    using GenericRequestParsed::name;
+    using GenericRequestParsed::process_id;
+
+    static constexpr Type TYPE = Type::PUT_REQUEST;
   };
 
   struct InvocationRequestParsed {
     const int8_t* buf;
+    size_t id_len;
+    size_t name_len;
+
+    InvocationRequestParsed(const int8_t* buf)
+        : buf(buf),
+          // NOLINTNEXTLINE
+          id_len(strnlen(reinterpret_cast<const char*>(buf), Message::ID_LENGTH)),
+          name_len(strnlen(
+              // NOLINTNEXTLINE
+              reinterpret_cast<const char*>(buf + Message::ID_LENGTH), Message::NAME_LENGTH
+          ))
+    {
+    }
 
     std::string_view invocation_id() const;
     std::string_view function_name() const;
     int32_t buffers() const;
-    int32_t* buffers_lengths() const;
+    const int32_t* buffers_lengths() const;
   };
 
-  struct InvocationRequest {};
+  struct InvocationRequest : Message, InvocationRequestParsed {
+
+    static constexpr int MAX_BUFFERS = 16;
+
+    InvocationRequest()
+        : Message(Type::INVOCATION_REQUEST),
+          InvocationRequestParsed(this->data.data() + HEADER_OFFSET)
+    {}
+
+    using InvocationRequestParsed::invocation_id;
+    using InvocationRequestParsed::function_name;
+    using InvocationRequestParsed::buffers;
+
+    void invocation_id(const std::string & id);
+    void function_name(const std::string & name);
+    void buffers(int32_t* begin, int32_t* end);
+  };
 
   struct InvocationResultParsed {
     const int8_t* buf;
+    size_t id_len;
+
+    InvocationResultParsed(const int8_t* buf)
+        : buf(buf),
+          // NOLINTNEXTLINE
+          id_len(strnlen(reinterpret_cast<const char*>(buf), Message::NAME_LENGTH))
+    {
+    }
 
     std::string_view invocation_id() const;
     int32_t buffer_length() const;
   };
 
-  struct InvocationResult {};
+  struct InvocationResult : Message, InvocationResultParsed {
+
+    InvocationResult()
+        : Message(Type::INVOCATION_RESULT),
+          InvocationResultParsed(this->data.data() + HEADER_OFFSET)
+    {}
+
+    using InvocationResultParsed::invocation_id;
+    using InvocationResultParsed::buffer_length;
+
+    void invocation_id(const std::string & id);
+    void buffer_length(int32_t length);
+
+  };
 
 } // namespace praas::process::ipc
 
