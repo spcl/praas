@@ -75,7 +75,7 @@ if(WITH_TESTING)
   )
   foreach(test ${TESTS})
 
-    PraaS_AddTest(test_name ${test})
+    PraaS_AddTest("control-plane" test_name ${test})
     control_plane_dependencies(${test_name})
     target_link_libraries(${test_name} PRIVATE control_plane_lib)
     control_plane_link(${test_name})
