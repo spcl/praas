@@ -1,0 +1,29 @@
+{
+  "functions": {
+    "python": {
+      "test": {
+        "name": "test",
+        "code": {
+          "module": "test.py",
+          "function": "test"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      }
+    },
+    "cpp": {
+      "test": {
+        "code": {
+          "module": "libtest.so",
+          "function": "test"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      }
+    }
+  }
+}

@@ -2,9 +2,11 @@
 #define PRAAS_IPC_MESSAGES_HPP
 
 #include <cstring>
+#include <fmt/format.h>
 #include <memory>
 #include <string>
 #include <variant>
+#include "praas/common/exceptions.hpp"
 
 namespace praas::process::ipc {
 
@@ -170,6 +172,27 @@ namespace praas::process::ipc {
     void invocation_id(const std::string & id);
     void function_name(const std::string & name);
     void buffers(int32_t* begin, int32_t* end);
+
+    template<typename Iter>
+    void buffers(Iter begin, Iter end)
+    {
+      int elems = std::distance(begin, end);
+      if (elems > InvocationRequest::MAX_BUFFERS) {
+        throw common::InvalidArgument{
+            fmt::format("Number of buffers too large: {} > {}", elems, InvocationRequest::MAX_BUFFERS)};
+      }
+
+      // NOLINTNEXTLINE
+      auto ptr = reinterpret_cast<int32_t*>(
+          data.data() + HEADER_OFFSET + Message::NAME_LENGTH + Message::ID_LENGTH
+      );
+      *ptr++ = elems;
+
+      while (begin != end) {
+        *ptr++ = (*begin).size;
+        ++begin;
+      }
+    }
   };
 
   struct InvocationResultParsed {

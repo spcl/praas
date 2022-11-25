@@ -30,7 +30,7 @@ namespace praas::process::ipc {
 
     virtual int fd() const = 0;
 
-    virtual void send(Message& msg, std::initializer_list<Buffer<char>> data) = 0;
+    virtual void send(Message& msg, const std::vector<Buffer<char>> & data) = 0;
     virtual std::tuple<Message, Buffer<char>> receive() = 0;
   };
 
@@ -54,7 +54,7 @@ namespace praas::process::ipc {
 
     std::tuple<Message, Buffer<char>> receive() override;
 
-    void send(Message& msg, std::initializer_list<Buffer<char>> data) override;
+    void send(Message& msg, const std::vector<Buffer<char>> & data) override;
 
   private:
     mqd_t _queue;

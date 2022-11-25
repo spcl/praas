@@ -20,16 +20,18 @@ namespace praas::process::ipc {
   POSIXMQChannel::POSIXMQChannel(
       std::string queue_name, IPCDirection direction, bool create, int message_size
   )
-      : _created(create), _name(queue_name), _buffers(BUFFER_ELEMS, BUFFER_SIZE),
-        _msg_size(message_size)
+      : _created(create), _name(queue_name),
+        _msg_size(message_size),
+        _buffers(BUFFER_ELEMS, BUFFER_SIZE)
   {
 
     int mq_direction = direction == IPCDirection::WRITE ? O_WRONLY : O_RDONLY;
 
     if (create) {
 
-      struct mq_attr attributes = {
-          .mq_flags = 0, .mq_maxmsg = MAX_MSGS, .mq_msgsize = message_size, .mq_curmsgs = 0};
+      struct mq_attr attributes{};
+      attributes.mq_maxmsg = MAX_MSGS;
+      attributes.mq_msgsize = message_size;
 
       std::cerr << attributes.mq_msgsize << std::endl;
       common::util::assert_other(
@@ -74,7 +76,7 @@ namespace praas::process::ipc {
     return _queue;
   }
 
-  void POSIXMQChannel::send(Message& msg, std::initializer_list<Buffer<char>> data)
+  void POSIXMQChannel::send(Message& msg, const std::vector<Buffer<char>>& data)
   {
     size_t len = 0;
     for (auto buf : data) {
@@ -82,10 +84,10 @@ namespace praas::process::ipc {
     }
 
     msg.total_length(len);
-    std::cerr << len << std::endl;
+    //std::cerr << len << std::endl;
 
-    for (int i = 0; i < 64; ++i)
-      spdlog::info(fmt::format("Byte {}, byte {:b}", i, msg.bytes()[i]));
+    //for (int i = 0; i < 64; ++i)
+    //  spdlog::info(fmt::format("Byte {}, byte {:b}", i, msg.bytes()[i]));
 
     _send(msg.bytes(), msg.BUF_SIZE);
     for (auto buf : data) {

@@ -1,0 +1,12 @@
+{
+  "port": 8080,
+  "verbose": true,
+  "function_workers": 1,
+  "ipc-mode": "posix_mq",
+  "ipc-message-size": 4096,
+  "code": {
+    "language": "cpp",
+    "location": "/work/serverless/2022/praas/code/praas/process/config/",
+    "configuration-location": "example_functions.json"
+  }
+}

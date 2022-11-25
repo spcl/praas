@@ -103,10 +103,11 @@ process_link(cpp_invoker_exe)
 
 if(WITH_TESTING)
 
-  set(TESTS tests/unit/messages.cpp)
+  set(TESTS tests/unit/messages.cpp
+            tests/unit/config.cpp)
   foreach(test ${TESTS})
 
-    PraaS_AddTest(test_name ${test})
+    PraaS_AddTest("process" test_name ${test})
     process_dependencies(${test_name})
     target_link_libraries(${test_name} PRIVATE process_lib)
     process_link(${test_name})

@@ -1,4 +1,5 @@
 
+#include <praas/process/controller/config.hpp>
 #include <praas/process/controller/controller.hpp>
 
 #include <praas/common/exceptions.hpp>
@@ -6,6 +7,8 @@
 #include <praas/process/ipc/ipc.hpp>
 #include <praas/process/ipc/messages.hpp>
 
+#include <filesystem>
+#include <fstream>
 #include <memory>
 
 #include <sys/epoll.h>
@@ -93,33 +96,16 @@ namespace praas::process {
     }
   }
 
-  ipc::IPCChannel& FunctionWorker::ipc_read()
+  Controller::Controller(config::Controller cfg):
+    _workers(cfg)
   {
-    return *_ipc_read;
-  }
-
-  ipc::IPCChannel& FunctionWorker::ipc_write()
-  {
-    return *_ipc_write;
-  }
-
-  Controller::Controller(config::Controller cfg) : _worker_counter(0)
-  {
-
-    for (int i = 0; i < cfg.function_workers; ++i) {
-
-      std::string ipc_name = "/praas_queue_" + std::to_string(_worker_counter++);
-
-      // FIXME: enable Python
-      const char* argv[] = {"process/bin/cpp_invoker_exe",
-                            "--ipc-mode",
-                            "posix_mq",
-                            "--ipc-name",
-                            ipc_name.c_str(),
-                            nullptr};
-
-      _workers.emplace_back(argv, cfg.ipc_mode, ipc_name, cfg.ipc_message_size);
+    auto path = std::filesystem::path{cfg.code.location} / cfg.code.config_location;
+    spdlog::debug("Loading function configurationf rom {}", path.c_str());
+    std::ifstream in_stream{path};
+    if(!in_stream.is_open()) {
+      throw praas::common::PraaSException{fmt::format("Could not find file {}", path.c_str())};
     }
+    _work_queue.initialize(in_stream, cfg.code.language);
 
     // size is ignored by Linux
     _epoll_fd = epoll_create(255);
@@ -130,7 +116,7 @@ namespace praas::process {
     }
 
     // FIXME: other IPC methods
-    for (FunctionWorker& worker : _workers) {
+    for (FunctionWorker& worker : _workers.workers()) {
       common::util::assert_true(
           epoll_add(_epoll_fd, worker.ipc_read().fd(), &worker, EPOLLIN | EPOLLPRI)
       );
@@ -147,19 +133,6 @@ namespace praas::process {
     std::array<epoll_event, MAX_EPOLL_EVENTS> events;
     while (true) {
 
-      // FIXME: REMOVE
-      for (size_t i = 0; i < _workers.size(); ++i) {
-        ipc::InvocationRequest req;
-        req.invocation_id("test");
-        req.function_name("func");
-        std::array<int, 1> buffers_lens{300};
-        req.buffers(buffers_lens.begin(), buffers_lens.end());
-        auto buf = buffers.retrieve_buffer(300);
-        buf.len = 10;
-        _workers[i].ipc_write().send(req, {buf});
-        buffers.return_buffer(buf);
-      }
-
       int events_count = epoll_wait(_epoll_fd, events.data(), MAX_EPOLL_EVENTS, EPOLL_TIMEOUT);
 
       // Finish if we failed (but we were not interrupted), or when end was requested.
@@ -172,6 +145,28 @@ namespace praas::process {
         spdlog::error(
             "{} {} ", events[i].events, static_cast<FunctionWorker*>(events[i].data.ptr)->pid()
         );
+
+        // FIXME: Received invocation request
+        // add this to the work queue
+
+        // FIXME: received completion from worker
+        // mark as done and add
+
+        // FIXME: received get-put
+      }
+
+      // walk over all functions in a queue, schedule whatever possible
+      while(_workers.has_idle_workers()) {
+
+        Invocation* invoc = _work_queue.next();
+
+        if(!invoc) {
+          break;
+        }
+
+        // schedule on an idle worker
+        _workers.submit(*invoc);
+
       }
     }
 
