@@ -22,7 +22,8 @@ namespace praas::process {
     void shutdown();
   private:
 
-    std::unique_ptr<ipc::IPCChannel> _ipc_channel;
+    std::unique_ptr<ipc::IPCChannel> _ipc_channel_read;
+    std::unique_ptr<ipc::IPCChannel> _ipc_channel_write;
   };
 
 } // namespace praas::function

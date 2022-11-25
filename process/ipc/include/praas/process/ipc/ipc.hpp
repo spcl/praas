@@ -17,6 +17,11 @@ namespace praas::process::ipc {
     NONE
   };
 
+  enum IPCDirection {
+    WRITE,
+    READ
+  };
+
   IPCMode deserialize(std::string);
 
   struct IPCChannel {
@@ -37,7 +42,7 @@ namespace praas::process::ipc {
     static constexpr int BUFFER_ELEMS = 5;
     static constexpr int BUFFER_SIZE = 1 * 1024 * 1024;
 
-    POSIXMQChannel(std::string queue_name, bool create = false, int msg_size = MAX_MSG_SIZE);
+    POSIXMQChannel(std::string queue_name, IPCDirection direction, bool create = false, int msg_size = MAX_MSG_SIZE);
     virtual ~POSIXMQChannel();
 
     std::string name() const
@@ -58,14 +63,16 @@ namespace praas::process::ipc {
 
     std::string _name;
 
-    size_t _msg_size;
+    int _msg_size;
 
     BufferQueue<char> _buffers;
 
-    void _send(const char* data, size_t len) const;
-    void _send(const int8_t* data, size_t len) const;
-    void _recv(int8_t* data, size_t len) const;
-    void _recv(char* data, size_t len) const;
+    std::unique_ptr<int8_t[]> _msg_buffer;
+
+    void _send(const char* data, int len) const;
+    void _send(const int8_t* data, int len) const;
+    void _recv(int8_t* data, int len) const;
+    void _recv(char* data, int len) const;
   };
 
 }

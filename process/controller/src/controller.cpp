@@ -84,30 +84,39 @@ namespace praas::process {
     _pid = mypid;
 
     if (mode == ipc::IPCMode::POSIX_MQ) {
-      _ipc = std::make_unique<ipc::POSIXMQChannel>(ipc_name, ipc_msg_size, true);
+      _ipc_read = std::make_unique<ipc::POSIXMQChannel>(
+          ipc_name + "_read", ipc::IPCDirection::READ, true, ipc_msg_size
+      );
+      _ipc_write = std::make_unique<ipc::POSIXMQChannel>(
+          ipc_name + "_write", ipc::IPCDirection::WRITE, true, ipc_msg_size
+      );
     }
   }
 
-  ipc::IPCChannel& FunctionWorker::ipc()
+  ipc::IPCChannel& FunctionWorker::ipc_read()
   {
-    return *_ipc;
+    return *_ipc_read;
+  }
+
+  ipc::IPCChannel& FunctionWorker::ipc_write()
+  {
+    return *_ipc_write;
   }
 
   Controller::Controller(config::Controller cfg) : _worker_counter(0)
   {
 
-    for (size_t i = 0; i < cfg.function_workers; ++i) {
+    for (int i = 0; i < cfg.function_workers; ++i) {
 
       std::string ipc_name = "/praas_queue_" + std::to_string(_worker_counter++);
 
       // FIXME: enable Python
-      const char* argv[] = {
-          "process/bin/cpp_invoker_exe",
-          "--ipc-mode",
-          "posix_mq",
-          "--ipc-name",
-          ipc_name.c_str(),
-          nullptr};
+      const char* argv[] = {"process/bin/cpp_invoker_exe",
+                            "--ipc-mode",
+                            "posix_mq",
+                            "--ipc-name",
+                            ipc_name.c_str(),
+                            nullptr};
 
       _workers.emplace_back(argv, cfg.ipc_mode, ipc_name, cfg.ipc_message_size);
     }
@@ -123,7 +132,7 @@ namespace praas::process {
     // FIXME: other IPC methods
     for (FunctionWorker& worker : _workers) {
       common::util::assert_true(
-        epoll_add(_epoll_fd, worker.ipc().fd(), &worker, EPOLLIN | EPOLLPRI)
+          epoll_add(_epoll_fd, worker.ipc_read().fd(), &worker, EPOLLIN | EPOLLPRI)
       );
     }
   }
@@ -139,11 +148,15 @@ namespace praas::process {
     while (true) {
 
       // FIXME: REMOVE
-      for(int i = 0; i < _workers.size(); ++i) {
-        ipc::GetRequest req;
+      for (size_t i = 0; i < _workers.size(); ++i) {
+        ipc::InvocationRequest req;
+        req.invocation_id("test");
+        req.function_name("func");
+        std::array<int, 1> buffers_lens{300};
+        req.buffers(buffers_lens.begin(), buffers_lens.end());
         auto buf = buffers.retrieve_buffer(300);
         buf.len = 10;
-        _workers[i].ipc().send(req, {buf});
+        _workers[i].ipc_write().send(req, {buf});
         buffers.return_buffer(buf);
       }
 
@@ -154,8 +167,11 @@ namespace praas::process {
         break;
       }
 
+      std::cerr << "Events: " << events_count << std::endl;
       for (int i = 0; i < events_count; ++i) {
-
+        spdlog::error(
+            "{} {} ", events[i].events, static_cast<FunctionWorker*>(events[i].data.ptr)->pid()
+        );
       }
     }
 

@@ -1,11 +1,19 @@
 #include <praas/process/invoker.hpp>
+#include <praas/process/ipc/messages.hpp>
+
+#include <variant>
 
 namespace praas::process {
 
   Invoker::Invoker(ipc::IPCMode ipc_mode, std::string ipc_name)
   {
     if (ipc_mode == ipc::IPCMode::POSIX_MQ) {
-      _ipc_channel = std::make_unique<ipc::POSIXMQChannel>(ipc_name, false);
+      _ipc_channel_read = std::make_unique<ipc::POSIXMQChannel>(
+          ipc_name + "_write", ipc::IPCDirection::READ, false
+      );
+      _ipc_channel_write = std::make_unique<ipc::POSIXMQChannel>(
+          ipc_name + "_read", ipc::IPCDirection::WRITE, false
+      );
     }
   }
 
@@ -13,18 +21,26 @@ namespace praas::process {
   {
     praas::function::Invocation invoc;
 
-    _ipc_channel->receive();
+    auto [buf, input] = _ipc_channel_read->receive();
+
+    auto parsed_msg = buf.parse();
+
+    std::visit(
+        ipc::overloaded{
+            [=](ipc::InvocationRequestParsed& req) {
+              spdlog::info(
+                  "Received invocation request of {}, inputs {}",
+                  req.function_name(), req.buffers()
+              );
+            },
+            [](auto&) { spdlog::error("Received unsupported message!"); }},
+        parsed_msg
+    );
 
     return invoc;
   }
 
-  void Invoker::finish(praas::function::Invocation&)
-  {
+  void Invoker::finish(praas::function::Invocation&) {}
 
-  }
-
-  void Invoker::shutdown()
-  {
-
-  }
-}
+  void Invoker::shutdown() {}
+} // namespace praas::process

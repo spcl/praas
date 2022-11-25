@@ -146,8 +146,7 @@ namespace praas::process::ipc {
               // NOLINTNEXTLINE
               reinterpret_cast<const char*>(buf + Message::ID_LENGTH), Message::NAME_LENGTH
           ))
-    {
-    }
+    {}
 
     std::string_view invocation_id() const;
     std::string_view function_name() const;

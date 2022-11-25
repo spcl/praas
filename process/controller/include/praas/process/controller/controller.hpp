@@ -12,10 +12,19 @@ namespace praas::process {
 
     FunctionWorker(const char ** args, ipc::IPCMode, std::string ipc_name, int ipc_msg_size);
 
-    ipc::IPCChannel& ipc();
+    ipc::IPCChannel& ipc_write();
+
+    ipc::IPCChannel& ipc_read();
+
+    int pid() const
+    {
+      return _pid;
+    }
 
   private:
-    std::unique_ptr<ipc::IPCChannel> _ipc;
+    std::unique_ptr<ipc::IPCChannel> _ipc_read;
+
+    std::unique_ptr<ipc::IPCChannel> _ipc_write;
 
     int _pid;
 
