@@ -1,4 +1,4 @@
-#include <praas/process/ipc/ipc.hpp>
+#include <praas/process/runtime/ipc/ipc.hpp>
 
 #include <praas/common/exceptions.hpp>
 #include <praas/common/util.hpp>
@@ -8,7 +8,7 @@
 
 #include <sys/signal.h>
 
-namespace praas::process::ipc {
+namespace praas::process::runtime::ipc {
 
   IPCMode deserialize(std::string mode)
   {
@@ -87,10 +87,10 @@ namespace praas::process::ipc {
     }
 
     msg.total_length(len);
-    //std::cerr << len << std::endl;
+    std::cerr << "Send " << len << std::endl;
 
-    //for (int i = 0; i < 64; ++i)
-    //  spdlog::info(fmt::format("Byte {}, byte {:b}", i, msg.bytes()[i]));
+    for (int i = 0; i < 64; ++i)
+      spdlog::info(fmt::format("Byte {}, byte {:b}", i, msg.bytes()[i]));
 
     _send(msg.bytes(), msg.BUF_SIZE);
     for (auto buf : data) {
@@ -134,8 +134,10 @@ namespace praas::process::ipc {
     // FIXME: avoid a copy here?
     std::copy_n(_msg_buffer.get(), Message::BUF_SIZE, msg.data.data());
 
+    spdlog::info("Received message, expected payload length {}", msg.total_length());
+
     auto buf = _buffers.retrieve_buffer(msg.total_length());
-    _recv(buf.val, buf.len);
+    _recv(buf.val, buf.size);
 
     return std::make_tuple(msg, buf);
   }
@@ -164,6 +166,10 @@ namespace praas::process::ipc {
       pos += rcv_len;
 
     }
+    std::cerr << "recv " << len << std::endl;
+
+    for (int i = 0; i < 64; ++i)
+      spdlog::info(fmt::format("Byte {}, byte {:b}", i, data[i]));
   }
 
 } // namespace praas::process::ipc

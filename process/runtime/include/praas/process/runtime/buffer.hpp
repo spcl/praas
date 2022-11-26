@@ -1,33 +1,26 @@
-#ifndef PRAAS_PROCESS_BUFFER_HPP
-#define PRAAS_PROCESS_BUFFER_HPP
+#ifndef PRAAS_PROCESS_RUNTIME_BUFFER_HPP
+#define PRAAS_PROCESS_RUNTIME_BUFFER_HPP
 
 #include <cstdint>
-#include <string>
 #include <queue>
+#include <string>
 
 #include <spdlog/spdlog.h>
 
-namespace praas::process::ipc {
+namespace praas::process::runtime {
 
-  template<typename T>
-  struct Buffer
-  {
+  template <typename T>
+  struct Buffer {
     T* val;
     size_t size;
     size_t len;
 
-    Buffer():
-      val(nullptr),
-      size(0)
-    {}
+    Buffer() : val(nullptr), size(0) {}
 
-    Buffer(T* val, size_t size):
-      val(val),
-      size(size)
-    {}
+    Buffer(T* val, size_t size) : val(val), size(size) {}
   };
 
-  template<typename T>
+  template <typename T>
   struct BufferQueue {
 
     typedef Buffer<T> val_t;
@@ -35,16 +28,15 @@ namespace praas::process::ipc {
     std::queue<val_t> _buffers;
     size_t _elements;
 
-    BufferQueue(size_t elements, size_t elem_size):
-      _elements(elements)
+    BufferQueue(size_t elements, size_t elem_size) : _elements(elements)
     {
-      for(size_t i = 0; i < _elements; ++i)
+      for (size_t i = 0; i < _elements; ++i)
         _buffers.push(val_t{new T[elem_size], elem_size});
     }
 
     ~BufferQueue()
     {
-      while(!_buffers.empty()) {
+      while (!_buffers.empty()) {
         delete[] _buffers.front().val;
         _buffers.pop();
       }
@@ -52,11 +44,11 @@ namespace praas::process::ipc {
 
     Buffer<T> retrieve_buffer(size_t size)
     {
-      if(_buffers.empty())
+      if (_buffers.empty())
         return {nullptr, 0};
 
       Buffer<T> buf = _buffers.front();
-      if(_buffers.size() < size) {
+      if (_buffers.size() < size) {
         delete[] buf.val;
         buf.val = new T[size];
         buf.size = size;
@@ -68,17 +60,17 @@ namespace praas::process::ipc {
       return buf;
     }
 
-    void return_buffer(Buffer<T> && buf)
+    void return_buffer(Buffer<T>&& buf)
     {
       _buffers.push(buf);
     }
 
-    void return_buffer(const Buffer<T> & buf)
+    void return_buffer(const Buffer<T>& buf)
     {
       _buffers.push(buf);
     }
   };
 
-}
+} // namespace praas::process::runtime
 
 #endif

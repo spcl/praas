@@ -1,10 +1,12 @@
-#include <praas/process/ipc/messages.hpp>
+#include <praas/process/runtime/ipc/messages.hpp>
 
 #include <praas/common/exceptions.hpp>
 
 #include <fmt/format.h>
 
-namespace praas::process::ipc {
+#include <iostream>
+
+namespace praas::process::runtime::ipc {
 
   Message::MessageVariants Message::parse()
   {
@@ -141,6 +143,7 @@ namespace praas::process::ipc {
 
   std::string_view InvocationRequestParsed::function_name() const
   {
+    std::cerr << *reinterpret_cast<const char*>(buf + Message::ID_LENGTH) << " " << name_len << std::endl;
     return std::string_view{// NOLINTNEXTLINE
                             reinterpret_cast<const char*>(buf + Message::ID_LENGTH), name_len};
   }

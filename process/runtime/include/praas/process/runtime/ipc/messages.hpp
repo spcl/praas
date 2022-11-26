@@ -1,14 +1,16 @@
-#ifndef PRAAS_IPC_MESSAGES_HPP
-#define PRAAS_IPC_MESSAGES_HPP
+#ifndef PRAAS_PROCESS_RUNTIME_IPC_MESSAGES_HPP
+#define PRAAS_PROCESS_RUNTIME_IPC_MESSAGES_HPP
+
+#include <praas/common/exceptions.hpp>
 
 #include <cstring>
-#include <fmt/format.h>
 #include <memory>
 #include <string>
 #include <variant>
-#include "praas/common/exceptions.hpp"
 
-namespace praas::process::ipc {
+#include <fmt/format.h>
+
+namespace praas::process::runtime::ipc {
 
   template <class... Ts>
   struct overloaded : Ts... {
@@ -148,7 +150,8 @@ namespace praas::process::ipc {
               // NOLINTNEXTLINE
               reinterpret_cast<const char*>(buf + Message::ID_LENGTH), Message::NAME_LENGTH
           ))
-    {}
+    {
+    }
 
     std::string_view invocation_id() const;
     std::string_view function_name() const;
@@ -163,23 +166,25 @@ namespace praas::process::ipc {
     InvocationRequest()
         : Message(Type::INVOCATION_REQUEST),
           InvocationRequestParsed(this->data.data() + HEADER_OFFSET)
-    {}
+    {
+    }
 
-    using InvocationRequestParsed::invocation_id;
-    using InvocationRequestParsed::function_name;
     using InvocationRequestParsed::buffers;
+    using InvocationRequestParsed::function_name;
+    using InvocationRequestParsed::invocation_id;
 
-    void invocation_id(const std::string & id);
-    void function_name(const std::string & name);
+    void invocation_id(const std::string& id);
+    void function_name(const std::string& name);
     void buffers(int32_t* begin, int32_t* end);
 
-    template<typename Iter>
+    template <typename Iter>
     void buffers(Iter begin, Iter end)
     {
       int elems = std::distance(begin, end);
       if (elems > InvocationRequest::MAX_BUFFERS) {
-        throw common::InvalidArgument{
-            fmt::format("Number of buffers too large: {} > {}", elems, InvocationRequest::MAX_BUFFERS)};
+        throw common::InvalidArgument{fmt::format(
+            "Number of buffers too large: {} > {}", elems, InvocationRequest::MAX_BUFFERS
+        )};
       }
 
       // NOLINTNEXTLINE
@@ -215,16 +220,16 @@ namespace praas::process::ipc {
     InvocationResult()
         : Message(Type::INVOCATION_RESULT),
           InvocationResultParsed(this->data.data() + HEADER_OFFSET)
-    {}
+    {
+    }
 
-    using InvocationResultParsed::invocation_id;
     using InvocationResultParsed::buffer_length;
+    using InvocationResultParsed::invocation_id;
 
-    void invocation_id(const std::string & id);
+    void invocation_id(const std::string& id);
     void buffer_length(int32_t length);
-
   };
 
-} // namespace praas::process::ipc
+} // namespace praas::process::runtime::ipc
 
 #endif

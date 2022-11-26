@@ -1,12 +1,12 @@
 
 #include <praas/common/exceptions.hpp>
-#include <praas/process/controller/workers.hpp>
+#include <praas/process/runtime/functions.hpp>
 
 #include <sstream>
 
 #include <gtest/gtest.h>
 
-using namespace praas::process;
+using namespace praas::process::runtime::functions;
 
 TEST(ProcessFunctionsConfig, TriggerDirect)
 {
@@ -31,12 +31,16 @@ TEST(ProcessFunctionsConfig, TriggerDirect)
 
   std::stringstream stream{config};
 
-  WorkQueue queue;
-  queue.initialize(stream, config::Language::CPP);
+  Functions functions;
+  functions.initialize(stream, Language::CPP);
 
-  auto ptr = queue.get_trigger("test");
+  auto ptr = functions.get_trigger("test");
   ASSERT_NE(ptr, nullptr);
-
   EXPECT_EQ(ptr->type(), Trigger::Type::DIRECT);
+
+  auto func_ptr = functions.get_function("test");
+  ASSERT_NE(func_ptr, nullptr);
+  EXPECT_EQ(func_ptr->function_name, "test");
+  EXPECT_EQ(func_ptr->module_name, "libtest.so");
 }
 
