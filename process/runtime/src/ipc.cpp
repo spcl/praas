@@ -12,10 +12,11 @@ namespace praas::process::runtime::ipc {
 
   IPCMode deserialize(std::string mode)
   {
-    if (mode == "posix_mq")
+    if (mode == "posix_mq") {
       return IPCMode::POSIX_MQ;
-    else
+    } else {
       return IPCMode::NONE;
+    }
   }
 
   IPCChannel::~IPCChannel() {}
@@ -36,15 +37,25 @@ namespace praas::process::runtime::ipc {
       attributes.mq_maxmsg = MAX_MSGS;
       attributes.mq_msgsize = message_size;
 
-      std::cerr << attributes.mq_msgsize << std::endl;
-      common::util::assert_other(
+      _queue = mq_open(
+          queue_name.c_str(), O_CREAT | O_EXCL | O_NONBLOCK | mq_direction, S_IRUSR | S_IWUSR,
+          &attributes
+      );
+      if(_queue == -1 && errno == EEXIST) {
+
+        // Attempt remove - unless it is used by another process
+        mq_unlink(queue_name.c_str());
+
+        common::util::assert_other(
           _queue = mq_open(
               queue_name.c_str(), O_CREAT | O_EXCL | O_NONBLOCK | mq_direction, S_IRUSR | S_IWUSR,
               &attributes
           ),
           -1
-      );
-      std::cerr << attributes.mq_msgsize << std::endl;
+        );
+      } else {
+        common::util::assert_other(_queue, -1);
+      }
 
     } else {
 
