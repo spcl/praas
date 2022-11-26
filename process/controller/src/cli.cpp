@@ -18,7 +18,7 @@ void signal_handler(int)
 
 void failure_handler(int signum)
 {
-  fprintf(stderr, "Unfortunately, the session has crashed - signal %d.\n", signum);
+  fprintf(stderr, "Unfortunately, the process has crashed - signal %d.\n", signum);
   void *array[10];
   size_t size;
   // get void*'s for all entries on the stack

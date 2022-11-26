@@ -1,12 +1,12 @@
 
-#include <praas/process/ipc/messages.hpp>
+#include <praas/process/runtime/ipc/messages.hpp>
 
 #include <praas/common/exceptions.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-using namespace praas::process::ipc;
+using namespace praas::process::runtime::ipc;
 
 template <typename A, typename B>
 struct TypeDefinitions {

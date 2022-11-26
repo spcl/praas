@@ -1,9 +1,10 @@
-#ifndef PRAAS_PROCESS_WORKERS_HPP
-#define PRAAS_PROCESS_WORKERS_HPP
+#ifndef PRAAS_PROCESS_CONTROLLER_WORKERS_HPP
+#define PRAAS_PROCESS_CONTROLLER_WORKERS_HPP
 
 #include <praas/process/controller/config.hpp>
-#include <praas/process/ipc/buffer.hpp>
-#include <praas/process/ipc/ipc.hpp>
+#include <praas/process/runtime/buffer.hpp>
+#include <praas/process/runtime/ipc/ipc.hpp>
+#include <praas/process/runtime/functions.hpp>
 
 #include <memory>
 #include <utility>
@@ -12,11 +13,9 @@
 
 namespace praas::process {
 
-  struct Trigger;
-
   struct Invocation {
 
-    Invocation(std::string fname, std::string invocation_key, const Trigger* trigger):
+    Invocation(std::string fname, std::string invocation_key, const runtime::functions::Trigger* trigger):
       trigger(trigger)
     {
       req.function_name(fname);
@@ -28,22 +27,22 @@ namespace praas::process {
       req.buffers(payload.begin(), payload.end());
     }
 
-    ipc::InvocationRequest req;
-    std::vector<ipc::Buffer<char>> payload;
-    const Trigger* trigger;
+    runtime::ipc::InvocationRequest req;
+    std::vector<runtime::Buffer<char>> payload;
+    const runtime::functions::Trigger* trigger;
   };
 
   struct WorkQueue {
 
-    void initialize(std::istream & in_stream, config::Language language);
+    WorkQueue(runtime::functions::Functions & functions):
+      _functions(functions)
+    {}
 
-    void add_payload(std::string fname, std::string key, ipc::Buffer<char> && buffer);
+    void add_payload(std::string fname, std::string key, runtime::Buffer<char> && buffer);
 
     Invocation* next();
 
     void finish(std::string key);
-
-    const Trigger* get_trigger(std::string name) const;
 
     bool empty() const
     {
@@ -52,62 +51,36 @@ namespace praas::process {
 
   private:
 
-    void _parse_triggers(const rapidjson::Document & doc, std::string language);
-
     // FIFO but easy removal in the middle - we skip middle elements
     std::vector<Invocation*> _pending_invocations;
 
     std::unordered_map<std::string, Invocation> _active_invocations;
 
-    std::unordered_map<std::string, std::unique_ptr<Trigger>> _functions;
+    runtime::functions::Functions & _functions;
   };
 
-  struct Trigger {
+  struct TriggerChecker : runtime::functions::TriggerVisitor {
 
-    enum class Type {
-      DIRECT,
-      MULTI_SOURCE,
-      BATCH,
-      PIPELINE,
-      DEPENDENCY
-    };
-
-    Trigger(std::string name):
-      _name(std::move(name))
+    TriggerChecker(Invocation& invoc, WorkQueue& queue):
+      invocation(invoc),
+      work_queue(queue)
     {}
 
-    ~Trigger() = default;
+    Invocation& invocation;
+    WorkQueue& work_queue;
+    bool ready{};
 
-    virtual bool ready(Invocation&, WorkQueue&) const = 0;
+    void visit(const runtime::functions::DirectTrigger&) override;
 
-    virtual Type type() const = 0;
-
-    static std::unique_ptr<Trigger> parse(const rapidjson::Value & key, const rapidjson::Value & obj);
-
-    std::string_view name() const;
-
-  private:
-    std::string _name;
-  };
-
-  struct DirectTrigger : Trigger {
-
-    DirectTrigger(std::string name):
-      Trigger(std::move(name))
-    {}
-
-    bool ready(Invocation& invocation, WorkQueue& queue) const override;
-
-    Type type() const override;
   };
 
   struct FunctionWorker {
 
-    FunctionWorker(const char ** args, ipc::IPCMode, std::string ipc_name, int ipc_msg_size);
+    FunctionWorker(const char ** args, runtime::ipc::IPCMode, std::string ipc_name, int ipc_msg_size);
 
-    ipc::IPCChannel& ipc_write();
+    runtime::ipc::IPCChannel& ipc_write();
 
-    ipc::IPCChannel& ipc_read();
+    runtime::ipc::IPCChannel& ipc_read();
 
     int pid() const
     {
@@ -125,9 +98,9 @@ namespace praas::process {
     }
 
   private:
-    std::unique_ptr<ipc::IPCChannel> _ipc_read;
+    std::unique_ptr<runtime::ipc::IPCChannel> _ipc_read;
 
-    std::unique_ptr<ipc::IPCChannel> _ipc_write;
+    std::unique_ptr<runtime::ipc::IPCChannel> _ipc_write;
 
     int _pid;
 

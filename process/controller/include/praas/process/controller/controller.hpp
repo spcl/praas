@@ -3,7 +3,7 @@
 
 #include <praas/process/controller/config.hpp>
 #include <praas/process/controller/workers.hpp>
-#include <praas/process/ipc/ipc.hpp>
+#include <praas/process/runtime/ipc/ipc.hpp>
 #include <praas/common/messages.hpp>
 
 #include <memory>
@@ -17,7 +17,7 @@ namespace praas::process {
 
     struct ExternalMessage {
       praas::common::message::Message msg;
-      ipc::Buffer<char> payload;
+      runtime::Buffer<char> payload;
     };
 
     // State
@@ -45,12 +45,12 @@ namespace praas::process {
 
     void shutdown();
 
-    void wakeup(praas::common::message::Message &&, ipc::Buffer<char> &&);
+    void wakeup(praas::common::message::Message &&, runtime::Buffer<char> &&);
 
   private:
 
     void _process_external_message(ExternalMessage & msg);
-    void _process_internal_message(const ipc::Message & msg, ipc::Buffer<char>);
+    void _process_internal_message(const runtime::ipc::Message & msg, runtime::Buffer<char>);
 
     int _epoll_fd;
 
@@ -59,7 +59,10 @@ namespace praas::process {
     static constexpr int DEFAULT_BUFFER_MESSAGES = 20;
     static constexpr int DEFAULT_BUFFER_SIZE = 512 * 1024 * 1024;
 
-    ipc::BufferQueue<char> _buffers;
+    runtime::BufferQueue<char> _buffers;
+
+    // Function triggers
+    runtime::functions::Functions _functions;
 
     Workers _workers;
 

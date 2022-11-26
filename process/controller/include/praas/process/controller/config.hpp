@@ -2,7 +2,8 @@
 #ifndef PRAAS__CONTROLL_PLANE_CONFIG_HPP
 #define PRAAS__CONTROLL_PLANE_CONFIG_HPP
 
-#include <praas/process/ipc/ipc.hpp>
+#include <praas/process/runtime/ipc/ipc.hpp>
+#include <praas/process/runtime/functions.hpp>
 
 #include <istream>
 #include <optional>
@@ -16,19 +17,13 @@ namespace cereal {
 
 namespace praas::process::config {
 
-  enum class Language { CPP = 0, PYTHON, NONE };
-
-  std::string language_to_string(Language val);
-
-  Language string_to_language(std::string language);
-
   struct Code {
     static constexpr char DEFAULT_CODE_LOCATION[] = "/code";
     static constexpr char DEFAULT_CODE_CONFIG_LOCATION[] = "config.json";
 
     std::string location;
     std::string config_location;
-    Language language;
+    runtime::functions::Language language;
 
     void load(cereal::JSONInputArchive& archive);
     void set_defaults();
@@ -43,7 +38,7 @@ namespace praas::process::config {
     int port;
     bool verbose;
     int function_workers;
-    ipc::IPCMode ipc_mode;
+    runtime::ipc::IPCMode ipc_mode;
     int ipc_message_size;
 
     Code code;

@@ -1,6 +1,6 @@
+#include <praas/process/controller/config.hpp>
 
 #include <praas/common/util.hpp>
-#include <praas/process/controller/config.hpp>
 
 #include <cereal/archives/json.hpp>
 #include <cereal/details/helpers.hpp>
@@ -13,30 +13,6 @@
 
 namespace praas::process::config {
 
-  std::string language_to_string(Language val)
-  {
-    switch (val) {
-    case Language::CPP:
-      return "cpp";
-    case Language::PYTHON:
-      return "python";
-    case Language::NONE:
-      return "";
-    }
-    return "";
-  }
-
-  Language string_to_language(std::string language)
-  {
-    if (language == "cpp") {
-      return Language::CPP;
-    }
-    if (language == "python") {
-      return Language::PYTHON;
-    }
-    return Language::NONE;
-  }
-
   void Code::load(cereal::JSONInputArchive& archive)
   {
     archive(cereal::make_nvp("location", this->location));
@@ -44,14 +20,14 @@ namespace praas::process::config {
 
     std::string language;
     archive(cereal::make_nvp("language", language));
-    this->language = string_to_language(language);
+    this->language = runtime::functions::string_to_language(language);
   }
 
   void Code::set_defaults()
   {
     location = DEFAULT_CODE_LOCATION;
     config_location = DEFAULT_CODE_CONFIG_LOCATION;
-    language = Language::CPP;
+    language = runtime::functions::Language::CPP;
   }
 
   void Controller::load(cereal::JSONInputArchive& archive)
@@ -62,7 +38,7 @@ namespace praas::process::config {
 
     std::string mode;
     archive(cereal::make_nvp("ipc-mode", mode));
-    ipc_mode = ipc::deserialize(mode);
+    ipc_mode = runtime::ipc::deserialize(mode);
     archive(cereal::make_nvp("ipc-message-size", ipc_message_size));
 
     archive(CEREAL_NVP(code));
@@ -73,7 +49,7 @@ namespace praas::process::config {
     port = DEFAULT_PORT;
     function_workers = DEFAULT_FUNCTION_WORKERS;
     verbose = false;
-    ipc_mode = ipc::IPCMode::POSIX_MQ;
+    ipc_mode = runtime::ipc::IPCMode::POSIX_MQ;
     ipc_message_size = DEFAULT_MSG_SIZE;
 
     code.set_defaults();

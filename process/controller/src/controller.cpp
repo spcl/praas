@@ -1,12 +1,11 @@
 
 #include <praas/process/controller/controller.hpp>
 
-#include <praas/process/controller/config.hpp>
 #include <praas/common/exceptions.hpp>
 #include <praas/common/messages.hpp>
 #include <praas/common/util.hpp>
-#include <praas/process/ipc/ipc.hpp>
-#include <praas/process/ipc/messages.hpp>
+#include <praas/process/controller/config.hpp>
+#include <praas/process/runtime/ipc/messages.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -58,7 +57,7 @@ namespace praas::process {
   } // namespace
 
   FunctionWorker::FunctionWorker(
-      const char** args, ipc::IPCMode mode, std::string ipc_name, int ipc_msg_size
+      const char** args, runtime::ipc::IPCMode mode, std::string ipc_name, int ipc_msg_size
   )
   {
     int mypid = fork();
@@ -88,27 +87,26 @@ namespace praas::process {
 
     _pid = mypid;
 
-    if (mode == ipc::IPCMode::POSIX_MQ) {
-      _ipc_read = std::make_unique<ipc::POSIXMQChannel>(
-          ipc_name + "_read", ipc::IPCDirection::READ, true, ipc_msg_size
+    if (mode == runtime::ipc::IPCMode::POSIX_MQ) {
+      _ipc_read = std::make_unique<runtime::ipc::POSIXMQChannel>(
+          ipc_name + "_read", runtime::ipc::IPCDirection::READ, true, ipc_msg_size
       );
-      _ipc_write = std::make_unique<ipc::POSIXMQChannel>(
-          ipc_name + "_write", ipc::IPCDirection::WRITE, true, ipc_msg_size
+      _ipc_write = std::make_unique<runtime::ipc::POSIXMQChannel>(
+          ipc_name + "_write", runtime::ipc::IPCDirection::WRITE, true, ipc_msg_size
       );
     }
   }
 
-  Controller::Controller(config::Controller cfg):
-    _buffers(DEFAULT_BUFFER_MESSAGES, DEFAULT_BUFFER_SIZE),
-    _workers(cfg)
+  Controller::Controller(config::Controller cfg)
+      : _buffers(DEFAULT_BUFFER_MESSAGES, DEFAULT_BUFFER_SIZE), _workers(cfg), _work_queue(_functions)
   {
     auto path = std::filesystem::path{cfg.code.location} / cfg.code.config_location;
     spdlog::debug("Loading function configurationf rom {}", path.c_str());
     std::ifstream in_stream{path};
-    if(!in_stream.is_open()) {
+    if (!in_stream.is_open()) {
       throw praas::common::PraaSException{fmt::format("Could not find file {}", path.c_str())};
     }
-    _work_queue.initialize(in_stream, cfg.code.language);
+    _functions.initialize(in_stream, cfg.code.language);
 
     // size is ignored by Linux
     _epoll_fd = epoll_create(255);
@@ -119,13 +117,8 @@ namespace praas::process {
     }
 
     // Use for notification
-    common::util::assert_other(
-      _event_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK),
-      -1
-    );
-    common::util::assert_true(
-      epoll_add(_epoll_fd, _event_fd, this, EPOLLIN | EPOLLET | EPOLLPRI)
-    );
+    common::util::assert_other(_event_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK), -1);
+    common::util::assert_true(epoll_add(_epoll_fd, _event_fd, this, EPOLLIN | EPOLLET | EPOLLPRI));
 
     // FIXME: other IPC methods
     for (FunctionWorker& worker : _workers.workers()) {
@@ -141,39 +134,39 @@ namespace praas::process {
     close(_epoll_fd);
   }
 
-  void Controller::wakeup(praas::common::message::Message && msg, ipc::Buffer<char> && payload)
+  void Controller::wakeup(praas::common::message::Message&& msg, runtime::Buffer<char>&& payload)
   {
     _external_queue.emplace(msg, payload);
     uint64_t tmp = 1;
     std::cerr << "Write to " << _event_fd << std::endl;
-    common::util::assert_other(
-      write(_event_fd, &tmp, sizeof(tmp)),
-      -1
-    );
+    common::util::assert_other(write(_event_fd, &tmp, sizeof(tmp)), -1);
   }
 
-  void Controller::_process_external_message(ExternalMessage & msg)
+  void Controller::_process_external_message(ExternalMessage& msg)
   {
     auto parsed_msg = msg.msg.parse();
 
     std::visit(
-        ipc::overloaded{
-            [=](common::message::InvocationRequestParsed & req) {
+        runtime::ipc::overloaded{
+            [&, this](common::message::InvocationRequestParsed& req) mutable {
               spdlog::info(
-                  "Received invocation request of {}, inputs {}",
-                  req.function_name(), req.payload_size()
+                  "Received invocation request of {}, inputs {}", req.function_name(),
+                  req.payload_size()
+              );
+              _work_queue.add_payload(
+                  std::string{req.function_name()}, std::string{req.invocation_id()},
+                  std::move(msg.payload)
               );
             },
             [](auto&) { spdlog::error("Received unsupported message!"); }},
         parsed_msg
     );
-
   }
 
   void Controller::poll()
   {
-    // customize
-    ipc::BufferQueue<char> buffers(10, 1024);
+    // FIXME: customize
+    runtime::BufferQueue<char> buffers(10, 1024);
     ExternalMessage msg;
 
     std::array<epoll_event, MAX_EPOLL_EVENTS> events;
@@ -191,22 +184,21 @@ namespace praas::process {
       for (int i = 0; i < events_count; ++i) {
 
         // Wake-up signal
-        if(events[i].data.ptr == this) {
+        if (events[i].data.ptr == this) {
 
           spdlog::debug("Wake-up with external message");
 
           uint64_t read_val;
           read(_event_fd, &read_val, sizeof(read_val));
 
-          while(_external_queue.try_pop(msg)) {
+          while (_external_queue.try_pop(msg)) {
             _process_external_message(msg);
           }
-
         }
         // Message
 
-        //spdlog::error(
-        //    "{} {} ", events[i].events, static_cast<FunctionWorker*>(events[i].data.ptr)->pid()
+        // spdlog::error(
+        //     "{} {} ", events[i].events, static_cast<FunctionWorker*>(events[i].data.ptr)->pid()
         //);
 
         // FIXME: Received invocation request
@@ -219,17 +211,16 @@ namespace praas::process {
       }
 
       // walk over all functions in a queue, schedule whatever possible
-      while(_workers.has_idle_workers()) {
+      while (_workers.has_idle_workers()) {
 
         Invocation* invoc = _work_queue.next();
 
-        if(!invoc) {
+        if (!invoc) {
           break;
         }
 
         // schedule on an idle worker
         _workers.submit(*invoc);
-
       }
     }
 

@@ -1,5 +1,8 @@
 #include <praas/process/controller/workers.hpp>
+
 #include <praas/common/exceptions.hpp>
+#include <praas/process/runtime/functions.hpp>
+#include <praas/process/runtime/buffer.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -8,41 +11,7 @@
 
 namespace praas::process {
 
-  void WorkQueue::initialize(std::istream & in_stream, config::Language language)
-  {
-    rapidjson::Document doc;
-    rapidjson::IStreamWrapper wrapper{in_stream};
-    doc.ParseStream(wrapper);
-
-    _parse_triggers(doc, language_to_string(language));
-  }
-
-  void WorkQueue::_parse_triggers(const rapidjson::Document & doc, std::string language)
-  {
-    auto it = doc["functions"].FindMember(language.c_str());
-    if(it == doc.MemberEnd() || !it->value.IsObject()) {
-      throw common::InvalidJSON{fmt::format("Could not parse configuration for language {}", language)};
-    }
-
-    for(const auto& function_cfg : it->value.GetObject()) {
-
-      auto trigger = Trigger::parse(function_cfg.name, function_cfg.value);
-      _functions.insert(std::make_pair(function_cfg.name.GetString(), std::move(trigger)));
-
-    }
-
-  }
-
-  const Trigger* WorkQueue::get_trigger(std::string name) const
-  {
-    auto it = _functions.find(name);
-    if(it != _functions.end()) {
-      return it->second.get();
-    }
-    return nullptr;
-  }
-
-  void WorkQueue::add_payload(std::string fname, std::string key, ipc::Buffer<char> && buffer)
+  void WorkQueue::add_payload(std::string fname, std::string key, runtime::Buffer<char> && buffer)
   {
     auto it = _active_invocations.find(key);
 
@@ -53,7 +22,7 @@ namespace praas::process {
     // Create a new invocation
     else {
 
-      const Trigger* trigger = get_trigger(fname);
+      const runtime::functions::Trigger* trigger = _functions.get_trigger(fname);
       if(!trigger) {
         // FIXME: return error to the user
         spdlog::error("Ignoring invocation of an unknown function {}", fname);
@@ -80,8 +49,13 @@ namespace praas::process {
   Invocation* WorkQueue::next()
   {
     for(auto it = _pending_invocations.begin(); it != _pending_invocations.end(); ++it) {
+
+      TriggerChecker visitor{*(*it), *this};
+
       // Check if the function is ready to be invoked
-      if((*it)->trigger->ready(*(*it), *this)) {
+      (*it)->trigger->accept(visitor);
+
+      if(visitor.ready) {
         _pending_invocations.erase(it);
         return (*it);
       }
@@ -90,45 +64,18 @@ namespace praas::process {
     return nullptr;
   }
 
-  std::string_view Trigger::name() const
-  {
-    return _name;
-  }
-
-  std::unique_ptr<Trigger> Trigger::parse(const rapidjson::Value & key, const rapidjson::Value & obj)
-  {
-    std::string fname = key.GetString();
-
-    auto it = obj.FindMember("trigger");
-    if(it == obj.MemberEnd() || !it->value.IsObject()) {
-      throw common::InvalidJSON{fmt::format("Could not parse trigger configuration for {}", fname)};
-    }
-
-    std::string trigger_type = it->value["type"].GetString();
-    if(trigger_type == "direct") {
-      return std::make_unique<DirectTrigger>(fname);
-    }
-
-    throw common::InvalidJSON{fmt::format("Could not parse trigger type {}", trigger_type)};
-  }
-
-  bool DirectTrigger::ready(Invocation&, WorkQueue&) const
+  void TriggerChecker::visit(const runtime::functions::DirectTrigger &)
   {
     // Single argument, no dependencies - always ready
-    return true;
+    ready = true;
   }
 
-  Trigger::Type DirectTrigger::type() const
-  {
-    return Type::DIRECT;
-  }
-
-  ipc::IPCChannel& FunctionWorker::ipc_read()
+  runtime::ipc::IPCChannel& FunctionWorker::ipc_read()
   {
     return *_ipc_read;
   }
 
-  ipc::IPCChannel& FunctionWorker::ipc_write()
+  runtime::ipc::IPCChannel& FunctionWorker::ipc_write()
   {
     return *_ipc_write;
   }
@@ -145,6 +92,10 @@ namespace praas::process {
                             "posix_mq",
                             "--ipc-name",
                             ipc_name.c_str(),
+                            "--code-location",
+                            cfg.code.location.c_str(),
+                            "--code-config-location",
+                            cfg.code.config_location.c_str(),
                             nullptr};
 
       _workers.emplace_back(argv, cfg.ipc_mode, ipc_name, cfg.ipc_message_size);
