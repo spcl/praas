@@ -20,7 +20,6 @@ namespace praas::process {
   void WorkQueue::_parse_triggers(const rapidjson::Document & doc, std::string language)
   {
     auto it = doc["functions"].FindMember(language.c_str());
-    std::cerr << language.c_str() << " " << (it == doc.MemberEnd()) << std::endl;
     if(it == doc.MemberEnd() || !it->value.IsObject()) {
       throw common::InvalidJSON{fmt::format("Could not parse configuration for language {}", language)};
     }
@@ -141,7 +140,7 @@ namespace praas::process {
       std::string ipc_name = "/praas_queue_" + std::to_string(_worker_counter++);
 
       // FIXME: enable Python
-      const char* argv[] = {"process/bin/cpp_invoker_exe",
+      const char* argv[] = {"/work/serverless/2022/praas/code/build/process/bin/cpp_invoker_exe",
                             "--ipc-mode",
                             "posix_mq",
                             "--ipc-name",
@@ -165,6 +164,8 @@ namespace praas::process {
         return &worker;
       }
     }
+    // Should never happen
+    return nullptr;
   }
 
   bool Workers::has_idle_workers() const
@@ -187,15 +188,6 @@ namespace praas::process {
     worker->busy(true);
 
     this->_idle_workers--;
-
-    //ipc::InvocationRequest req;
-    //req.invocation_id("test");
-    //req.function_name("func");
-    //std::array<int, 1> buffers_lens{300};
-    //req.buffers(buffers_lens.begin(), buffers_lens.end());
-    //auto buf = buffers.retrieve_buffer(300);
-    //buf.len = 10;
-    //buffers.return_buffer(buf);
   }
 
   void WorkQueue::finish(std::string key)

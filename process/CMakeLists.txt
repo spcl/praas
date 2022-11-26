@@ -27,11 +27,13 @@ function(process_dependencies tgt)
   add_dependencies(${tgt} spdlog::spdlog)
   add_dependencies(${tgt} cereal::cereal)
   add_dependencies(${tgt} fmt::fmt)
+  add_dependencies(${tgt} TBB::tbb)
   add_dependencies(${tgt} common_library)
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:cereal::cereal,INTERFACE_INCLUDE_DIRECTORIES>)
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:fmt::fmt,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:TBB::tbb,INTERFACE_INCLUDE_DIRECTORIES>)
 
 endfunction()
 
@@ -40,6 +42,7 @@ function(process_link tgt)
   target_link_libraries(${tgt} PRIVATE common_library)
   target_link_libraries(${tgt} PRIVATE spdlog::spdlog)
   target_link_libraries(${tgt} PRIVATE cereal::cereal)
+  target_link_libraries(${tgt} PRIVATE TBB::tbb)
 
 endfunction()
 
@@ -104,7 +107,9 @@ process_link(cpp_invoker_exe)
 if(WITH_TESTING)
 
   set(TESTS tests/unit/messages.cpp
-            tests/unit/config.cpp)
+            tests/unit/config.cpp
+            tests/integration/invocation.cpp
+  )
   foreach(test ${TESTS})
 
     PraaS_AddTest("process" test_name ${test})

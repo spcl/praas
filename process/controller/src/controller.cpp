@@ -1,8 +1,9 @@
 
-#include <praas/process/controller/config.hpp>
 #include <praas/process/controller/controller.hpp>
 
+#include <praas/process/controller/config.hpp>
 #include <praas/common/exceptions.hpp>
+#include <praas/common/messages.hpp>
 #include <praas/common/util.hpp>
 #include <praas/process/ipc/ipc.hpp>
 #include <praas/process/ipc/messages.hpp>
@@ -28,6 +29,7 @@ namespace praas::process {
           // NOLINTNEXTLINE
           fmt::ptr(reinterpret_cast<void*>(data)), epoll_events
       );
+      std::cerr << "Add to " << fd << std::endl;
 
       epoll_event event{};
       memset(&event, 0, sizeof(epoll_event));
@@ -97,6 +99,7 @@ namespace praas::process {
   }
 
   Controller::Controller(config::Controller cfg):
+    _buffers(DEFAULT_BUFFER_MESSAGES, DEFAULT_BUFFER_SIZE),
     _workers(cfg)
   {
     auto path = std::filesystem::path{cfg.code.location} / cfg.code.config_location;
@@ -115,6 +118,15 @@ namespace praas::process {
       );
     }
 
+    // Use for notification
+    common::util::assert_other(
+      _event_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK),
+      -1
+    );
+    common::util::assert_true(
+      epoll_add(_epoll_fd, _event_fd, this, EPOLLIN | EPOLLET | EPOLLPRI)
+    );
+
     // FIXME: other IPC methods
     for (FunctionWorker& worker : _workers.workers()) {
       common::util::assert_true(
@@ -123,17 +135,52 @@ namespace praas::process {
     }
   }
 
-  Controller::~Controller() {}
+  Controller::~Controller()
+  {
+    close(_event_fd);
+    close(_epoll_fd);
+  }
+
+  void Controller::wakeup(praas::common::message::Message && msg, ipc::Buffer<char> && payload)
+  {
+    _external_queue.emplace(msg, payload);
+    uint64_t tmp = 1;
+    std::cerr << "Write to " << _event_fd << std::endl;
+    common::util::assert_other(
+      write(_event_fd, &tmp, sizeof(tmp)),
+      -1
+    );
+  }
+
+  void Controller::_process_external_message(ExternalMessage & msg)
+  {
+    auto parsed_msg = msg.msg.parse();
+
+    std::visit(
+        ipc::overloaded{
+            [=](common::message::InvocationRequestParsed & req) {
+              spdlog::info(
+                  "Received invocation request of {}, inputs {}",
+                  req.function_name(), req.payload_size()
+              );
+            },
+            [](auto&) { spdlog::error("Received unsupported message!"); }},
+        parsed_msg
+    );
+
+  }
 
   void Controller::poll()
   {
     // customize
     ipc::BufferQueue<char> buffers(10, 1024);
+    ExternalMessage msg;
 
     std::array<epoll_event, MAX_EPOLL_EVENTS> events;
     while (true) {
 
       int events_count = epoll_wait(_epoll_fd, events.data(), MAX_EPOLL_EVENTS, EPOLL_TIMEOUT);
+      std::cerr << events_count << std::endl;
 
       // Finish if we failed (but we were not interrupted), or when end was requested.
       if (_ending || (events_count == -1 && errno != EINVAL)) {
@@ -142,9 +189,25 @@ namespace praas::process {
 
       std::cerr << "Events: " << events_count << std::endl;
       for (int i = 0; i < events_count; ++i) {
-        spdlog::error(
-            "{} {} ", events[i].events, static_cast<FunctionWorker*>(events[i].data.ptr)->pid()
-        );
+
+        // Wake-up signal
+        if(events[i].data.ptr == this) {
+
+          spdlog::debug("Wake-up with external message");
+
+          uint64_t read_val;
+          read(_event_fd, &read_val, sizeof(read_val));
+
+          while(_external_queue.try_pop(msg)) {
+            _process_external_message(msg);
+          }
+
+        }
+        // Message
+
+        //spdlog::error(
+        //    "{} {} ", events[i].events, static_cast<FunctionWorker*>(events[i].data.ptr)->pid()
+        //);
 
         // FIXME: Received invocation request
         // add this to the work queue
