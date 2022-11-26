@@ -1,4 +1,5 @@
 
+#include <praas/function/context.hpp>
 #include <praas/process/invoker.hpp>
 
 #include <signal.h>
@@ -7,20 +8,24 @@
 
 #include <spdlog/spdlog.h>
 
+#include "functions.hpp"
 #include "opts.hpp"
 
 praas::process::Invoker* instance = nullptr;
+
+std::atomic<bool> ending{};
 
 void signal_handler(int signal)
 {
   spdlog::info("Handlign signal {}", strsignal(signal));
   assert(instance);
   instance->shutdown();
+  ending = true;
 }
 
 void failure_handler(int signum)
 {
-  fprintf(stderr, "Unfortunately, the session has crashed - signal %d.\n", signum);
+  fprintf(stderr, "Unfortunately, the invoker has crashed - signal %d.\n", signum);
   void *array[10];
   size_t size;
   // get void*'s for all entries on the stack
@@ -64,8 +69,30 @@ int main(int argc, char** argv)
   }
 
   praas::process::Invoker invoker{config.ipc_mode, config.ipc_name};
+  praas::process::FunctionsLibrary library{config.code_location, config.code_config_location};
   instance = &invoker;
-  auto invoc = invoker.poll();
+
+  praas::function::Context context = invoker.create_context();
+
+  while(true) {
+
+    auto invoc = invoker.poll();
+
+    if(ending || !invoc.has_value()) {
+      break;
+    }
+
+    auto& invoc_value = invoc.value();
+
+    spdlog::info("Invoking {}, key {}", invoc_value.function_name, invoc_value.key);
+    auto func = library.get_function(invoc_value.function_name);
+    if(!func) {
+      spdlog::error("Could not load function {}", invoc_value.function_name);
+    } else {
+      (*func)(invoc_value, context);
+    }
+
+  }
 
   spdlog::info("Process invoker is closing down");
   return 0;

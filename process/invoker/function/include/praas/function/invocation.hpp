@@ -1,6 +1,8 @@
 #ifndef PRAAS_FUNCTION_INVOCATION_HPP
 #define PRAAS_FUNCTION_INVOCATION_HPP
 
+#include <praas/process/runtime/buffer.hpp>
+
 #include <string>
 #include <vector>
 
@@ -10,7 +12,9 @@ namespace praas::function {
 
     std::string key;
 
-    // FIXME: arguments
+    std::string function_name;
+
+    std::vector<praas::process::runtime::Buffer<char>> args;
 
   };
 

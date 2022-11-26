@@ -1,8 +1,9 @@
 #ifndef PRAAS_PROCESS_INVOKER_HPP
 #define PRAAS_PROCESS_INVOKER_HPP
 
-#include <praas/process/ipc/ipc.hpp>
+#include <praas/process/runtime/ipc/ipc.hpp>
 #include <praas/function/invocation.hpp>
+#include <praas/function/context.hpp>
 
 #include <string>
 #include <vector>
@@ -12,7 +13,7 @@ namespace praas::process {
 
   struct Invoker {
 
-    Invoker(ipc::IPCMode ipc_mode, std::string ipc_name);
+    Invoker(runtime::ipc::IPCMode ipc_mode, std::string ipc_name);
 
     std::optional<praas::function::Invocation> poll();
 
@@ -20,12 +21,15 @@ namespace praas::process {
     void finish(praas::function::Invocation&);
 
     void shutdown();
+
+    function::Context create_context();
+
   private:
 
     std::atomic<bool> _ending{};
 
-    std::unique_ptr<ipc::IPCChannel> _ipc_channel_read;
-    std::unique_ptr<ipc::IPCChannel> _ipc_channel_write;
+    std::unique_ptr<runtime::ipc::IPCChannel> _ipc_channel_read;
+    std::unique_ptr<runtime::ipc::IPCChannel> _ipc_channel_write;
   };
 
 } // namespace praas::process
