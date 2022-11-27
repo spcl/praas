@@ -55,6 +55,14 @@ int get_output(runtime::Buffer<char> buf)
   return out.result;
 }
 
+/**
+ * Regular invocations.
+ * Return payload 0.
+ * High return payload (megabytes), requiring multi-part messages).
+ * Error code from failing invocations.
+ * Python invocations.
+ */
+
 TEST(ProcessInvocationTest, SimpleInvocation)
 {
   const int BUF_LEN = 1024;
@@ -116,15 +124,41 @@ TEST(ProcessInvocationTest, SimpleInvocation)
     EXPECT_EQ(res, results[idx]);
   }
 
-  // controller.dataplane_message(std::move(msg), std::move(buf));
-  // std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  //  ipc::InvocationRequest req;
-  //  req.invocation_id("test");
-  //  req.function_name("func");
-  //  std::array<int, 1> buffers_lens{300};
-  //  req.buffers(buffers_lens.begin(), buffers_lens.end());
-  //  buf.len = 10;
-  //  buffers.return_buffer(buf);
+  // Second invocation
+  {
+    int idx = 1;
+    praas::common::message::InvocationRequest msg;
+    msg.function_name(function_name);
+    msg.invocation_id(invocation_id[idx]);
+
+    auto buf = buffers.retrieve_buffer(BUF_LEN);
+    buf.len = generate_input(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
+    // Send more data than needed - check that it still works
+    msg.payload_size(buf.len + 64);
+
+    std::promise<void> finished;
+    std::optional<std::string> process;
+    std::string id;
+    runtime::Buffer<char> payload;
+    EXPECT_CALL(server, invocation_result)
+        .WillOnce(testing::DoAll(
+            testing::SaveArg<0>(&process), testing::SaveArg<1>(&id),
+            testing::SaveArg<2>(&payload), testing::Invoke([&finished]() { finished.set_value(); })
+        ));
+
+    controller.dataplane_message(std::move(msg), std::move(buf));
+
+    // Wait for the invocation to finish
+    ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(3)));
+
+    // Dataplane message
+    EXPECT_FALSE(process.has_value());
+    EXPECT_EQ(id, invocation_id[idx]);
+
+    ASSERT_TRUE(payload.len > 0);
+    int res = get_output(payload);
+    EXPECT_EQ(res, results[idx]);
+  }
 
   controller.shutdown();
   controller_thread.join();
