@@ -7,10 +7,11 @@
 #include <filesystem>
 #include <fstream>
 
-#include <sys/signal.h>
-
 #include <cereal/archives/json.hpp>
+
+#include <sys/signal.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 namespace praas::process {
 
@@ -144,9 +145,10 @@ namespace praas::process {
   {
     for (int i = 0; i < cfg.function_workers; ++i) {
 
-      std::string ipc_name = "/praas_queue_" + std::to_string(_worker_counter++);
+      std::string ipc_name = fmt::format("/praas_queue_{}_{}", getpid(), _worker_counter++);
 
       // FIXME: enable Python
+      // FIXME: make configurable
       const char* argv[] = {"/work/serverless/2022/praas/code/build/process/bin/cpp_invoker_exe",
                             "--ipc-mode",
                             "posix_mq",
