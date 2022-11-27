@@ -12,13 +12,10 @@ extern "C" int add(praas::function::Invocation invocation, praas::function::Cont
 {
   Input in;
 
-  std::cerr << "INVOKE" << std::endl;
   auto & arg = invocation.args[0];
-  boost::iostreams::stream<boost::iostreams::array_source> stream(arg.val, arg.size);
+  boost::iostreams::stream<boost::iostreams::array_source> stream(arg.val, arg.len);
   cereal::BinaryInputArchive archive_in{stream};
   in.load(archive_in);
-
-  std::cerr << in.arg1 << " " << in.arg2 << std::endl;
 
   Output out;
   out.result = in.arg1 + in.arg2;
@@ -28,7 +25,6 @@ extern "C" int add(praas::function::Invocation invocation, praas::function::Cont
   cereal::BinaryOutputArchive archive_out{out_stream};
   archive_out(out);
 
-  std::cerr << out_stream.tellp() << std::endl;
   context.set_output_len(out_stream.tellp());
 
   return 0;
@@ -54,9 +50,11 @@ extern "C" int large_payload(praas::function::Invocation invocation, praas::func
 
   for(size_t i = 0; i < len; ++i) {
 
-    *output = *input + 2;
+    output[i] = input[i] + 2;
 
   }
+
+  context.set_output_len(len * sizeof(int));
 
   return 0;
 }

@@ -88,6 +88,7 @@ public:
  * Remote message vs dataplane message.
  * High return payload (megabytes), requiring multi-part messages).
  * Error code from failing invocations.
+ *
  * Python invocations.
  *
  * Multi-function invocations - 2 functions on 1 worker, 2 functions on 2 workers.
@@ -154,8 +155,7 @@ TEST_F(ProcessInvocationTest, SimpleInvocation)
 
     auto buf = buffers.retrieve_buffer(BUF_LEN);
     buf.len = generate_input(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
-    // Send more data than needed - check that it still works
-    msg.payload_size(buf.len + 64);
+    msg.payload_size(buf.len);
 
     std::promise<void> finished;
     std::optional<std::string> process;
@@ -256,3 +256,58 @@ TEST_F(ProcessInvocationTest, ReturnError)
   EXPECT_EQ(payload.len, 0);
   EXPECT_EQ(return_code, 1);
 }
+
+TEST_F(ProcessInvocationTest, LargePayload)
+{
+  // 4 megabyte input - 1 mega of integers
+  const int BUF_LEN = 1024 * 1024 * sizeof(int);
+  std::string function_name = "large_payload";
+  std::string process_id = "remote-process-1";
+  std::string invocation_id = "first_id";
+
+  runtime::BufferQueue<char> buffers(1, BUF_LEN);
+
+  praas::common::message::InvocationRequest msg;
+  msg.function_name(function_name);
+  msg.invocation_id(invocation_id);
+
+  auto buf = buffers.retrieve_buffer(BUF_LEN);
+  int data_len = BUF_LEN / sizeof(int);
+  int* data_input = reinterpret_cast<int*>(buf.val);
+  for(int i = 0; i < data_len; ++i) {
+    data_input[i] = i;
+  }
+  buf.len = BUF_LEN;
+
+  msg.payload_size(buf.len);
+
+  std::promise<void> finished;
+  std::optional<std::string> process;
+  std::string id;
+  int return_code;
+  runtime::Buffer<char> payload;
+  EXPECT_CALL(server, invocation_result)
+      .WillOnce(testing::DoAll(
+          testing::SaveArg<0>(&process), testing::SaveArg<1>(&id),
+          testing::SaveArg<2>(&return_code),
+          testing::SaveArg<3>(&payload), testing::Invoke([&finished]() { finished.set_value(); })
+      ));
+
+  controller->remote_message(std::move(msg), std::move(buf), process_id);
+
+  // Wait for the invocation to finish
+  ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(3)));
+
+  EXPECT_TRUE(process.has_value());
+  EXPECT_EQ(process.value(), process_id);
+  EXPECT_EQ(id, invocation_id);
+  EXPECT_EQ(return_code, 0);
+
+  ASSERT_TRUE(payload.len == BUF_LEN);
+  int* data_output = reinterpret_cast<int*>(payload.val);
+  for(int i = 0; i < data_len; ++i) {
+    EXPECT_EQ(data_input[i] + 2, data_output[i]);
+  }
+
+}
+

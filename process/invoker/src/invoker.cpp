@@ -1,7 +1,7 @@
 #include <praas/process/invoker.hpp>
 
-#include <praas/process/runtime/ipc/messages.hpp>
 #include <praas/common/exceptions.hpp>
+#include <praas/process/runtime/ipc/messages.hpp>
 
 #include <optional>
 #include <variant>
@@ -39,17 +39,29 @@ namespace praas::process {
           runtime::ipc::overloaded{
               [&](runtime::ipc::InvocationRequestParsed& req) mutable {
                 spdlog::info(
-                    "Received invocation request of {}, key {}, inputs {}",
-                    req.function_name(), req.invocation_id(), req.buffers()
+                    "Received invocation request of {}, key {}, inputs {}", req.function_name(),
+                    req.invocation_id(), req.buffers()
                 );
+
+                // Validate
+                size_t total_len = 0;
+                for (int i = 0; i < req.buffers(); ++i) {
+                  total_len += req.buffers_lengths()[i];
+                }
+                if (total_len > input.len) {
+                  throw praas::common::PraaSException(fmt::format(
+                      "Header declared {} bytes, but we only received {}!", total_len, input.len
+                  ));
+                }
+
                 invoc.key = req.invocation_id();
                 invoc.function_name = req.function_name();
 
                 char* ptr = input.val;
-                for(int i = 0; i < req.buffers(); ++i) {
+                for (int i = 0; i < req.buffers(); ++i) {
 
                   size_t len = req.buffers_lengths()[i];
-                  invoc.args.emplace_back(ptr, len);
+                  invoc.args.emplace_back(ptr, len, len);
                   ptr += len;
                 };
               },
@@ -57,8 +69,8 @@ namespace praas::process {
           parsed_msg
       );
 
-    } catch(praas::common::PraaSException & exc) {
-      if(_ending) {
+    } catch (praas::common::PraaSException& exc) {
+      if (_ending) {
         spdlog::info("Shutting down the invoker");
       } else {
         spdlog::error("Unexpected end of the invoker {}", exc.what());
