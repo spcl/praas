@@ -28,8 +28,7 @@ public:
   MOCK_METHOD(void, put_message, (), (override));
   MOCK_METHOD(
       void, invocation_result,
-      (const std::optional<std::string>& remote_process, std::string_view invocation_id,
-       runtime::Buffer<char> payload),
+      (const std::optional<std::string>&, std::string_view, int, runtime::Buffer<char>),
       (override)
   );
 };
@@ -122,11 +121,13 @@ TEST_F(ProcessInvocationTest, SimpleInvocation)
     std::promise<void> finished;
     std::optional<std::string> process;
     std::string id;
+    int return_code;
     runtime::Buffer<char> payload;
     EXPECT_CALL(server, invocation_result)
         .WillOnce(testing::DoAll(
             testing::SaveArg<0>(&process), testing::SaveArg<1>(&id),
-            testing::SaveArg<2>(&payload), testing::Invoke([&finished]() { finished.set_value(); })
+            testing::SaveArg<2>(&return_code),
+            testing::SaveArg<3>(&payload), testing::Invoke([&finished]() { finished.set_value(); })
         ));
 
     controller->dataplane_message(std::move(msg), std::move(buf));
@@ -137,6 +138,7 @@ TEST_F(ProcessInvocationTest, SimpleInvocation)
     // Dataplane message
     EXPECT_FALSE(process.has_value());
     EXPECT_EQ(id, invocation_id[idx]);
+    EXPECT_EQ(return_code, 0);
 
     ASSERT_TRUE(payload.len > 0);
     int res = get_output(payload);
@@ -158,11 +160,13 @@ TEST_F(ProcessInvocationTest, SimpleInvocation)
     std::promise<void> finished;
     std::optional<std::string> process;
     std::string id;
+    int return_code;
     runtime::Buffer<char> payload;
     EXPECT_CALL(server, invocation_result)
         .WillOnce(testing::DoAll(
             testing::SaveArg<0>(&process), testing::SaveArg<1>(&id),
-            testing::SaveArg<2>(&payload), testing::Invoke([&finished]() { finished.set_value(); })
+            testing::SaveArg<2>(&return_code),
+            testing::SaveArg<3>(&payload), testing::Invoke([&finished]() { finished.set_value(); })
         ));
 
     controller->remote_message(std::move(msg), std::move(buf), process_id);
@@ -174,6 +178,7 @@ TEST_F(ProcessInvocationTest, SimpleInvocation)
     EXPECT_TRUE(process.has_value());
     EXPECT_EQ(process.value(), process_id);
     EXPECT_EQ(id, invocation_id[idx]);
+    EXPECT_EQ(return_code, 0);
 
     ASSERT_TRUE(payload.len > 0);
     int res = get_output(payload);
@@ -195,11 +200,13 @@ TEST_F(ProcessInvocationTest, ZeroPayloadOutput)
   std::promise<void> finished;
   std::optional<std::string> process;
   std::string id;
+  int return_code;
   runtime::Buffer<char> payload;
   EXPECT_CALL(server, invocation_result)
       .WillOnce(testing::DoAll(
           testing::SaveArg<0>(&process), testing::SaveArg<1>(&id),
-          testing::SaveArg<2>(&payload), testing::Invoke([&finished]() { finished.set_value(); })
+          testing::SaveArg<2>(&return_code),
+          testing::SaveArg<3>(&payload), testing::Invoke([&finished]() { finished.set_value(); })
       ));
 
   controller->dataplane_message(std::move(msg), std::move(buf));
@@ -210,6 +217,42 @@ TEST_F(ProcessInvocationTest, ZeroPayloadOutput)
   // Dataplane message
   EXPECT_FALSE(process.has_value());
   EXPECT_EQ(id, invocation_id);
+  EXPECT_EQ(return_code, 0);
 
-  ASSERT_EQ(payload.len, 0);
+  EXPECT_EQ(payload.len, 0);
+}
+
+TEST_F(ProcessInvocationTest, ReturnError)
+{
+  std::string function_name = "error_function";
+  std::string invocation_id = "first_id";
+
+  praas::common::message::InvocationRequest msg;
+  msg.function_name(function_name);
+  msg.invocation_id(invocation_id);
+
+  auto buf = runtime::Buffer<char>{};
+
+  std::promise<void> finished;
+  std::optional<std::string> process;
+  std::string id;
+  int return_code;
+  runtime::Buffer<char> payload;
+  EXPECT_CALL(server, invocation_result)
+      .WillOnce(testing::DoAll(
+          testing::SaveArg<0>(&process), testing::SaveArg<1>(&id),
+          testing::SaveArg<2>(&return_code),
+          testing::SaveArg<3>(&payload), testing::Invoke([&finished]() { finished.set_value(); })
+      ));
+
+  controller->dataplane_message(std::move(msg), std::move(buf));
+
+  // Wait for the invocation to finish
+  ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(3)));
+
+  // Dataplane message
+  EXPECT_FALSE(process.has_value());
+  EXPECT_EQ(id, invocation_id);
+  EXPECT_EQ(payload.len, 0);
+  EXPECT_EQ(return_code, 1);
 }

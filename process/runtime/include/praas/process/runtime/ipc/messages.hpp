@@ -214,7 +214,7 @@ namespace praas::process::runtime::ipc {
 
     std::string_view invocation_id() const;
     int32_t buffer_length() const;
-    int32_t status_code() const;
+    int32_t return_code() const;
   };
 
   struct InvocationResult : Message, InvocationResultParsed {
@@ -230,7 +230,7 @@ namespace praas::process::runtime::ipc {
 
     void invocation_id(const std::string& id);
     void buffer_length(int32_t length);
-    void status_code(int32_t code);
+    void return_code(int32_t code);
   };
 
 } // namespace praas::process::runtime::ipc

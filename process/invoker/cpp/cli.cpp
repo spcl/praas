@@ -17,9 +17,11 @@ std::atomic<bool> ending{};
 
 void signal_handler(int signal)
 {
-  spdlog::info("Handlign signal {}", strsignal(signal));
-  assert(instance);
-  instance->shutdown();
+  spdlog::info("Handling signal {}", strsignal(signal));
+
+  if(instance != nullptr) {
+    instance->shutdown();
+  }
   ending = true;
 }
 
@@ -66,6 +68,7 @@ int main(int argc, char** argv)
     sigaction(SIGSEGV, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
     sigaction(SIGPIPE, &sa, NULL);
+    sigaction(SIGHUP, &sa, NULL);
   }
 
   praas::process::Invoker invoker{config.ipc_mode, config.ipc_name};

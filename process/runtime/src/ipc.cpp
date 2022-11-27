@@ -73,9 +73,12 @@ namespace praas::process::runtime::ipc {
   POSIXMQChannel::~POSIXMQChannel()
   {
     if (_created) {
+      common::util::assert_other(mq_close(_queue), -1);
       common::util::assert_other(mq_unlink(_name.c_str()), -1);
 
       spdlog::info("Closed message queue {}", _name);
+    } else {
+      common::util::assert_other(mq_close(_queue), -1);
     }
   }
 

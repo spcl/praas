@@ -72,7 +72,7 @@ namespace praas::process {
   void Invoker::finish(praas::function::Context& context, int return_code)
   {
     runtime::ipc::InvocationResult msg;
-    msg.status_code(return_code);
+    msg.return_code(return_code);
     msg.buffer_length(context.get_output_len());
     msg.invocation_id(context.invocation_id());
 

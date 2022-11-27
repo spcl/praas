@@ -33,6 +33,26 @@
           "type": "direct",
           "nargs": 1
         }
+      },
+      "error_function": {
+        "code": {
+          "module": "/work/serverless/2022/praas/code/build/process/tests/examples/libexample_cpp.so",
+          "function": "error_function"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
+      "large_payload": {
+        "code": {
+          "module": "/work/serverless/2022/praas/code/build/process/tests/examples/libexample_cpp.so",
+          "function": "large_payload"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
       }
     }
   }

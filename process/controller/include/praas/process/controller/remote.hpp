@@ -25,6 +25,7 @@ namespace praas::process::remote {
     virtual void invocation_result(
         const std::optional<std::string>& remote_process,
         std::string_view invocation_id,
+        int return_code,
         runtime::Buffer<char> payload
     ) = 0;
     virtual void put_message() = 0;

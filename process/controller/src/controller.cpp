@@ -156,7 +156,7 @@ namespace praas::process {
             [&, this](runtime::ipc::InvocationResultParsed& req) mutable {
               spdlog::info(
                   "Received invocation result of {}, status {}, output size {}",
-                  req.invocation_id(), req.status_code(), payload.len
+                  req.invocation_id(), req.return_code(), payload.len
               );
 
               std::optional<Invocation> invoc =
@@ -171,7 +171,8 @@ namespace praas::process {
 
                   _server->invocation_result(
                     invocation.source.remote_process,
-                    invocation.req.invocation_id(),
+                    req.invocation_id(),
+                    req.return_code(),
                     payload
                   );
                 }

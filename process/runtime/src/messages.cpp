@@ -205,7 +205,7 @@ namespace praas::process::runtime::ipc {
     return *reinterpret_cast<const int32_t*>(buf + Message::ID_LENGTH);
   }
 
-  int32_t InvocationResultParsed::status_code() const
+  int32_t InvocationResultParsed::return_code() const
   {
     // NOLINTNEXTLINE
     return *reinterpret_cast<const int32_t*>(buf + Message::ID_LENGTH + sizeof(int32_t));
@@ -225,7 +225,7 @@ namespace praas::process::runtime::ipc {
     id_len = id.length();
   }
 
-  void InvocationResult::status_code(int32_t code)
+  void InvocationResult::return_code(int32_t code)
   {
     // NOLINTNEXTLINE
     *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + Message::ID_LENGTH + sizeof(int32_t)) = code;
