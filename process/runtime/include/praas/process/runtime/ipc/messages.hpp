@@ -195,7 +195,7 @@ namespace praas::process::runtime::ipc {
       *ptr++ = elems;
 
       while (begin != end) {
-        *ptr++ = (*begin).size;
+        *ptr++ = (*begin).len;
         ++begin;
       }
     }
