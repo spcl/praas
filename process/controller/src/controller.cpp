@@ -29,7 +29,6 @@ namespace praas::process {
           // NOLINTNEXTLINE
           fmt::ptr(reinterpret_cast<void*>(data)), epoll_events
       );
-      std::cerr << "Add to " << fd << std::endl;
 
       epoll_event event{};
       memset(&event, 0, sizeof(epoll_event));
@@ -56,47 +55,6 @@ namespace praas::process {
       return epoll_apply(epoll_fd, fd, data, epoll_events, EPOLL_CTL_MOD);
     }
   } // namespace
-
-  FunctionWorker::FunctionWorker(
-      const char** args, runtime::ipc::IPCMode mode, std::string ipc_name, int ipc_msg_size
-  )
-  {
-    int mypid = fork();
-    if (mypid < 0) {
-      throw praas::common::PraaSException{fmt::format("Fork failed! {}", mypid)};
-    }
-
-    if (mypid == 0) {
-
-      mypid = getpid();
-      auto out_file = ("invoker_" + std::to_string(mypid));
-
-      spdlog::info("Invoker begins work on PID {}", mypid);
-      int fd = open(out_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-      dup2(fd, 1);
-      dup2(fd, 2);
-      int ret = execvp(args[0], const_cast<char**>(&args[0]));
-      if (ret == -1) {
-        spdlog::error("Invoker process failed {}, reason {}", errno, strerror(errno));
-        close(fd);
-        exit(1);
-      }
-
-    } else {
-      spdlog::info("Started invoker process with PID {}", mypid);
-    }
-
-    _pid = mypid;
-
-    if (mode == runtime::ipc::IPCMode::POSIX_MQ) {
-      _ipc_read = std::make_unique<runtime::ipc::POSIXMQChannel>(
-          ipc_name + "_read", runtime::ipc::IPCDirection::READ, true, ipc_msg_size
-      );
-      _ipc_write = std::make_unique<runtime::ipc::POSIXMQChannel>(
-          ipc_name + "_write", runtime::ipc::IPCDirection::WRITE, true, ipc_msg_size
-      );
-    }
-  }
 
   Controller::Controller(config::Controller cfg)
       : _buffers(DEFAULT_BUFFER_MESSAGES, DEFAULT_BUFFER_SIZE), _workers(cfg),

@@ -33,3 +33,30 @@ extern "C" int add(praas::function::Invocation invocation, praas::function::Cont
 
   return 0;
 }
+
+extern "C" int zero_return(praas::function::Invocation /*unused*/, praas::function::Context& /*unused*/)
+{
+  return 0;
+}
+
+extern "C" int error_function(praas::function::Invocation /*unused*/, praas::function::Context& /*unused*/)
+{
+  return 1;
+}
+
+extern "C" int large_payload(praas::function::Invocation invocation, praas::function::Context& context)
+{
+  size_t len = invocation.args[0].len / sizeof(int);
+  int* input = reinterpret_cast<int*>(invocation.args[0].val);
+
+  auto out_buf = context.get_output_buffer(len * sizeof(int));
+  int* output = reinterpret_cast<int*>(out_buf.ptr);
+
+  for(size_t i = 0; i < len; ++i) {
+
+    *output = *input + 2;
+
+  }
+
+  return 0;
+}

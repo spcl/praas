@@ -26,7 +26,7 @@ namespace praas::function {
     void get(std::string name);
 
     // The pointer must stay valid until the end
-    Buffer get_output_buffer();
+    Buffer get_output_buffer(size_t size = 0);
 
     void set_output_len(size_t len);
 

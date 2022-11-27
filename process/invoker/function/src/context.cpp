@@ -4,8 +4,13 @@
 
 namespace praas::function {
 
-  Buffer Context::get_output_buffer()
+  Buffer Context::get_output_buffer(size_t size)
   {
+    if(size != 0 && size > _buffer_size) {
+      _buffer.reset(new std::byte[size]);
+      _buffer_size = size;
+    }
+
     return {_buffer.get(), _buffer_size};
   }
 

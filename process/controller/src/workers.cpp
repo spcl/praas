@@ -73,6 +73,49 @@ namespace praas::process {
     ready = true;
   }
 
+  FunctionWorker::FunctionWorker(
+      const char** args, runtime::ipc::IPCMode mode, std::string ipc_name, int ipc_msg_size
+  )
+  {
+    int mypid = fork();
+    if (mypid < 0) {
+      throw praas::common::PraaSException{fmt::format("Fork failed! {}", mypid)};
+    }
+
+    if (mypid == 0) {
+
+      mypid = getpid();
+      auto out_file = ("invoker_" + std::to_string(mypid));
+
+      spdlog::info("Invoker begins work on PID {}", mypid);
+      int fd = open(out_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+      dup2(fd, 1);
+      dup2(fd, 2);
+      int ret = execvp(args[0], const_cast<char**>(&args[0]));
+      if (ret == -1) {
+        spdlog::error("Invoker process failed {}, reason {}", errno, strerror(errno));
+        close(fd);
+        exit(1);
+      }
+
+    } else {
+      spdlog::info("Started invoker process with PID {}", mypid);
+    }
+
+    _pid = mypid;
+
+    if (mode == runtime::ipc::IPCMode::POSIX_MQ) {
+      _ipc_read = std::make_unique<runtime::ipc::POSIXMQChannel>(
+          ipc_name + "_read", runtime::ipc::IPCDirection::READ, true, ipc_msg_size
+      );
+      _ipc_write = std::make_unique<runtime::ipc::POSIXMQChannel>(
+          ipc_name + "_write", runtime::ipc::IPCDirection::WRITE, true, ipc_msg_size
+      );
+    }
+
+    _busy = false;
+  }
+
   runtime::ipc::IPCChannel& FunctionWorker::ipc_read()
   {
     return *_ipc_read;
@@ -109,6 +152,7 @@ namespace praas::process {
 
   FunctionWorker* Workers::_get_idle_worker()
   {
+    std::cerr << _idle_workers << std::endl;
     if(_idle_workers == 0) {
       return nullptr;
     }
@@ -118,6 +162,7 @@ namespace praas::process {
         return &worker;
       }
     }
+    std::cerr << _idle_workers << std::endl;
     // Should never happen
     return nullptr;
   }
@@ -141,6 +186,7 @@ namespace praas::process {
         invocation.req.function_name(), invocation.req.invocation_id()
     );
 
+    std::cerr << fmt::ptr(worker) << std::endl;
     worker->ipc_write().send(invocation.req, invocation.payload);
 
     worker->busy(true);

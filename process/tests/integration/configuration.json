@@ -14,10 +14,20 @@
       }
     },
     "cpp": {
-      "test": {
+      "add": {
         "code": {
           "module": "/work/serverless/2022/praas/code/build/process/tests/examples/libexample_cpp.so",
           "function": "add"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
+      "zero_return": {
+        "code": {
+          "module": "/work/serverless/2022/praas/code/build/process/tests/examples/libexample_cpp.so",
+          "function": "zero_return"
         },
         "trigger": {
           "type": "direct",
