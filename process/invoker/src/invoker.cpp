@@ -1,9 +1,13 @@
 #include <praas/process/invoker.hpp>
+
 #include <praas/process/runtime/ipc/messages.hpp>
 #include <praas/common/exceptions.hpp>
 
 #include <optional>
 #include <variant>
+
+#include <sys/prctl.h>
+#include <sys/signal.h>
 
 namespace praas::process {
 
@@ -17,6 +21,9 @@ namespace praas::process {
           ipc_name + "_read", runtime::ipc::IPCDirection::WRITE, false
       );
     }
+
+    // Make sure we are killed if the parent controller forgets about us.
+    prctl(PR_SET_PDEATHSIG, SIGHUP);
   }
 
   std::optional<praas::function::Invocation> Invoker::poll()
@@ -24,9 +31,9 @@ namespace praas::process {
     praas::function::Invocation invoc;
 
     try {
-      auto [buf, input] = _ipc_channel_read->receive();
+      auto [read, input] = _ipc_channel_read->receive();
 
-      auto parsed_msg = buf.parse();
+      auto parsed_msg = _ipc_channel_read->message().parse();
 
       std::visit(
           runtime::ipc::overloaded{

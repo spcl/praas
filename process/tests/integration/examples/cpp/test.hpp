@@ -29,6 +29,11 @@ struct Output
   {
     archive(result);
   }
+
+  void load(cereal::BinaryInputArchive& archive)
+  {
+    archive(result);
+  }
 };
 
 #endif

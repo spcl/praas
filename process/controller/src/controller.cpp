@@ -5,6 +5,7 @@
 #include <praas/common/messages.hpp>
 #include <praas/common/util.hpp>
 #include <praas/process/controller/config.hpp>
+#include <praas/process/controller/remote.hpp>
 #include <praas/process/runtime/ipc/messages.hpp>
 
 #include <filesystem>
@@ -131,13 +132,32 @@ namespace praas::process {
 
   Controller::~Controller()
   {
+    if(!_ending)
+      shutdown();
     close(_event_fd);
     close(_epoll_fd);
   }
 
-  void Controller::wakeup(praas::common::message::Message&& msg, runtime::Buffer<char>&& payload)
+  void Controller::set_remote(remote::Server* server)
   {
-    _external_queue.emplace(msg, payload);
+    this->_server = server;
+  }
+
+  void Controller::remote_message(
+      praas::common::message::Message&& msg, runtime::Buffer<char>&& payload, std::string process_id
+  )
+  {
+    _external_queue.emplace(process_id, msg, payload);
+    uint64_t tmp = 1;
+    std::cerr << "Write to " << _event_fd << std::endl;
+    common::util::assert_other(write(_event_fd, &tmp, sizeof(tmp)), -1);
+  }
+
+  void Controller::dataplane_message(
+      praas::common::message::Message&& msg, runtime::Buffer<char>&& payload
+  )
+  {
+    _external_queue.emplace(std::nullopt, msg, payload);
     uint64_t tmp = 1;
     std::cerr << "Write to " << _event_fd << std::endl;
     common::util::assert_other(write(_event_fd, &tmp, sizeof(tmp)), -1);
@@ -156,7 +176,9 @@ namespace praas::process {
               );
               _work_queue.add_payload(
                   std::string{req.function_name()}, std::string{req.invocation_id()},
-                  std::move(msg.payload)
+                  std::move(msg.payload),
+                  (msg.source.has_value() ? InvocationSource::from_process(msg.source.value())
+                                          : InvocationSource::from_dataplane())
               );
             },
             [](auto&) { spdlog::error("Received unsupported message!"); }},
@@ -165,11 +187,14 @@ namespace praas::process {
   }
 
   void Controller::_process_internal_message(
-      const runtime::ipc::Message& msg, runtime::Buffer<char>&& payload
+      FunctionWorker& worker, const runtime::ipc::Message& msg, runtime::Buffer<char>&& payload
   )
   {
     auto parsed_msg = msg.parse();
 
+    // FIXME: invocation request
+    // FIXME: put
+    // FIXME: get
     std::visit(
         runtime::ipc::overloaded{
             [&, this](runtime::ipc::InvocationResultParsed& req) mutable {
@@ -177,8 +202,28 @@ namespace praas::process {
                   "Received invocation result of {}, status {}, output size {}",
                   req.invocation_id(), req.status_code(), payload.len
               );
-              // FIXME: send to the tcp server
-              // FIXME: check work queue for the source
+
+              std::optional<Invocation> invoc =
+                  _work_queue.finish(std::string{req.invocation_id()});
+              if (invoc.has_value()) {
+
+                Invocation& invocation = invoc.value();
+
+                // FIXME: send to the tcp server
+                // FIXME: check work queue for the source
+                if (invocation.source.is_remote()) {
+
+                  _server->invocation_result(
+                    invocation.source.remote_process,
+                    invocation.req.invocation_id(),
+                    payload
+                  );
+                }
+
+              } else {
+                spdlog::error("Could not find invocation for ID {}", req.invocation_id());
+              }
+              _workers.finish(worker);
             },
             [](auto&) { spdlog::error("Received unsupported message!"); }},
         parsed_msg
@@ -223,9 +268,11 @@ namespace praas::process {
           FunctionWorker& worker = *static_cast<FunctionWorker*>(events[i].data.ptr);
 
           spdlog::info("Receive from a channel");
-          auto [buf, input] = worker.ipc_read().receive();
+          auto [complete, input] = worker.ipc_read().receive();
 
-          _process_internal_message(buf, std::move(input));
+          if(complete) {
+            _process_internal_message(worker, worker.ipc_read().message(), std::move(input));
+          }
         }
 
         // spdlog::error(

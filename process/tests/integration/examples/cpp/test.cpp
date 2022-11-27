@@ -28,5 +28,8 @@ extern "C" int add(praas::function::Invocation invocation, praas::function::Cont
   cereal::BinaryOutputArchive archive_out{out_stream};
   archive_out(out);
 
+  std::cerr << out_stream.tellp() << std::endl;
+  context.set_output_len(out_stream.tellp());
+
   return 0;
 }

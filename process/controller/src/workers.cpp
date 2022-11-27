@@ -14,7 +14,7 @@
 
 namespace praas::process {
 
-  void WorkQueue::add_payload(std::string fname, std::string key, runtime::Buffer<char> && buffer)
+  void WorkQueue::add_payload(const std::string& fname, const std::string& key, runtime::Buffer<char> && buffer, InvocationSource && source)
   {
     auto it = _active_invocations.find(key);
 
@@ -34,7 +34,7 @@ namespace praas::process {
       auto [it, inserted] = _active_invocations.emplace(
         std::piecewise_construct,
         std::forward_as_tuple(key),
-        std::forward_as_tuple(fname, key, trigger)
+        std::forward_as_tuple(fname, key, trigger, std::move(source))
       );
 
       if(!inserted) {
@@ -145,7 +145,19 @@ namespace praas::process {
 
     worker->busy(true);
 
+    invocation.active = true;
+
     this->_idle_workers--;
+  }
+
+  void Workers::finish(FunctionWorker& worker)
+  {
+    // Mark the worker as inactive
+    // Increase number of active worker
+
+    worker.busy(false);
+    _idle_workers++;
+
   }
 
   void Workers::shutdown()
@@ -167,12 +179,17 @@ namespace praas::process {
     }
   }
 
-  void WorkQueue::finish(std::string key)
+  std::optional<Invocation> WorkQueue::finish(const std::string& key)
   {
-    // Check if the function invocation exists
-    // Mark the worker as inactive
-    // Increase number of active workers
-    // Handle the invocation response
-  }
+    // Check if the function invocation exists and is not pending.
+    auto it = _active_invocations.find(key);
+    if(it == _active_invocations.end() &&  (*it).second.active) {
+      return std::nullopt;
+    }
 
+    Invocation invoc = (*it).second;
+    _active_invocations.erase(it);
+
+    return invoc;
+  }
 };

@@ -28,7 +28,9 @@ namespace praas::process::runtime::ipc {
 
     virtual void send(Message& msg, Buffer<char> data) = 0;
 
-    virtual std::tuple<Message, Buffer<char>> receive() = 0;
+    virtual std::tuple<bool, Buffer<char>> receive() = 0;
+
+    virtual const Message& message() const = 0;
   };
 
   struct POSIXMQChannel : public IPCChannel {
@@ -52,10 +54,15 @@ namespace praas::process::runtime::ipc {
 
     int fd() const override;
 
-    std::tuple<Message, Buffer<char>> receive() override;
+    std::tuple<bool, Buffer<char>> receive();
 
     void send(Message& msg, const std::vector<Buffer<char>>& data) override;
     void send(Message& msg, Buffer<char> buf) override;
+
+    const Message& message() const override
+    {
+      return _msg;
+    }
 
   private:
     mqd_t _queue;
@@ -70,10 +77,17 @@ namespace praas::process::runtime::ipc {
 
     std::unique_ptr<int8_t[]> _msg_buffer;
 
+    bool _header_read{};
+    bool _msg_read{};
+
+    Message _msg;
+
+    Buffer<char> _msg_payload;
+
     void _send(const char* data, int len) const;
     void _send(const int8_t* data, int len) const;
-    void _recv(int8_t* data, int len) const;
-    void _recv(char* data, int len) const;
+    size_t _recv(int8_t* data, size_t len) const;
+    size_t _recv(char* data, size_t len) const;
   };
 
 } // namespace praas::process::runtime::ipc

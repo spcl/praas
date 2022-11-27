@@ -17,6 +17,16 @@ namespace praas::process::runtime {
 
     Buffer() = default;
     Buffer(T* val, size_t size, size_t len = 0) : val(val), size(size), len(len) {}
+
+    bool empty() const
+    {
+      return len == 0;
+    }
+
+    bool null() const
+    {
+      return val == 0;
+    }
   };
 
   template <typename T>

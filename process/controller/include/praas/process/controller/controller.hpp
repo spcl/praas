@@ -7,8 +7,15 @@
 #include <praas/common/messages.hpp>
 
 #include <memory>
+#include <string>
 
 #include <oneapi/tbb/concurrent_queue.h>
+
+namespace praas::process::remote {
+
+  struct Server;
+
+}
 
 namespace praas::process {
 
@@ -16,6 +23,9 @@ namespace praas::process {
   struct Controller {
 
     struct ExternalMessage {
+      // No value? Source is data plane.
+      // Value? Process id.
+      std::optional<std::string> source;
       praas::common::message::Message msg;
       runtime::Buffer<char> payload;
     };
@@ -23,8 +33,6 @@ namespace praas::process {
     // State
 
     // Messages
-
-    // Workers (IPC)
 
     // Func queue
 
@@ -39,18 +47,41 @@ namespace praas::process {
 
     ~Controller();
 
+    void set_remote(remote::Server* server);
+
     void poll();
 
     void start();
 
     void shutdown();
 
-    void wakeup(praas::common::message::Message &&, runtime::Buffer<char> &&);
+    void remote_message(praas::common::message::Message &&, runtime::Buffer<char> &&, std::string process_id);
+
+    void dataplane_message(praas::common::message::Message &&, runtime::Buffer<char> &&);
 
   private:
 
     void _process_external_message(ExternalMessage & msg);
-    void _process_internal_message(const runtime::ipc::Message & msg, runtime::Buffer<char> &&);
+    void _process_internal_message(FunctionWorker & worker, const runtime::ipc::Message & msg, runtime::Buffer<char> &&);
+
+    // Store the message data, and check if there is a pending invocation waiting for this result
+    void _process_put(runtime::Buffer<char> &&);
+    void _process_put(const runtime::ipc::Message & msg, runtime::Buffer<char> &&);
+
+    // Check if there is a message with this data. If yes, then respond immediately.
+    // If not, then put in the structure for pending messages.
+    void _process_get(runtime::Buffer<char> &&);
+    void _process_get(const runtime::ipc::Message & msg, runtime::Buffer<char> &&);
+
+    // Put the invocation into a work queue.
+    // Store the invocation on a list of pending invocations.
+    void _process_invocation(runtime::Buffer<char> &&);
+    void _process_invocation(const runtime::ipc::Message & msg, runtime::Buffer<char> &&);
+
+    // Retrieve the pending invocation object.
+    // Forward the response to the owner.
+    void _process_result(runtime::Buffer<char> &&);
+    void _process_result(const runtime::ipc::Message & msg, runtime::Buffer<char> &&);
 
     int _epoll_fd;
 
@@ -64,6 +95,7 @@ namespace praas::process {
     // Function triggers
     runtime::functions::Functions _functions;
 
+    // Function workers (IPC) - seperate processes.
     Workers _workers;
 
     // Queue storing external data provided by the TCP server
@@ -71,6 +103,9 @@ namespace praas::process {
 
     // Queue storing pending invocations
     WorkQueue _work_queue;
+
+    // Server handling remote messages
+    remote::Server* _server{};
 
     std::atomic<bool> _ending{};
 
