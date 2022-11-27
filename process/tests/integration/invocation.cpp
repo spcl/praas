@@ -47,10 +47,10 @@ TEST(ProcessInvocationTest, SimpleInvocation)
   std::cerr << "pos " << stream.tellp() << std::endl;
 
   controller.wakeup(std::move(msg), std::move(buf));
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
   controller.wakeup(std::move(msg), std::move(buf));
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
   //ipc::InvocationRequest req;
   //req.invocation_id("test");
   //req.function_name("func");

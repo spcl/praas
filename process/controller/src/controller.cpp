@@ -98,7 +98,8 @@ namespace praas::process {
   }
 
   Controller::Controller(config::Controller cfg)
-      : _buffers(DEFAULT_BUFFER_MESSAGES, DEFAULT_BUFFER_SIZE), _workers(cfg), _work_queue(_functions)
+      : _buffers(DEFAULT_BUFFER_MESSAGES, DEFAULT_BUFFER_SIZE), _workers(cfg),
+        _work_queue(_functions)
   {
     auto path = std::filesystem::path{cfg.code.location} / cfg.code.config_location;
     spdlog::debug("Loading function configurationf rom {}", path.c_str());
@@ -163,6 +164,27 @@ namespace praas::process {
     );
   }
 
+  void Controller::_process_internal_message(
+      const runtime::ipc::Message& msg, runtime::Buffer<char>&& payload
+  )
+  {
+    auto parsed_msg = msg.parse();
+
+    std::visit(
+        runtime::ipc::overloaded{
+            [&, this](runtime::ipc::InvocationResultParsed& req) mutable {
+              spdlog::info(
+                  "Received invocation result of {}, status {}, output size {}",
+                  req.invocation_id(), req.status_code(), payload.len
+              );
+              // FIXME: send to the tcp server
+              // FIXME: check work queue for the source
+            },
+            [](auto&) { spdlog::error("Received unsupported message!"); }},
+        parsed_msg
+    );
+  }
+
   void Controller::poll()
   {
     // FIXME: customize
@@ -196,6 +218,15 @@ namespace praas::process {
           }
         }
         // Message
+        else {
+
+          FunctionWorker& worker = *static_cast<FunctionWorker*>(events[i].data.ptr);
+
+          spdlog::info("Receive from a channel");
+          auto [buf, input] = worker.ipc_read().receive();
+
+          _process_internal_message(buf, std::move(input));
+        }
 
         // spdlog::error(
         //     "{} {} ", events[i].events, static_cast<FunctionWorker*>(events[i].data.ptr)->pid()
@@ -223,6 +254,9 @@ namespace praas::process {
         _workers.submit(*invoc);
       }
     }
+
+    _workers.shutdown();
+    // swap
 
     spdlog::info("Controller finished polling");
   }

@@ -65,8 +65,6 @@ namespace praas::process::runtime::ipc {
       mq_getattr(_queue, &attributes);
 
       _msg_size = attributes.mq_msgsize;
-
-      std::cerr << attributes.mq_msgsize << std::endl;
     }
 
     _msg_buffer.reset(new int8_t[_msg_size]);
@@ -88,6 +86,16 @@ namespace praas::process::runtime::ipc {
     // "On Linux, a message queue descriptor is actually a file
     // descriptor.  (POSIX does not require such an implementation.)
     return _queue;
+  }
+
+  void POSIXMQChannel::send(Message& msg, Buffer<char> buf)
+  {
+    spdlog::info("Sending message, buffer length {}", buf.len);
+    msg.total_length(buf.len);
+
+    _send(msg.bytes(), msg.BUF_SIZE);
+    if(buf.len > 0)
+      _send(buf.val, buf.len);
   }
 
   void POSIXMQChannel::send(Message& msg, const std::vector<Buffer<char>>& data)
@@ -141,24 +149,29 @@ namespace praas::process::runtime::ipc {
   std::tuple<Message, Buffer<char>> POSIXMQChannel::receive()
   {
     Message msg;
+    spdlog::info("Copy: {}", Message::BUF_SIZE);
     _recv(_msg_buffer.get(), Message::BUF_SIZE);
-    // FIXME: avoid a copy here?
+    //// FIXME: avoid a copy here?
+    spdlog::info("Copy: {}", Message::BUF_SIZE);
     std::copy_n(_msg_buffer.get(), Message::BUF_SIZE, msg.data.data());
 
-    spdlog::info("Received message, expected payload length {}", msg.total_length());
+    std::cerr << "receive " << msg.total_length() << std::endl;
+
+    //spdlog::info("Received message, expected payload length {}", msg.total_length());
 
     auto buf = _buffers.retrieve_buffer(msg.total_length());
+    assert(buf.val);
+    if(msg.total_length() > 0) {
     _recv(buf.val, buf.size);
+    }
 
     return std::make_tuple(msg, buf);
   }
 
   void POSIXMQChannel::_recv(int8_t* data, int len) const
   {
-
     // NOLINTNEXTLINE
     _recv(reinterpret_cast<char*>(data), len);
-
   }
 
   void POSIXMQChannel::_recv(char* data, int len) const
@@ -183,4 +196,4 @@ namespace praas::process::runtime::ipc {
       spdlog::info(fmt::format("Byte {}, byte {:b}", i, data[i]));
   }
 
-} // namespace praas::process::ipc
+} // namespace praas::process::runtime::ipc

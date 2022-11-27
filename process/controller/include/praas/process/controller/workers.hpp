@@ -120,6 +120,8 @@ namespace praas::process {
 
     void submit(Invocation & invocation);
 
+    void shutdown();
+
   private:
 
     FunctionWorker* _get_idle_worker();

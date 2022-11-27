@@ -84,12 +84,15 @@ int main(int argc, char** argv)
 
     auto& invoc_value = invoc.value();
 
-    spdlog::info("Invoking {}, key {}", invoc_value.function_name, invoc_value.key);
+    spdlog::info("Invoking {}, invocation key {}", invoc_value.function_name, invoc_value.key);
     auto func = library.get_function(invoc_value.function_name);
     if(!func) {
       spdlog::error("Could not load function {}", invoc_value.function_name);
     } else {
-      (*func)(invoc_value, context);
+      context.start_invocation(invoc_value.key);
+      int ret = (*func)(invoc_value, context);
+      spdlog::error("ret {}", ret);
+      invoker.finish(context, ret);
     }
 
   }

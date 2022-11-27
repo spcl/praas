@@ -25,7 +25,7 @@ struct Output
 {
   int result;
 
-  void save(cereal::BinaryOutputArchive& archive)
+  void save(cereal::BinaryOutputArchive& archive) const
   {
     archive(result);
   }

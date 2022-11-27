@@ -7,7 +7,10 @@
 #include <filesystem>
 #include <fstream>
 
+#include <sys/signal.h>
+
 #include <cereal/archives/json.hpp>
+#include <sys/wait.h>
 
 namespace praas::process {
 
@@ -134,11 +137,34 @@ namespace praas::process {
 
     invocation.confirm_payload();
 
+    spdlog::info("Sending invocation of {}, with key {}",
+        invocation.req.function_name(), invocation.req.invocation_id()
+    );
+
     worker->ipc_write().send(invocation.req, invocation.payload);
 
     worker->busy(true);
 
     this->_idle_workers--;
+  }
+
+  void Workers::shutdown()
+  {
+    for(FunctionWorker& worker : _workers) {
+      kill(worker.pid(), SIGINT);
+    }
+
+    int status;
+    for(FunctionWorker& worker : _workers) {
+
+      waitpid(worker.pid(), &status, 0);
+
+      if (WIFEXITED(status)) {
+        spdlog::info("Worker child {} exited with status {}", worker.pid(), WEXITSTATUS(status));
+      } else if (WIFSIGNALED(status)) {
+        spdlog::info("Worker child {} killed by signal {}", worker.pid(), WTERMSIG(status));
+      }
+    }
   }
 
   void WorkQueue::finish(std::string key)

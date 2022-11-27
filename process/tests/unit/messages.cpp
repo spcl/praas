@@ -115,11 +115,13 @@ TEST(IPCMessagesInvocTest, InvocMessage)
     req.invocation_id(invoc_id);
     req.function_name(func_name);
     req.buffers(buffers.begin(), buffers.end());
+    req.total_length(10);
 
     EXPECT_EQ(req.type(), Message::Type::INVOCATION_REQUEST);
     EXPECT_EQ(req.invocation_id(), invoc_id);
     EXPECT_EQ(req.function_name(), func_name);
     EXPECT_EQ(req.buffers(), buffers.size());
+    EXPECT_EQ(req.total_length(), 10);
     EXPECT_THAT(
         buffers,
         testing::ElementsAreArray(req.buffers_lengths(), req.buffers())
@@ -135,11 +137,13 @@ TEST(IPCMessagesInvocTest, InvocMessage)
     req.invocation_id(invoc_id);
     req.function_name(func_name);
     req.buffers(buffers.begin(), buffers.end());
+    req.total_length(42);
 
     EXPECT_EQ(req.type(), Message::Type::INVOCATION_REQUEST);
     EXPECT_EQ(req.invocation_id(), invoc_id);
     EXPECT_EQ(req.function_name(), func_name);
     EXPECT_EQ(req.buffers(), buffers.size());
+    EXPECT_EQ(req.total_length(), 42);
     EXPECT_THAT(
         buffers,
         testing::ElementsAreArray(req.buffers_lengths(), req.buffers())
@@ -169,8 +173,11 @@ TEST(IPCMessagesInvocTest, InvocMessageParse)
   req.invocation_id(invoc_id);
   req.function_name(func_name);
   req.buffers(buffers.begin(), buffers.end());
+  req.total_length(42);
 
   Message& msg = *static_cast<Message*>(&req);
+  EXPECT_EQ(msg.total_length(), 42);
+
   auto parsed = msg.parse();
 
   EXPECT_TRUE(std::holds_alternative<InvocationRequestParsed>(parsed));

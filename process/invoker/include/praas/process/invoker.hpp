@@ -17,8 +17,7 @@ namespace praas::process {
 
     std::optional<praas::function::Invocation> poll();
 
-    // FIXME: move data
-    void finish(praas::function::Invocation&);
+    void finish(praas::function::Context&, int return_code);
 
     void shutdown();
 

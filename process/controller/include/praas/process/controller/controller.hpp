@@ -50,7 +50,7 @@ namespace praas::process {
   private:
 
     void _process_external_message(ExternalMessage & msg);
-    void _process_internal_message(const runtime::ipc::Message & msg, runtime::Buffer<char>);
+    void _process_internal_message(const runtime::ipc::Message & msg, runtime::Buffer<char> &&);
 
     int _epoll_fd;
 

@@ -32,7 +32,7 @@ namespace praas::process {
           runtime::ipc::overloaded{
               [&](runtime::ipc::InvocationRequestParsed& req) mutable {
                 spdlog::info(
-                    "Received invocation request of {}, id {}, inputs {}",
+                    "Received invocation request of {}, key t{}, inputs {}",
                     req.function_name(), req.invocation_id(), req.buffers()
                 );
                 invoc.key = req.invocation_id();
@@ -62,8 +62,15 @@ namespace praas::process {
     return invoc;
   }
 
-  void Invoker::finish(praas::function::Invocation&)
+  void Invoker::finish(praas::function::Context& context, int return_code)
   {
+    runtime::ipc::InvocationResult msg;
+    msg.status_code(return_code);
+    msg.buffer_length(context.get_output_len());
+    msg.invocation_id(context.invocation_id());
+    spdlog::error("{} {}", context.invocation_id(), msg.invocation_id());
+
+    _ipc_channel_write->send(msg, context.as_buffer());
   }
 
   void Invoker::shutdown()

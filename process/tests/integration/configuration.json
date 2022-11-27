@@ -16,7 +16,7 @@
     "cpp": {
       "test": {
         "code": {
-          "module": "examples/libexample_cpp.so",
+          "module": "/work/serverless/2022/praas/code/build/process/tests/examples/libexample_cpp.so",
           "function": "add"
         },
         "trigger": {

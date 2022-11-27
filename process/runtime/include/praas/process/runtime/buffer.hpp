@@ -11,13 +11,12 @@ namespace praas::process::runtime {
 
   template <typename T>
   struct Buffer {
-    T* val;
-    size_t size;
-    size_t len;
+    T* val{};
+    size_t size{};
+    size_t len{};
 
-    Buffer() : val(nullptr), size(0) {}
-
-    Buffer(T* val, size_t size) : val(val), size(size) {}
+    Buffer() = default;
+    Buffer(T* val, size_t size, size_t len = 0) : val(val), size(size), len(len) {}
   };
 
   template <typename T>

@@ -229,10 +229,10 @@ namespace praas::process::runtime::ipc {
     id_len = id.length();
   }
 
-  void InvocationResult::status_code(int32_t len)
+  void InvocationResult::status_code(int32_t code)
   {
     // NOLINTNEXTLINE
-    *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + Message::ID_LENGTH + sizeof(int32_t)) = len;
+    *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + Message::ID_LENGTH + sizeof(int32_t)) = code;
   }
 
   void InvocationResult::buffer_length(int32_t len)
@@ -241,4 +241,4 @@ namespace praas::process::runtime::ipc {
     *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + Message::ID_LENGTH) = len;
   }
 
-} // namespace praas::process::ipc
+} // namespace praas::process::runtime::ipc
