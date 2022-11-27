@@ -67,6 +67,20 @@ namespace praas::process {
     return nullptr;
   }
 
+  std::optional<Invocation> WorkQueue::finish(const std::string& key)
+  {
+    // Check if the function invocation exists and is not pending.
+    auto it = _active_invocations.find(key);
+    if(it == _active_invocations.end() || !(*it).second.active) {
+      return std::nullopt;
+    }
+
+    Invocation invoc = (*it).second;
+    _active_invocations.erase(it);
+
+    return invoc;
+  }
+
   void TriggerChecker::visit(const runtime::functions::DirectTrigger &)
   {
     // Single argument, no dependencies - always ready
@@ -152,7 +166,6 @@ namespace praas::process {
 
   FunctionWorker* Workers::_get_idle_worker()
   {
-    std::cerr << _idle_workers << std::endl;
     if(_idle_workers == 0) {
       return nullptr;
     }
@@ -162,7 +175,6 @@ namespace praas::process {
         return &worker;
       }
     }
-    std::cerr << _idle_workers << std::endl;
     // Should never happen
     return nullptr;
   }
@@ -186,7 +198,6 @@ namespace praas::process {
         invocation.req.function_name(), invocation.req.invocation_id()
     );
 
-    std::cerr << fmt::ptr(worker) << std::endl;
     worker->ipc_write().send(invocation.req, invocation.payload);
 
     worker->busy(true);
@@ -223,19 +234,5 @@ namespace praas::process {
         spdlog::info("Worker child {} killed by signal {}", worker.pid(), WTERMSIG(status));
       }
     }
-  }
-
-  std::optional<Invocation> WorkQueue::finish(const std::string& key)
-  {
-    // Check if the function invocation exists and is not pending.
-    auto it = _active_invocations.find(key);
-    if(it == _active_invocations.end() &&  (*it).second.active) {
-      return std::nullopt;
-    }
-
-    Invocation invoc = (*it).second;
-    _active_invocations.erase(it);
-
-    return invoc;
   }
 };

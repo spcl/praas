@@ -107,7 +107,6 @@ namespace praas::process {
   {
     _external_queue.emplace(process_id, msg, payload);
     uint64_t tmp = 1;
-    std::cerr << "Write to " << _event_fd << std::endl;
     common::util::assert_other(write(_event_fd, &tmp, sizeof(tmp)), -1);
   }
 
@@ -117,7 +116,6 @@ namespace praas::process {
   {
     _external_queue.emplace(std::nullopt, msg, payload);
     uint64_t tmp = 1;
-    std::cerr << "Write to " << _event_fd << std::endl;
     common::util::assert_other(write(_event_fd, &tmp, sizeof(tmp)), -1);
   }
 
@@ -198,14 +196,12 @@ namespace praas::process {
     while (true) {
 
       int events_count = epoll_wait(_epoll_fd, events.data(), MAX_EPOLL_EVENTS, EPOLL_TIMEOUT);
-      std::cerr << events_count << std::endl;
 
       // Finish if we failed (but we were not interrupted), or when end was requested.
       if (_ending || (events_count == -1 && errno != EINVAL)) {
         break;
       }
 
-      std::cerr << "Events: " << events_count << std::endl;
       for (int i = 0; i < events_count; ++i) {
 
         // Wake-up signal

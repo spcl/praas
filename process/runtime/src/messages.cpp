@@ -4,8 +4,6 @@
 
 #include <fmt/format.h>
 
-#include <iostream>
-
 namespace praas::process::runtime::ipc {
 
   Message::MessageVariants Message::parse() const
@@ -137,14 +135,12 @@ namespace praas::process::runtime::ipc {
 
   std::string_view InvocationRequestParsed::invocation_id() const
   {
-    std::cerr << *reinterpret_cast<const char*>(buf) << " " << id_len << std::endl;
     return std::string_view{// NOLINTNEXTLINE
                             reinterpret_cast<const char*>(buf), id_len};
   }
 
   std::string_view InvocationRequestParsed::function_name() const
   {
-    std::cerr << *reinterpret_cast<const char*>(buf + Message::ID_LENGTH) << " " << name_len << std::endl;
     return std::string_view{// NOLINTNEXTLINE
                             reinterpret_cast<const char*>(buf + Message::ID_LENGTH), name_len};
   }

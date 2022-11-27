@@ -146,7 +146,18 @@ namespace praas::process::runtime::ipc {
     // Did we read message header in the previous call?
     if (!_msg_read) {
 
-      _recv(_msg_buffer.get(), Message::BUF_SIZE);
+      size_t read_data = _recv(_msg_buffer.get(), Message::BUF_SIZE);
+
+      // We did not manage to read any data
+      if(read_data == 0) {
+        return std::make_tuple(false, Buffer<char>{});
+      }
+
+      // We do not support sending partial message headers.
+      if(read_data < Message::BUF_SIZE) {
+        throw praas::common::NotImplementedError();
+      }
+
       // FIXME: avoid a copy here?
       std::copy_n(_msg_buffer.get(), Message::BUF_SIZE, _msg.data.data());
 
@@ -187,7 +198,8 @@ namespace praas::process::runtime::ipc {
         return std::make_tuple(false, Buffer<char>{});
       }
     } else {
-      return std::make_tuple(false, Buffer<char>{});
+      _msg_read = false;
+      return std::make_tuple(true, Buffer<char>{});
     }
 
   }
@@ -203,8 +215,6 @@ namespace praas::process::runtime::ipc {
     size_t pos = 0;
     for (; pos < len;) {
 
-      // auto size = (len - pos < _msg_size) ? (len - pos) : _msg_size;
-      // spdlog::error("attempt Receive {} out of {} {}", size, len, _msg_size);
       long rcv_len = mq_receive(_queue, data + pos, _msg_size, nullptr);
 
       if (rcv_len == -1 && errno == EAGAIN) {
