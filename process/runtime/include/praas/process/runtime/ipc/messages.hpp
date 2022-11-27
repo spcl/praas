@@ -49,19 +49,20 @@ namespace praas::process::runtime::ipc {
     }
 
     Type type() const;
-    size_t total_length() const;
+
+    int32_t total_length() const;
+
+    void total_length(int32_t);
 
     const int8_t* bytes() const
     {
       return data.data();
     }
 
-    void total_length(size_t);
-
     using MessageVariants = std::variant<
         GetRequestParsed, PutRequestParsed, InvocationRequestParsed, InvocationResultParsed>;
 
-    MessageVariants parse();
+    MessageVariants parse() const;
 
     static MessageVariants parse_message(const int8_t* data);
   };
@@ -213,6 +214,7 @@ namespace praas::process::runtime::ipc {
 
     std::string_view invocation_id() const;
     int32_t buffer_length() const;
+    int32_t status_code() const;
   };
 
   struct InvocationResult : Message, InvocationResultParsed {
@@ -228,6 +230,7 @@ namespace praas::process::runtime::ipc {
 
     void invocation_id(const std::string& id);
     void buffer_length(int32_t length);
+    void status_code(int32_t code);
   };
 
 } // namespace praas::process::runtime::ipc

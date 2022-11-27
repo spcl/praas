@@ -8,7 +8,7 @@
 
 namespace praas::process::runtime::ipc {
 
-  Message::MessageVariants Message::parse()
+  Message::MessageVariants Message::parse() const
   {
     return parse_message(data.data());
   }
@@ -54,16 +54,16 @@ namespace praas::process::runtime::ipc {
     return static_cast<Type>(type);
   }
 
-  size_t Message::total_length() const
+  int32_t Message::total_length() const
   {
     // NOLINTNEXTLINE
-    return *reinterpret_cast<const size_t*>(data.data() + 2);
+    return *reinterpret_cast<const int32_t*>(data.data() + 2);
   }
 
-  void Message::total_length(size_t len)
+  void Message::total_length(int32_t len)
   {
     // NOLINTNEXTLINE
-    *reinterpret_cast<size_t*>(data.data() + 2) = len;
+    *reinterpret_cast<int32_t*>(data.data() + 2) = len;
   }
 
   int32_t GenericRequestParsed::data_len() const
@@ -137,6 +137,7 @@ namespace praas::process::runtime::ipc {
 
   std::string_view InvocationRequestParsed::invocation_id() const
   {
+    std::cerr << *reinterpret_cast<const char*>(buf) << " " << id_len << std::endl;
     return std::string_view{// NOLINTNEXTLINE
                             reinterpret_cast<const char*>(buf), id_len};
   }
@@ -208,6 +209,12 @@ namespace praas::process::runtime::ipc {
     return *reinterpret_cast<const int32_t*>(buf + Message::ID_LENGTH);
   }
 
+  int32_t InvocationResultParsed::status_code() const
+  {
+    // NOLINTNEXTLINE
+    return *reinterpret_cast<const int32_t*>(buf + Message::ID_LENGTH + sizeof(int32_t));
+  }
+
   void InvocationResult::invocation_id(const std::string& id)
   {
     if (id.length() > Message::ID_LENGTH) {
@@ -220,6 +227,12 @@ namespace praas::process::runtime::ipc {
         reinterpret_cast<char*>(data.data() + HEADER_OFFSET), id.data(), Message::ID_LENGTH
     );
     id_len = id.length();
+  }
+
+  void InvocationResult::status_code(int32_t len)
+  {
+    // NOLINTNEXTLINE
+    *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + Message::ID_LENGTH + sizeof(int32_t)) = len;
   }
 
   void InvocationResult::buffer_length(int32_t len)
