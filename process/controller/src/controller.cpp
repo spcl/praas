@@ -107,7 +107,7 @@ namespace praas::process {
   {
     {
       std::lock_guard<std::mutex> lock(_deque_lock);
-      _external_queue.emplace_back(process_id, msg, payload);
+      _external_queue.emplace_back(process_id, msg, std::move(payload));
     }
     uint64_t tmp = 1;
     common::util::assert_other(write(_event_fd, &tmp, sizeof(tmp)), -1);
@@ -119,7 +119,7 @@ namespace praas::process {
   {
     {
       std::lock_guard<std::mutex> lock(_deque_lock);
-      _external_queue.emplace_back(std::nullopt, msg, payload);
+      _external_queue.emplace_back(std::nullopt, msg, std::move(payload));
     }
     uint64_t tmp = 1;
     common::util::assert_other(write(_event_fd, &tmp, sizeof(tmp)), -1);
@@ -181,7 +181,7 @@ namespace praas::process {
                     invocation.source.remote_process,
                     req.invocation_id(),
                     req.return_code(),
-                    payload
+                    std::move(payload)
                   );
                 }
 
@@ -217,7 +217,8 @@ namespace praas::process {
         if (events[i].data.ptr == this) {
 
           uint64_t read_val;
-          read(_event_fd, &read_val, sizeof(read_val));
+          [[maybe_unused]] int read_size = read(_event_fd, &read_val, sizeof(read_val));
+          assert(read_size != -1);
 
           std::unique_lock<std::mutex> lock(_deque_lock);
 

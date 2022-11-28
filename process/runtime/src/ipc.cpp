@@ -89,28 +89,28 @@ namespace praas::process::runtime::ipc {
     return _queue;
   }
 
-  void POSIXMQChannel::send(Message& msg, Buffer<char> buf)
+  void POSIXMQChannel::send(Message& msg, BufferAccessor<char> buf)
   {
     spdlog::info("Sending message, buffer length {}", buf.len);
     msg.total_length(buf.len);
 
     _send(msg.bytes(), msg.BUF_SIZE);
     if (buf.len > 0)
-      _send(buf.val, buf.len);
+      _send(buf.data(), buf.len);
   }
 
   void POSIXMQChannel::send(Message& msg, const std::vector<Buffer<char>>& data)
   {
     size_t len = 0;
-    for (auto buf : data) {
+    for (const auto & buf : data) {
       len += buf.len;
     }
 
     msg.total_length(len);
 
     _send(msg.bytes(), msg.BUF_SIZE);
-    for (auto buf : data) {
-      _send(buf.val, buf.len);
+    for (const auto & buf : data) {
+      _send(buf.data(), buf.len);
     }
   }
 
@@ -142,6 +142,30 @@ namespace praas::process::runtime::ipc {
         pos += size;
       }
     }
+  }
+
+  bool POSIXMQChannel::blocking_receive(Buffer<std::byte> & buf)
+  {
+    size_t read_data = _recv(_msg_buffer.get(), Message::BUF_SIZE);
+    // We do not support sending partial message headers.
+    if(read_data < Message::BUF_SIZE) {
+      throw praas::common::NotImplementedError();
+    }
+    spdlog::error("Read {}", read_data);
+
+    // FIXME: avoid a copy here?
+    std::copy_n(_msg_buffer.get(), Message::BUF_SIZE, _msg.data.data());
+
+    size_t data_to_read = _msg.total_length();
+    if(buf.size < data_to_read) {
+      buf.resize(data_to_read);
+    }
+
+    spdlog::error("Reading {}", data_to_read);
+    read_data = _recv(buf.data(), data_to_read);
+    buf.len = read_data;
+    spdlog::error("Read {}", read_data);
+    return read_data >= data_to_read;
   }
 
   std::tuple<bool, Buffer<char>> POSIXMQChannel::receive()
@@ -183,7 +207,7 @@ namespace praas::process::runtime::ipc {
       // (1) & (2) - start from 0 position, attempt to read everything
       // (3) - start when we left things last time, attempt to read the rest
       size_t data_to_read = _msg.total_length() - _msg_payload.len;
-      size_t read_data = _recv(_msg_payload.val + _msg_payload.len, data_to_read);
+      size_t read_data = _recv(_msg_payload.data() + _msg_payload.len, data_to_read);
       _msg_payload.len += read_data;
 
       // We read everything
@@ -192,10 +216,10 @@ namespace praas::process::runtime::ipc {
         _msg_read = false;
 
         // Return buffer with payload, restart the buffer for future use.
-        Buffer<char> buf = _msg_payload;
+        Buffer<char> buf = std::move(_msg_payload);
         _msg_payload = Buffer<char>{};
 
-        return std::make_tuple(true, buf);
+        return std::make_tuple(true, std::move(buf));
 
       } else {
         return std::make_tuple(false, Buffer<char>{});
@@ -205,6 +229,12 @@ namespace praas::process::runtime::ipc {
       return std::make_tuple(true, Buffer<char>{});
     }
 
+  }
+
+  size_t POSIXMQChannel::_recv(std::byte * data, size_t len) const
+  {
+    // NOLINTNEXTLINE
+    return _recv(reinterpret_cast<char*>(data), len);
   }
 
   size_t POSIXMQChannel::_recv(int8_t* data, size_t len) const

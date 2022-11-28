@@ -10,13 +10,17 @@
 namespace praas::process::runtime {
 
   template <typename T>
-  struct Buffer {
-    T* val{};
-    size_t size{};
+  struct BufferAccessor {
+    T* ptr{};
     size_t len{};
 
-    Buffer() = default;
-    Buffer(T* val, size_t size, size_t len = 0) : val(val), size(size), len(len) {}
+    BufferAccessor() = default;
+    BufferAccessor(T* ptr, size_t len) : ptr(ptr), len(len) {}
+
+    T* data() const
+    {
+      return ptr;
+    }
 
     bool empty() const
     {
@@ -25,7 +29,58 @@ namespace praas::process::runtime {
 
     bool null() const
     {
-      return val == 0;
+      return ptr == 0;
+    }
+
+  };
+
+  template <typename T>
+  struct Buffer {
+    std::unique_ptr<T[]> ptr{};
+    size_t size{};
+    size_t len{};
+
+    Buffer() = default;
+    Buffer(T* ptr, size_t size, size_t len = 0) : ptr(ptr), size(size), len(len) {}
+
+    Buffer(const Buffer&) = delete;
+    Buffer& operator=(const Buffer&) = delete;
+    Buffer(Buffer &&) noexcept = default;
+    Buffer& operator=(Buffer &&) noexcept = default;
+
+    ~Buffer() = default;
+
+    T* data() const
+    {
+      return ptr.get();
+    }
+
+    bool empty() const
+    {
+      return len == 0;
+    }
+
+    bool null() const
+    {
+      return ptr == 0;
+    }
+
+    void resize(size_t size)
+    {
+      ptr.reset(new T[size]);
+      this->size = size;
+      this->len = 0;
+    }
+
+    operator BufferAccessor<T>() const
+    {
+      return BufferAccessor<T>(ptr, size);
+    }
+
+    template<typename U>
+    BufferAccessor<U> accessor() const
+    {
+      return BufferAccessor<U>(reinterpret_cast<U*>(ptr.get()), size);
     }
   };
 
@@ -35,48 +90,42 @@ namespace praas::process::runtime {
     typedef Buffer<T> val_t;
 
     std::queue<val_t> _buffers;
-    size_t _elements;
 
-    BufferQueue(size_t elements, size_t elem_size) : _elements(elements)
+    BufferQueue() = default;
+
+    BufferQueue(size_t elements, size_t elem_size)
     {
-      for (size_t i = 0; i < _elements; ++i)
+      for (size_t i = 0; i < elements; ++i) {
         _buffers.push(val_t{new T[elem_size], elem_size});
-    }
-
-    ~BufferQueue()
-    {
-      while (!_buffers.empty()) {
-        delete[] _buffers.front().val;
-        _buffers.pop();
       }
     }
+
+    ~BufferQueue() = default;
 
     Buffer<T> retrieve_buffer(size_t size)
     {
-      if (_buffers.empty())
-        return {nullptr, 0};
-
-      Buffer<T> buf = _buffers.front();
-      if (_buffers.size() < size) {
-        delete[] buf.val;
-        buf.val = new T[size];
-        buf.size = size;
+      if (_buffers.empty()) {
+        return _allocate_buffer(size);
       }
-      _buffers.pop();
 
-      buf.len = 0;
+      Buffer<T> buf = std::move(_buffers.front());
+      _buffers.pop();
+      if (_buffers.size() < size) {
+        buf.resize(size);
+      }
 
       return buf;
     }
 
     void return_buffer(Buffer<T>&& buf)
     {
-      _buffers.push(buf);
+      buf.len = 0;
+      _buffers.push(std::move(buf));
     }
 
-    void return_buffer(const Buffer<T>& buf)
+    Buffer<T> _allocate_buffer(size_t size)
     {
-      _buffers.push(buf);
+      return Buffer<T>{new T[size], size, 0};
     }
   };
 

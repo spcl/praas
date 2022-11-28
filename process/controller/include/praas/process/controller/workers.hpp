@@ -44,7 +44,8 @@ namespace praas::process {
   struct Invocation {
 
     Invocation(
-        const std::string& fname, const std::string& invocation_key, const runtime::functions::Trigger* trigger,
+        const std::string& fname, const std::string& invocation_key,
+        const runtime::functions::Trigger* trigger,
         InvocationSource && source
     )
         : trigger(trigger), source(source)
@@ -52,6 +53,11 @@ namespace praas::process {
       req.function_name(fname);
       req.invocation_id(invocation_key);
     }
+
+    Invocation(const Invocation&) = delete;
+    Invocation& operator=(const Invocation&) = delete;
+    Invocation(Invocation&&) = default;
+    Invocation& operator=(Invocation&&) = default;
 
     void confirm_payload()
     {

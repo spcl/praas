@@ -31,7 +31,13 @@ namespace praas::process {
     praas::function::Invocation invoc;
 
     try {
-      auto [read, input] = _ipc_channel_read->receive();
+      auto read = _ipc_channel_read->blocking_receive(_input);
+
+      if(!read) {
+        throw praas::common::PraaSException(fmt::format(
+            "Did not receive a full buffer - failed receive!"
+        ));
+      }
 
       auto parsed_msg = _ipc_channel_read->message().parse();
 
@@ -48,16 +54,16 @@ namespace praas::process {
                 for (int i = 0; i < req.buffers(); ++i) {
                   total_len += req.buffers_lengths()[i];
                 }
-                if (total_len > input.len) {
+                if (total_len > _input.len) {
                   throw praas::common::PraaSException(fmt::format(
-                      "Header declared {} bytes, but we only received {}!", total_len, input.len
+                      "Header declared {} bytes, but we only received {}!", total_len, _input.len
                   ));
                 }
 
                 invoc.key = req.invocation_id();
                 invoc.function_name = req.function_name();
 
-                char* ptr = input.val;
+                std::byte* ptr = _input.ptr.get();
                 for (int i = 0; i < req.buffers(); ++i) {
 
                   size_t len = req.buffers_lengths()[i];
@@ -83,12 +89,16 @@ namespace praas::process {
 
   void Invoker::finish(praas::function::Context& context, int return_code)
   {
+    runtime::BufferAccessor<char> buf = context.as_buffer();
+
     runtime::ipc::InvocationResult msg;
     msg.return_code(return_code);
-    msg.buffer_length(context.get_output_len());
+    msg.buffer_length(buf.len);
     msg.invocation_id(context.invocation_id());
 
-    _ipc_channel_write->send(msg, context.as_buffer());
+    // FIXME: restore buffer
+
+    _ipc_channel_write->send(msg, buf);
   }
 
   void Invoker::shutdown()

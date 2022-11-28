@@ -21,7 +21,7 @@ namespace praas::process {
 
     // Extend an existing invocation
     if(it != _active_invocations.end()) {
-      it->second.payload.push_back(buffer);
+      it->second.payload.push_back(std::move(buffer));
     }
     // Create a new invocation
     else {
@@ -43,7 +43,7 @@ namespace praas::process {
         spdlog::error("Failed to insert a new invocation {} for function {}", key, fname);
       }
 
-      it->second.payload.push_back(buffer);
+      it->second.payload.push_back(std::move(buffer));
 
       // Now add the function to the queue
       _pending_invocations.push_back(&it->second);
@@ -77,7 +77,7 @@ namespace praas::process {
       return std::nullopt;
     }
 
-    Invocation invoc = (*it).second;
+    Invocation invoc = std::move((*it).second);
     _active_invocations.erase(it);
 
     return invoc;
