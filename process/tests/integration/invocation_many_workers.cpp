@@ -28,14 +28,14 @@ public:
   MOCK_METHOD(void, put_message, (), (override));
   MOCK_METHOD(
       void, invocation_result,
-      (const std::optional<std::string>&, std::string_view, int, runtime::Buffer<char>), (override)
+      (const std::optional<std::string>&, std::string_view, int, runtime::Buffer<char> &&), (override)
   );
 };
 
-size_t generate_input(int arg1, int arg2, runtime::Buffer<char> buf)
+size_t generate_input(int arg1, int arg2, const runtime::Buffer<char>& buf)
 {
   Input input{arg1, arg2};
-  boost::interprocess::bufferstream stream(buf.val, buf.size);
+  boost::interprocess::bufferstream stream(buf.data(), buf.size);
   cereal::BinaryOutputArchive archive_out{stream};
   archive_out(input);
   assert(stream.good());
@@ -43,10 +43,10 @@ size_t generate_input(int arg1, int arg2, runtime::Buffer<char> buf)
   return pos;
 }
 
-int get_output(runtime::Buffer<char> buf)
+int get_output(const runtime::Buffer<char>& buf)
 {
   Output out;
-  boost::iostreams::stream<boost::iostreams::array_source> stream(buf.val, buf.size);
+  boost::iostreams::stream<boost::iostreams::array_source> stream(buf.data(), buf.size);
   cereal::BinaryInputArchive archive_in{stream};
   out.load(archive_in);
 
@@ -55,7 +55,8 @@ int get_output(runtime::Buffer<char> buf)
 
 class ProcessManyWorkersInvocationTest : public ::testing::Test {
 public:
-  void SetUp() override
+
+  void SetUp(int workers)
   {
     cfg.set_defaults();
     cfg.verbose = true;
@@ -63,12 +64,29 @@ public:
     cfg.code.location = "/work/serverless/2022/praas/code/praas/process/tests/integration";
     cfg.code.config_location = "configuration.json";
 
-    cfg.function_workers = 2;
+    cfg.function_workers = workers;
 
     controller = std::make_unique<Controller>(cfg);
     controller->set_remote(&server);
 
     controller_thread = std::thread{&Controller::start, controller.get()};
+
+    EXPECT_CALL(server, invocation_result)
+        .WillRepeatedly(
+            [&](auto _process, auto _id, int _return_code, auto && _payload) mutable {
+
+              std::cerr << idx << std::endl;
+              saved_results[idx].process = _process;
+              saved_results[idx].id = _id;
+              saved_results[idx].return_code = _return_code;
+              saved_results[idx].payload = std::move(_payload);
+              saved_results[idx].finished.set_value();
+
+              saved_results[idx].timestamp = std::chrono::system_clock::now();
+
+              idx++;
+            }
+        );
   }
 
   void TearDown() override
@@ -77,14 +95,147 @@ public:
     controller_thread.join();
   }
 
+  void reset()
+  {
+    for(int idx = 0; idx < INVOC_COUNT; ++idx) {
+      saved_results[idx].process = std::nullopt;
+      saved_results[idx].id.clear();
+      saved_results[idx].return_code = -1;
+      saved_results[idx].payload = runtime::Buffer<char>{};
+      saved_results[idx].finished = std::promise<void>{};
+    }
+  }
+
+  std::atomic<int> idx{};
+
   std::thread controller_thread;
   config::Controller cfg;
   std::unique_ptr<Controller> controller;
   MockTCPServer server;
+
+  static constexpr int INVOC_COUNT = 4;
+
+  using timepoint_t = std::chrono::time_point<std::chrono::system_clock>;
+
+  struct Result {
+    std::promise<void> finished;
+    std::optional<std::string> process;
+    std::string id;
+    int return_code;
+    runtime::Buffer<char> payload;
+    timepoint_t timestamp;
+  };
+  std::array<Result, INVOC_COUNT> saved_results;
 };
+
+TEST_F(ProcessManyWorkersInvocationTest, SubsequentInvocations)
+{
+
+  SetUp(1);
+
+  const int COUNT = 4;
+  const int BUF_LEN = 1024;
+  std::string function_name = "add";
+  std::string process_id = "remote-process-1";
+  std::array<std::string, COUNT> invocation_id = {
+    "first_id",
+    "second_id",
+    "third_id",
+    "fourth_id"
+  };
+
+  std::array<std::tuple<int, int>, COUNT> args = {
+    std::make_tuple(42, 4), std::make_tuple(-1, 35),
+    std::make_tuple(1000, 0), std::make_tuple(-33, 39)
+  };
+  std::array<int, COUNT> results = { 46, 34, 1000, 6 };
+
+  runtime::BufferQueue<char> buffers(10, 1024);
+
+  // FIFO order - we cannot do it in a loop :-(
+  //EXPECT_CALL(server, invocation_result)
+  //    .WillOnce(testing::DoAll(
+  //        testing::SaveArg<0>(&process[0]), testing::SaveArg<1>(&id[0]),
+  //        testing::SaveArg<2>(&return_code[0]),
+  //        testing::SaveArg<3>(&payload[0]),
+  //        testing::Invoke([&timestamps, &finished]() {
+  //          timestamps[0] = std::chrono::system_clock::now();
+  //          finished[0].set_value();
+  //        })
+  //    ))
+  //    .WillOnce(testing::DoAll(
+  //        testing::SaveArg<0>(&process[1]), testing::SaveArg<1>(&id[1]),
+  //        testing::SaveArg<2>(&return_code[1]),
+  //        testing::SaveArg<3>(&payload[1]),
+  //        testing::Invoke([ &timestamps, &finished]() {
+  //          timestamps[1] = std::chrono::system_clock::now();
+  //          finished[1].set_value();
+  //        })
+  //    ))
+  //    .WillOnce(testing::DoAll(
+  //        testing::SaveArg<0>(&process[2]), testing::SaveArg<1>(&id[2]),
+  //        testing::SaveArg<2>(&return_code[2]),
+  //        testing::SaveArg<3>(&payload[2]),
+  //        testing::Invoke([ &timestamps, &finished]() {
+  //          timestamps[2] = std::chrono::system_clock::now();
+  //          finished[2].set_value();
+  //        })
+  //    ))
+  //    .WillOnce(testing::DoAll(
+  //        testing::SaveArg<0>(&process[3]), testing::SaveArg<1>(&id[3]),
+  //        testing::SaveArg<2>(&return_code[3]),
+  //        testing::SaveArg<3>(&payload[3]),
+  //        testing::Invoke([ &timestamps, &finished]() {
+  //          timestamps[3] = std::chrono::system_clock::now();
+  //          finished[3].set_value();
+  //        })
+  //    ));
+
+  // Submit
+  for(int idx = 0; idx < COUNT; ++idx) {
+
+    praas::common::message::InvocationRequest msg;
+    msg.function_name(function_name);
+    msg.invocation_id(invocation_id[idx]);
+
+    auto buf = buffers.retrieve_buffer(BUF_LEN);
+    buf.len = generate_input(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
+    // Send more data than needed - check that it still works
+    msg.payload_size(buf.len + 64);
+
+    controller->dataplane_message(std::move(msg), std::move(buf));
+  }
+
+  // wait
+  for(int idx = 0; idx < COUNT; ++idx) {
+    ASSERT_EQ(std::future_status::ready, saved_results[idx].finished.get_future().wait_for(std::chrono::seconds(3)));
+  }
+
+  // Validate result
+  for(int idx = 0; idx < COUNT; ++idx) {
+
+    // Dataplane message
+    EXPECT_FALSE(saved_results[idx].process.has_value());
+    EXPECT_EQ(saved_results[idx].id, invocation_id[idx]);
+    EXPECT_EQ(saved_results[idx].return_code, 0);
+
+    ASSERT_TRUE(saved_results[idx].payload.len > 0);
+    int res = get_output(saved_results[idx].payload);
+    EXPECT_EQ(res, results[idx]);
+
+  }
+
+  // Validate order
+  for(int idx = 1; idx < COUNT; ++idx) {
+    ASSERT_TRUE(saved_results[idx-1].timestamp < saved_results[idx].timestamp);
+  }
+
+}
 
 TEST_F(ProcessManyWorkersInvocationTest, ConcurrentInvocations)
 {
+  SetUp(2);
+
   const int COUNT = 4;
   const int BUF_LEN = 1024;
   std::string function_name = "add";
@@ -96,43 +247,34 @@ TEST_F(ProcessManyWorkersInvocationTest, ConcurrentInvocations)
       std::make_tuple(-33, 39)};
   std::array<int, COUNT> results = {46, 34, 1000, 6};
 
-  struct Result {
-    std::promise<void> finished;
-    std::optional<std::string> process;
-    std::string id;
-    int return_code;
-    runtime::Buffer<char> payload;
-  };
-  std::array<Result, COUNT> saved_results;
-
   runtime::BufferQueue<char> buffers(10, 1024);
 
   // FIFO order - we cannot do it in a loop :-(
-  EXPECT_CALL(server, invocation_result)
-      .WillOnce(testing::DoAll(
-          testing::SaveArg<0>(&saved_results[0].process), testing::SaveArg<1>(&saved_results[0].id),
-          testing::SaveArg<2>(&saved_results[0].return_code),
-          testing::SaveArg<3>(&saved_results[0].payload),
-          testing::Invoke([&saved_results]() { saved_results[0].finished.set_value(); })
-      ))
-      .WillOnce(testing::DoAll(
-          testing::SaveArg<0>(&saved_results[1].process), testing::SaveArg<1>(&saved_results[1].id),
-          testing::SaveArg<2>(&saved_results[1].return_code),
-          testing::SaveArg<3>(&saved_results[1].payload),
-          testing::Invoke([&saved_results]() { saved_results[1].finished.set_value(); })
-      ))
-      .WillOnce(testing::DoAll(
-          testing::SaveArg<0>(&saved_results[2].process), testing::SaveArg<1>(&saved_results[2].id),
-          testing::SaveArg<2>(&saved_results[2].return_code),
-          testing::SaveArg<3>(&saved_results[2].payload),
-          testing::Invoke([&saved_results]() { saved_results[2].finished.set_value(); })
-      ))
-      .WillOnce(testing::DoAll(
-          testing::SaveArg<0>(&saved_results[3].process), testing::SaveArg<1>(&saved_results[3].id),
-          testing::SaveArg<2>(&saved_results[3].return_code),
-          testing::SaveArg<3>(&saved_results[3].payload),
-          testing::Invoke([&saved_results]() { saved_results[3].finished.set_value(); })
-      ));
+  //EXPECT_CALL(server, invocation_result)
+  //    .WillOnce(testing::DoAll(
+  //        testing::SaveArg<0>(&saved_results[0].process), testing::SaveArg<1>(&saved_results[0].id),
+  //        testing::SaveArg<2>(&saved_results[0].return_code),
+  //        testing::SaveArg<3>(&saved_results[0].payload),
+  //        testing::Invoke([&saved_results]() { saved_results[0].finished.set_value(); })
+  //    ))
+  //    .WillOnce(testing::DoAll(
+  //        testing::SaveArg<0>(&saved_results[1].process), testing::SaveArg<1>(&saved_results[1].id),
+  //        testing::SaveArg<2>(&saved_results[1].return_code),
+  //        testing::SaveArg<3>(&saved_results[1].payload),
+  //        testing::Invoke([&saved_results]() { saved_results[1].finished.set_value(); })
+  //    ))
+  //    .WillOnce(testing::DoAll(
+  //        testing::SaveArg<0>(&saved_results[2].process), testing::SaveArg<1>(&saved_results[2].id),
+  //        testing::SaveArg<2>(&saved_results[2].return_code),
+  //        testing::SaveArg<3>(&saved_results[2].payload),
+  //        testing::Invoke([&saved_results]() { saved_results[2].finished.set_value(); })
+  //    ))
+  //    .WillOnce(testing::DoAll(
+  //        testing::SaveArg<0>(&saved_results[3].process), testing::SaveArg<1>(&saved_results[3].id),
+  //        testing::SaveArg<2>(&saved_results[3].return_code),
+  //        testing::SaveArg<3>(&saved_results[3].payload),
+  //        testing::Invoke([&saved_results]() { saved_results[3].finished.set_value(); })
+  //    ));
 
   // Submit
   for (int idx = 0; idx < COUNT; ++idx)
