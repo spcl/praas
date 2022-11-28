@@ -392,7 +392,6 @@ TEST_F(ProcessInvocationTest, SubsequentInvocations)
     // Send more data than needed - check that it still works
     msg.payload_size(buf.len + 64);
 
-    spdlog::error("send {} ", static_cast<int>(msg.type()));
     controller->dataplane_message(std::move(msg), std::move(buf));
   }
 

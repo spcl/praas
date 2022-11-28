@@ -15,7 +15,9 @@ endforeach()
 # Integration tests
 ###
 
-set(TESTS integration/invocation.cpp)
+set(TESTS integration/invocation.cpp
+          integration/invocation_many_workers.cpp
+)
 foreach(test ${TESTS})
 
   PraaS_AddTest("process" test_name ${test})
