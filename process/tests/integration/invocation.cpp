@@ -311,3 +311,114 @@ TEST_F(ProcessInvocationTest, LargePayload)
 
 }
 
+TEST_F(ProcessInvocationTest, SubsequentInvocations)
+{
+  const int COUNT = 4;
+  const int BUF_LEN = 1024;
+  std::string function_name = "add";
+  std::string process_id = "remote-process-1";
+  std::array<std::string, COUNT> invocation_id = {
+    "first_id",
+    "second_id",
+    "third_id",
+    "fourth_id"
+  };
+
+  std::array<std::tuple<int, int>, COUNT> args = {
+    std::make_tuple(42, 4), std::make_tuple(-1, 35),
+    std::make_tuple(1000, 0), std::make_tuple(-33, 39)
+  };
+  std::array<int, COUNT> results = { 46, 34, 1000, 6 };
+
+  using timepoint_t = std::chrono::time_point<std::chrono::system_clock>;
+
+  std::array<std::promise<void>, COUNT> finished;
+  std::array<std::optional<std::string>, COUNT> process;
+  std::array<std::string, COUNT> id;
+  std::array<int, COUNT> return_code;
+  std::array<runtime::Buffer<char>, COUNT> payload;
+  std::array<timepoint_t, COUNT> timestamps;
+
+  runtime::BufferQueue<char> buffers(10, 1024);
+
+  // FIFO order - we cannot do it in a loop :-(
+  EXPECT_CALL(server, invocation_result)
+      .WillOnce(testing::DoAll(
+          testing::SaveArg<0>(&process[0]), testing::SaveArg<1>(&id[0]),
+          testing::SaveArg<2>(&return_code[0]),
+          testing::SaveArg<3>(&payload[0]),
+          testing::Invoke([&timestamps, &finished]() {
+            timestamps[0] = std::chrono::system_clock::now();
+            finished[0].set_value();
+          })
+      ))
+      .WillOnce(testing::DoAll(
+          testing::SaveArg<0>(&process[1]), testing::SaveArg<1>(&id[1]),
+          testing::SaveArg<2>(&return_code[1]),
+          testing::SaveArg<3>(&payload[1]),
+          testing::Invoke([ &timestamps, &finished]() {
+            timestamps[1] = std::chrono::system_clock::now();
+            finished[1].set_value();
+          })
+      ))
+      .WillOnce(testing::DoAll(
+          testing::SaveArg<0>(&process[2]), testing::SaveArg<1>(&id[2]),
+          testing::SaveArg<2>(&return_code[2]),
+          testing::SaveArg<3>(&payload[2]),
+          testing::Invoke([ &timestamps, &finished]() {
+            timestamps[2] = std::chrono::system_clock::now();
+            finished[2].set_value();
+          })
+      ))
+      .WillOnce(testing::DoAll(
+          testing::SaveArg<0>(&process[3]), testing::SaveArg<1>(&id[3]),
+          testing::SaveArg<2>(&return_code[3]),
+          testing::SaveArg<3>(&payload[3]),
+          testing::Invoke([ &timestamps, &finished]() {
+            timestamps[3] = std::chrono::system_clock::now();
+            finished[3].set_value();
+          })
+      ));
+
+  // Submit
+  for(int idx = 0; idx < COUNT; ++idx) {
+
+    praas::common::message::InvocationRequest msg;
+    msg.function_name(function_name);
+    msg.invocation_id(invocation_id[idx]);
+
+    auto buf = buffers.retrieve_buffer(BUF_LEN);
+    buf.len = generate_input(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
+    // Send more data than needed - check that it still works
+    msg.payload_size(buf.len + 64);
+
+    spdlog::error("send {} ", static_cast<int>(msg.type()));
+    controller->dataplane_message(std::move(msg), std::move(buf));
+  }
+
+  // wait
+  for(int idx = 0; idx < COUNT; ++idx) {
+    ASSERT_EQ(std::future_status::ready, finished[idx].get_future().wait_for(std::chrono::seconds(3)));
+  }
+
+  // Validate result
+  for(int idx = 0; idx < COUNT; ++idx) {
+
+    // Dataplane message
+    EXPECT_FALSE(process[idx].has_value());
+    EXPECT_EQ(id[idx], invocation_id[idx]);
+    EXPECT_EQ(return_code[idx], 0);
+
+    ASSERT_TRUE(payload[idx].len > 0);
+    int res = get_output(payload[idx]);
+    EXPECT_EQ(res, results[idx]);
+
+  }
+
+  // Validate order
+  for(int idx = 1; idx < COUNT; ++idx) {
+    ASSERT_TRUE(timestamps[idx-1] < timestamps[idx]);
+  }
+
+}
+
