@@ -99,7 +99,11 @@ namespace praas::process {
     Workers _workers;
 
     // Queue storing external data provided by the TCP server
-    oneapi::tbb::concurrent_queue<ExternalMessage> _external_queue;
+    std::deque<ExternalMessage> _external_queue;
+    std::mutex _deque_lock;
+    // No deque in tbb
+    // https://community.intel.com/t5/Intel-oneAPI-Threading-Building/Is-there-a-concurrent-dequeue/m-p/873829
+    //oneapi::tbb::concurrent_queue<ExternalMessage> _external_queue;
 
     // Queue storing pending invocations
     WorkQueue _work_queue;

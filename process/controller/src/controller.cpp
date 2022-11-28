@@ -105,7 +105,10 @@ namespace praas::process {
       praas::common::message::Message&& msg, runtime::Buffer<char>&& payload, std::string process_id
   )
   {
-    _external_queue.emplace(process_id, msg, payload);
+    {
+      std::lock_guard<std::mutex> lock(_deque_lock);
+      _external_queue.emplace_back(process_id, msg, payload);
+    }
     uint64_t tmp = 1;
     common::util::assert_other(write(_event_fd, &tmp, sizeof(tmp)), -1);
   }
@@ -114,7 +117,10 @@ namespace praas::process {
       praas::common::message::Message&& msg, runtime::Buffer<char>&& payload
   )
   {
-    _external_queue.emplace(std::nullopt, msg, payload);
+    {
+      std::lock_guard<std::mutex> lock(_deque_lock);
+      _external_queue.emplace_back(std::nullopt, msg, payload);
+    }
     uint64_t tmp = 1;
     common::util::assert_other(write(_event_fd, &tmp, sizeof(tmp)), -1);
   }
@@ -127,7 +133,9 @@ namespace praas::process {
         runtime::ipc::overloaded{
             [&, this](common::message::InvocationRequestParsed& req) mutable {
               spdlog::info(
-                  "Received invocation request of {}, inputs {}", req.function_name(),
+                  "Received invocation request of {}, key {}, inputs {}",
+                  req.function_name(),
+                  req.invocation_id(),
                   req.payload_size()
               );
               _work_queue.add_payload(
@@ -191,7 +199,7 @@ namespace praas::process {
   {
     // FIXME: customize
     runtime::BufferQueue<char> buffers(10, 1024);
-    ExternalMessage msg;
+    std::vector<ExternalMessage> msg;
 
     std::array<epoll_event, MAX_EPOLL_EVENTS> events;
     while (true) {
@@ -208,21 +216,31 @@ namespace praas::process {
         // Wake-up signal
         if (events[i].data.ptr == this) {
 
-          spdlog::debug("Wake-up with external message");
-
           uint64_t read_val;
           read(_event_fd, &read_val, sizeof(read_val));
 
-          while (_external_queue.try_pop(msg)) {
-            _process_external_message(msg);
+          std::unique_lock<std::mutex> lock(_deque_lock);
+
+          size_t queue_size = _external_queue.size();
+          msg.resize(_external_queue.size());
+
+          for(size_t j = 0; j < queue_size; ++j) {
+            msg[j] = std::move(_external_queue.front());
+            _external_queue.pop_front();
           }
+
+          lock.unlock();
+
+          for(size_t j = 0; j < msg.size(); ++j) {
+            _process_external_message(msg[j]);
+          }
+          msg.clear();
         }
         // Message
         else {
 
           FunctionWorker& worker = *static_cast<FunctionWorker*>(events[i].data.ptr);
 
-          spdlog::info("Receive from a channel");
           auto [complete, input] = worker.ipc_read().receive();
 
           if(complete) {
