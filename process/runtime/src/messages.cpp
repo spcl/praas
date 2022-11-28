@@ -37,7 +37,7 @@ namespace praas::process::runtime::ipc {
       return MessageVariants{InvocationResultParsed(data + HEADER_OFFSET)};
     }
 
-    throw common::NotImplementedError{};
+    throw common::PraaSException{fmt::format("Unknown message with type number {}", type_val)};
   }
 
   Message::Type Message::type() const
