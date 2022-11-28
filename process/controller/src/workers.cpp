@@ -60,8 +60,9 @@ namespace praas::process {
       (*it)->trigger->accept(visitor);
 
       if(visitor.ready) {
+        Invocation* ptr = *it;
         _pending_invocations.erase(it);
-        return (*it);
+        return ptr;
       }
     }
     // No function can be invoked now.
