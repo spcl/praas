@@ -35,6 +35,7 @@ namespace praas::process::config {
     archive(CEREAL_NVP(port));
     archive(CEREAL_NVP(verbose));
     archive(CEREAL_NVP(function_workers));
+    archive(CEREAL_NVP(process_id));
 
     std::string mode;
     archive(cereal::make_nvp("ipc-mode", mode));
@@ -51,6 +52,7 @@ namespace praas::process::config {
     verbose = false;
     ipc_mode = runtime::ipc::IPCMode::POSIX_MQ;
     ipc_message_size = DEFAULT_MSG_SIZE;
+    process_id = "TEST_PROCESS_ID";
 
     code.set_defaults();
   }

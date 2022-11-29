@@ -9,6 +9,8 @@ namespace praas::process {
 
   struct Options {
 
+    std::string process_id;
+
     runtime::ipc::IPCMode ipc_mode;
     std::string ipc_name;
 

@@ -2,7 +2,7 @@
 
 #include <praas/common/exceptions.hpp>
 
-#include <fmt/format.h>
+#include <spdlog/fmt/fmt.h>
 
 namespace praas::process::runtime::ipc {
 
@@ -89,7 +89,7 @@ namespace praas::process::runtime::ipc {
     *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET) = len;
   }
 
-  void GenericRequest::process_id(const std::string& process_id)
+  void GenericRequest::process_id(std::string_view process_id)
   {
     if (process_id.length() > Message::NAME_LENGTH) {
       throw common::InvalidArgument{
@@ -104,7 +104,7 @@ namespace praas::process::runtime::ipc {
     id_len = process_id.length();
   }
 
-  void GenericRequest::name(const std::string& name)
+  void GenericRequest::name(std::string_view name)
   {
     if (name.length() > Message::NAME_LENGTH) {
       throw common::InvalidArgument{
@@ -145,7 +145,7 @@ namespace praas::process::runtime::ipc {
                             reinterpret_cast<const char*>(buf + Message::ID_LENGTH), name_len};
   }
 
-  void InvocationRequest::invocation_id(const std::string& id)
+  void InvocationRequest::invocation_id(std::string_view id)
   {
     if (id.length() > Message::ID_LENGTH) {
       throw common::InvalidArgument{
@@ -211,7 +211,7 @@ namespace praas::process::runtime::ipc {
     return *reinterpret_cast<const int32_t*>(buf + Message::ID_LENGTH + sizeof(int32_t));
   }
 
-  void InvocationResult::invocation_id(const std::string& id)
+  void InvocationResult::invocation_id(std::string_view id)
   {
     if (id.length() > Message::ID_LENGTH) {
       throw common::InvalidArgument{

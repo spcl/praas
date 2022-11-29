@@ -46,3 +46,48 @@ extern "C" int large_payload(praas::function::Invocation invocation, praas::func
 
   return 0;
 }
+
+extern "C" int send_message(praas::function::Invocation /*unused*/, praas::function::Context& context)
+{
+  constexpr int MSG_SIZE = 1024;
+  praas::function::Buffer buf = context.get_buffer(MSG_SIZE);
+
+  Message msg;
+  msg.some_data = 42;
+  msg.message = "THIS IS A TEST MESSAGE";
+  buf.serialize(msg);
+
+  context.put(praas::function::Context::SELF, "test_msg", buf.ptr, buf.len);
+
+  return 0;
+}
+
+int get_message(std::string_view source, praas::function::Context& context)
+{
+  praas::function::Buffer buf = context.get(source, "test_msg");
+
+  Message msg;
+  buf.deserialize(msg);
+
+  if(msg.some_data != 42 || msg.message != "THIS IS A TEST MESSAGE") {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+extern "C" int get_message_self(praas::function::Invocation /*unused*/, praas::function::Context& context)
+{
+  return get_message(praas::function::Context::SELF, context);
+}
+
+extern "C" int get_message_any(praas::function::Invocation /*unused*/, praas::function::Context& context)
+{
+  return get_message(praas::function::Context::ANY, context);
+}
+
+extern "C" int get_message_explicit(praas::function::Invocation /*unused*/, praas::function::Context& context)
+{
+  return get_message(context.process_id(), context);
+}
+

@@ -6,36 +6,44 @@
 #include <praas/process/runtime/buffer.hpp>
 #include <praas/process/runtime/ipc/ipc.hpp>
 
+#include <atomic>
 #include <memory>
 #include <string>
 #include <vector>
 
 namespace praas::process {
 
-struct Invoker {
+  struct Invoker {
 
-  Invoker(runtime::ipc::IPCMode ipc_mode, std::string ipc_name);
+    Invoker(
+      std::string process_id, runtime::ipc::IPCMode ipc_mode, const std::string& ipc_name
+    );
 
-  std::optional<praas::function::Invocation> poll();
+    std::optional<praas::function::Invocation> poll();
 
-  void finish(praas::function::Context &, int return_code);
+    void finish(std::string_view invocation_id, runtime::BufferAccessor<char> output, int return_code);
 
-  void shutdown();
+    void shutdown();
 
-  function::Context create_context();
+    void put(runtime::ipc::Message & msg, process::runtime::BufferAccessor<std::byte> payload);
 
-private:
+    std::tuple<runtime::ipc::GetRequestParsed, process::runtime::Buffer<char>> get(runtime::ipc::Message & msg);
 
-  // Standard input size = 5 MB
-  static constexpr int BUFFER_SIZE = 1024 * 1024 * 5;
+    function::Context create_context();
 
-  process::runtime::Buffer<std::byte> _input;
+  private:
+    // Standard input size = 5 MB
+    static constexpr int BUFFER_SIZE = 1024 * 1024 * 5;
 
-  std::atomic<bool> _ending{};
+    std::string _process_id;
 
-  std::unique_ptr<runtime::ipc::IPCChannel> _ipc_channel_read;
-  std::unique_ptr<runtime::ipc::IPCChannel> _ipc_channel_write;
-};
+    process::runtime::Buffer<std::byte> _input;
+
+    std::atomic<bool> _ending{};
+
+    std::unique_ptr<runtime::ipc::IPCChannel> _ipc_channel_read;
+    std::unique_ptr<runtime::ipc::IPCChannel> _ipc_channel_write;
+  };
 
 } // namespace praas::process
 

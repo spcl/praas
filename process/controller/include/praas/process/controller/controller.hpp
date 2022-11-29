@@ -4,6 +4,8 @@
 #include <praas/process/controller/config.hpp>
 #include <praas/process/controller/workers.hpp>
 #include <praas/process/runtime/ipc/ipc.hpp>
+#include <praas/process/controller/messages.hpp>
+
 #include <praas/common/messages.hpp>
 
 #include <memory>
@@ -111,10 +113,19 @@ namespace praas::process {
     // Server handling remote messages
     remote::Server* _server{};
 
+    // Pending messages
+    message::MessageStore _mailbox;
+
+    message::PendingMessages _pending_msgs;
+
     std::atomic<bool> _ending{};
 
+    std::string _process_id;
+
     static constexpr int MAX_EPOLL_EVENTS = 32;
-    static constexpr int EPOLL_TIMEOUT = 1000;
+    static constexpr int EPOLL_TIMEOUT = 100;
+
+    static constexpr std::string_view SELF_PROCESS = "SELF";
   };
 
 }

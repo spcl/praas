@@ -5,10 +5,11 @@
 #include <filesystem>
 #include <fstream>
 
+#include <dlfcn.h>
+
 #include <cereal/external/rapidjson/document.h>
 #include <cereal/external/rapidjson/istreamwrapper.h>
-
-#include <dlfcn.h>
+#include <spdlog/spdlog.h>
 
 namespace praas::process {
 

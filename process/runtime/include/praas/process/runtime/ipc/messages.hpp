@@ -8,7 +8,8 @@
 #include <string>
 #include <variant>
 
-#include <fmt/format.h>
+//#include <fmt/format.h>
+#include <spdlog/fmt/fmt.h>
 
 namespace praas::process::runtime::ipc {
 
@@ -96,8 +97,8 @@ namespace praas::process::runtime::ipc {
     }
 
     void data_len(int32_t);
-    void process_id(const std::string&);
-    void name(const std::string&);
+    void process_id(std::string_view);
+    void name(std::string_view);
   };
 
   struct GetRequestParsed : GenericRequestParsed {
@@ -174,7 +175,7 @@ namespace praas::process::runtime::ipc {
     using InvocationRequestParsed::function_name;
     using InvocationRequestParsed::invocation_id;
 
-    void invocation_id(const std::string& id);
+    void invocation_id(std::string_view id);
     void function_name(const std::string& name);
     void buffers(int32_t* begin, int32_t* end);
 
@@ -228,7 +229,7 @@ namespace praas::process::runtime::ipc {
     using InvocationResultParsed::buffer_length;
     using InvocationResultParsed::invocation_id;
 
-    void invocation_id(const std::string& id);
+    void invocation_id(std::string_view id);
     void buffer_length(int32_t length);
     void return_code(int32_t code);
   };

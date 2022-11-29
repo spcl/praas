@@ -1,6 +1,7 @@
 #include <praas/process/invoker.hpp>
 
 #include <praas/common/exceptions.hpp>
+#include <praas/process/runtime/buffer.hpp>
 #include <praas/process/runtime/ipc/messages.hpp>
 
 #include <optional>
@@ -9,9 +10,12 @@
 #include <sys/prctl.h>
 #include <sys/signal.h>
 
+#include <spdlog/spdlog.h>
+
 namespace praas::process {
 
-  Invoker::Invoker(runtime::ipc::IPCMode ipc_mode, std::string ipc_name)
+  Invoker::Invoker(std::string process_id, runtime::ipc::IPCMode ipc_mode, const std::string& ipc_name):
+    _process_id(std::move(process_id))
   {
     if (ipc_mode == runtime::ipc::IPCMode::POSIX_MQ) {
       _ipc_channel_read = std::make_unique<runtime::ipc::POSIXMQChannel>(
@@ -87,18 +91,39 @@ namespace praas::process {
     return invoc;
   }
 
-  void Invoker::finish(praas::function::Context& context, int return_code)
+  void Invoker::finish(std::string_view invocation_id, runtime::BufferAccessor<char> output, int return_code)
   {
-    runtime::BufferAccessor<char> buf = context.as_buffer();
-
     runtime::ipc::InvocationResult msg;
     msg.return_code(return_code);
-    msg.buffer_length(buf.len);
-    msg.invocation_id(context.invocation_id());
+    msg.buffer_length(output.len);
+    msg.invocation_id(invocation_id);
 
-    // FIXME: restore buffer
+    _ipc_channel_write->send(msg, output);
+  }
 
-    _ipc_channel_write->send(msg, buf);
+  void Invoker::put(runtime::ipc::Message & msg, process::runtime::BufferAccessor<std::byte> payload)
+  {
+    _ipc_channel_write->send(msg, payload);
+  }
+
+  std::tuple<runtime::ipc::GetRequestParsed, process::runtime::Buffer<char>> Invoker::get(runtime::ipc::Message & msg)
+  {
+    // Send GET request, zero payload.
+    _ipc_channel_write->send(msg, process::runtime::BufferAccessor<std::byte>{});
+
+    auto [read, data] = _ipc_channel_read->receive();
+    if(!read) {
+      throw common::FunctionGetFailure{"Failed get - forgot to send reason"};
+    }
+
+    // Receive GET request result with payload.
+    auto parsed_msg = _ipc_channel_read->message().parse();
+    if(!std::holds_alternative<runtime::ipc::GetRequestParsed>(parsed_msg)) {
+      throw common::FunctionGetFailure{"Waiting for get result, received incorrect message!"};
+    }
+
+    auto& req = std::get<runtime::ipc::GetRequestParsed>(parsed_msg);
+    return std::make_tuple(req, std::move(data));
   }
 
   void Invoker::shutdown()
@@ -108,7 +133,7 @@ namespace praas::process {
 
   function::Context Invoker::create_context()
   {
-    return function::Context{*this};
+    return function::Context{_process_id, *this};
   }
 
 } // namespace praas::process

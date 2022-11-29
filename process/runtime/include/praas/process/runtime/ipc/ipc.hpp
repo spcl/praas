@@ -28,6 +28,8 @@ namespace praas::process::runtime::ipc {
 
     virtual void send(Message& msg, BufferAccessor<char> buf) = 0;
 
+    virtual void send(Message& msg, BufferAccessor<std::byte> buf) = 0;
+
     virtual std::tuple<bool, Buffer<char>> receive() = 0;
 
     virtual bool blocking_receive(Buffer<std::byte> & buf) = 0;
@@ -61,6 +63,7 @@ namespace praas::process::runtime::ipc {
 
     void send(Message& msg, const std::vector<Buffer<char>>& data) override;
     void send(Message& msg, BufferAccessor<char> buf) override;
+    void send(Message& msg, BufferAccessor<std::byte> buf) override;
 
     const Message& message() const override
     {

@@ -16,14 +16,37 @@ namespace praas::function {
 
   struct Context {
 
+    static constexpr std::string_view SELF = "SELF";
+
+    static constexpr std::string_view ANY = "ANY";
+
     // FIXME: byte arguments
-    void put(std::string name);
-    void get(std::string name);
+    void put(std::string_view destination, std::string_view msg_key, std::byte * ptr, size_t size);
+
+    // Prefered way - if we use shm, we want to write directly to a buffer and just transport
+    // the location of the message.
+    void put(std::string_view destination, std::string_view msg_key, Buffer buf);
+
+    // Non-owning!
+    Buffer get(std::string_view source, std::string_view msg_key);
+
     // FIXME: state ops
     // FIXME: invocation ops
 
+    std::string invocation_id() const
+    {
+      return _invoc_id;
+    }
+
+    std::string process_id() const
+    {
+      return _process_id;
+    }
+
     // The pointer must stay valid until the end
     Buffer& get_output_buffer(size_t size = 0);
+
+    Buffer get_buffer(size_t size);
 
     void write_output(const std::byte* ptr, size_t len, size_t pos);
 
@@ -33,31 +56,36 @@ namespace praas::function {
       _output.len = 0;
     }
 
-    std::string invocation_id() const
+    void end_invocation()
     {
-      return _invoc_id;
+      _user_buffers.clear();
     }
 
-  private:
-
+    // make private
     process::runtime::BufferAccessor<char> as_buffer() const;
+  private:
 
     // Now we always allocate a buffer - but this can be a shared memory object in future.
     static constexpr int BUFFER_SIZE = 1024 * 1024 * 5;
 
-    Context(process::Invoker& invoker):
+    Context(std::string process_id, process::Invoker& invoker):
       _invoker(invoker),
       _output(new std::byte[BUFFER_SIZE], BUFFER_SIZE, 0),
-      _output_buf_view{_output.ptr.get(), _output.len, _output.size}
+      _output_buf_view{_output.ptr.get(), _output.len, _output.size},
+      _process_id(std::move(process_id))
     {}
 
     process::Invoker& _invoker;
 
     process::runtime::Buffer<std::byte> _output;
 
+    std::vector<process::runtime::Buffer<std::byte>> _user_buffers;
+
     Buffer _output_buf_view;
 
     std::string _invoc_id;
+
+    std::string _process_id;
 
     friend struct process::Invoker;
   };

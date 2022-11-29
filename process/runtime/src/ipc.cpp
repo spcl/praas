@@ -5,6 +5,7 @@
 
 #include <thread>
 
+#include <spdlog/spdlog.h>
 #include <sys/signal.h>
 
 namespace praas::process::runtime::ipc {
@@ -97,6 +98,17 @@ namespace praas::process::runtime::ipc {
     _send(msg.bytes(), msg.BUF_SIZE);
     if (buf.len > 0)
       _send(buf.data(), buf.len);
+  }
+
+  void POSIXMQChannel::send(Message& msg, BufferAccessor<std::byte> buf)
+  {
+    spdlog::info("Sending message, buffer length {}", buf.len);
+    msg.total_length(buf.len);
+
+    _send(msg.bytes(), msg.BUF_SIZE);
+    if (buf.len > 0) {
+      _send(reinterpret_cast<char*>(buf.data()), buf.len);
+    }
   }
 
   void POSIXMQChannel::send(Message& msg, const std::vector<Buffer<char>>& data)

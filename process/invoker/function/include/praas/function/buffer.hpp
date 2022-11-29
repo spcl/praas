@@ -31,13 +31,17 @@ namespace praas::function {
     template<typename Obj>
     size_t serialize(const Obj & obj)
     {
-      boost::interprocess::bufferstream out_stream(reinterpret_cast<char*>(ptr), size);
-      cereal::BinaryOutputArchive archive_out{out_stream};
-      archive_out(obj);
+      try {
+        boost::interprocess::bufferstream out_stream(reinterpret_cast<char*>(ptr), size);
+        cereal::BinaryOutputArchive archive_out{out_stream};
+        archive_out(obj);
 
-      len = out_stream.tellp();
+        len = out_stream.tellp();
+      } catch(cereal::Exception & e) {
+        std::cerr << "Serialization failed: " << e.what() << std::endl;
+      }
 
-      return out_stream.tellp();
+      return len;
     }
   };
 

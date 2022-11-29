@@ -2,10 +2,9 @@
 #define PRAAS_PROCESS_RUNTIME_BUFFER_HPP
 
 #include <cstdint>
+#include <memory>
 #include <queue>
 #include <string>
-
-#include <spdlog/spdlog.h>
 
 namespace praas::process::runtime {
 
@@ -48,6 +47,16 @@ namespace praas::process::runtime {
     Buffer(Buffer &&) noexcept = default;
     Buffer& operator=(Buffer &&) noexcept = default;
 
+    template<typename U>
+    Buffer(Buffer<U> && obj) noexcept
+    {
+      this->ptr.reset(reinterpret_cast<T*>(obj.ptr.release()));
+      this->size = obj.size;
+      this->len = obj.len;
+
+      obj.len = obj.size = 0;
+    }
+
     ~Buffer() = default;
 
     T* data() const
@@ -74,7 +83,7 @@ namespace praas::process::runtime {
 
     operator BufferAccessor<T>() const
     {
-      return BufferAccessor<T>(ptr, size);
+      return BufferAccessor<T>(ptr.get(), size);
     }
 
     template<typename U>

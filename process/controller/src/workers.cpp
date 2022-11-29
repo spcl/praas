@@ -8,6 +8,7 @@
 #include <fstream>
 
 #include <cereal/archives/json.hpp>
+#include <spdlog/spdlog.h>
 
 #include <sys/signal.h>
 #include <sys/wait.h>
@@ -30,6 +31,7 @@ namespace praas::process {
       if(!trigger) {
         // FIXME: return error to the user
         spdlog::error("Ignoring invocation of an unknown function {}", fname);
+        return;
       }
 
       auto [it, inserted] = _active_invocations.emplace(
@@ -151,6 +153,8 @@ namespace praas::process {
       // FIXME: enable Python
       // FIXME: make configurable
       const char* argv[] = {"/work/serverless/2022/praas/code/build/process/bin/cpp_invoker_exe",
+                            "--process-id",
+                            cfg.process_id.c_str(),
                             "--ipc-mode",
                             "posix_mq",
                             "--ipc-name",

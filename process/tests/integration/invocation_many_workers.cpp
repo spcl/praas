@@ -8,10 +8,10 @@
 
 #include "examples/cpp/test.hpp"
 
-#include <boost/iostreams/device/array.hpp>
 #include <future>
 #include <thread>
 
+#include <boost/iostreams/device/array.hpp>
 #include <boost/interprocess/streams/bufferstream.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <cereal/archives/binary.hpp>
@@ -75,7 +75,6 @@ public:
         .WillRepeatedly(
             [&](auto _process, auto _id, int _return_code, auto && _payload) mutable {
 
-              std::cerr << idx << std::endl;
               saved_results[idx].process = _process;
               saved_results[idx].id = _id;
               saved_results[idx].return_code = _return_code;
@@ -152,45 +151,6 @@ TEST_F(ProcessManyWorkersInvocationTest, SubsequentInvocations)
 
   runtime::BufferQueue<char> buffers(10, 1024);
 
-  // FIFO order - we cannot do it in a loop :-(
-  //EXPECT_CALL(server, invocation_result)
-  //    .WillOnce(testing::DoAll(
-  //        testing::SaveArg<0>(&process[0]), testing::SaveArg<1>(&id[0]),
-  //        testing::SaveArg<2>(&return_code[0]),
-  //        testing::SaveArg<3>(&payload[0]),
-  //        testing::Invoke([&timestamps, &finished]() {
-  //          timestamps[0] = std::chrono::system_clock::now();
-  //          finished[0].set_value();
-  //        })
-  //    ))
-  //    .WillOnce(testing::DoAll(
-  //        testing::SaveArg<0>(&process[1]), testing::SaveArg<1>(&id[1]),
-  //        testing::SaveArg<2>(&return_code[1]),
-  //        testing::SaveArg<3>(&payload[1]),
-  //        testing::Invoke([ &timestamps, &finished]() {
-  //          timestamps[1] = std::chrono::system_clock::now();
-  //          finished[1].set_value();
-  //        })
-  //    ))
-  //    .WillOnce(testing::DoAll(
-  //        testing::SaveArg<0>(&process[2]), testing::SaveArg<1>(&id[2]),
-  //        testing::SaveArg<2>(&return_code[2]),
-  //        testing::SaveArg<3>(&payload[2]),
-  //        testing::Invoke([ &timestamps, &finished]() {
-  //          timestamps[2] = std::chrono::system_clock::now();
-  //          finished[2].set_value();
-  //        })
-  //    ))
-  //    .WillOnce(testing::DoAll(
-  //        testing::SaveArg<0>(&process[3]), testing::SaveArg<1>(&id[3]),
-  //        testing::SaveArg<2>(&return_code[3]),
-  //        testing::SaveArg<3>(&payload[3]),
-  //        testing::Invoke([ &timestamps, &finished]() {
-  //          timestamps[3] = std::chrono::system_clock::now();
-  //          finished[3].set_value();
-  //        })
-  //    ));
-
   // Submit
   for(int idx = 0; idx < COUNT; ++idx) {
 
@@ -248,33 +208,6 @@ TEST_F(ProcessManyWorkersInvocationTest, ConcurrentInvocations)
   std::array<int, COUNT> results = {46, 34, 1000, 6};
 
   runtime::BufferQueue<char> buffers(10, 1024);
-
-  // FIFO order - we cannot do it in a loop :-(
-  //EXPECT_CALL(server, invocation_result)
-  //    .WillOnce(testing::DoAll(
-  //        testing::SaveArg<0>(&saved_results[0].process), testing::SaveArg<1>(&saved_results[0].id),
-  //        testing::SaveArg<2>(&saved_results[0].return_code),
-  //        testing::SaveArg<3>(&saved_results[0].payload),
-  //        testing::Invoke([&saved_results]() { saved_results[0].finished.set_value(); })
-  //    ))
-  //    .WillOnce(testing::DoAll(
-  //        testing::SaveArg<0>(&saved_results[1].process), testing::SaveArg<1>(&saved_results[1].id),
-  //        testing::SaveArg<2>(&saved_results[1].return_code),
-  //        testing::SaveArg<3>(&saved_results[1].payload),
-  //        testing::Invoke([&saved_results]() { saved_results[1].finished.set_value(); })
-  //    ))
-  //    .WillOnce(testing::DoAll(
-  //        testing::SaveArg<0>(&saved_results[2].process), testing::SaveArg<1>(&saved_results[2].id),
-  //        testing::SaveArg<2>(&saved_results[2].return_code),
-  //        testing::SaveArg<3>(&saved_results[2].payload),
-  //        testing::Invoke([&saved_results]() { saved_results[2].finished.set_value(); })
-  //    ))
-  //    .WillOnce(testing::DoAll(
-  //        testing::SaveArg<0>(&saved_results[3].process), testing::SaveArg<1>(&saved_results[3].id),
-  //        testing::SaveArg<2>(&saved_results[3].return_code),
-  //        testing::SaveArg<3>(&saved_results[3].payload),
-  //        testing::Invoke([&saved_results]() { saved_results[3].finished.set_value(); })
-  //    ));
 
   // Submit
   for (int idx = 0; idx < COUNT; ++idx)

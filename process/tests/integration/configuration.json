@@ -53,6 +53,46 @@
           "type": "direct",
           "nargs": 1
         }
+      },
+      "send_message": {
+        "code": {
+          "module": "/work/serverless/2022/praas/code/build/process/tests/examples/libexample_cpp.so",
+          "function": "send_message"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
+      "get_message_self": {
+        "code": {
+          "module": "/work/serverless/2022/praas/code/build/process/tests/examples/libexample_cpp.so",
+          "function": "get_message_self"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
+      "get_message_any": {
+        "code": {
+          "module": "/work/serverless/2022/praas/code/build/process/tests/examples/libexample_cpp.so",
+          "function": "get_message_any"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
+      "get_message_explicit": {
+        "code": {
+          "module": "/work/serverless/2022/praas/code/build/process/tests/examples/libexample_cpp.so",
+          "function": "get_message_explicit"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
       }
     }
   }

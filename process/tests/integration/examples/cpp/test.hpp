@@ -1,6 +1,7 @@
 #ifndef PRAAS_PROCESS_TESTS_INTEGRATION_TEST_HPP
 #define PRAAS_PROCESS_TESTS_INTEGRATION_TEST_HPP
 
+#include <cereal/types/string.hpp>
 #include <cereal/archives/binary.hpp>
 
 struct Input
@@ -33,6 +34,24 @@ struct Output
   void load(cereal::BinaryInputArchive& archive)
   {
     archive(result);
+  }
+};
+
+struct Message
+{
+  std::string message;
+  int some_data;
+
+  void save(cereal::BinaryOutputArchive& archive) const
+  {
+    archive(message);
+    archive(some_data);
+  }
+
+  void load(cereal::BinaryInputArchive& archive)
+  {
+    archive(message);
+    archive(some_data);
   }
 };
 

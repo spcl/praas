@@ -71,7 +71,7 @@ int main(int argc, char** argv)
     sigaction(SIGHUP, &sa, NULL);
   }
 
-  praas::process::Invoker invoker{config.ipc_mode, config.ipc_name};
+  praas::process::Invoker invoker{config.process_id, config.ipc_mode, config.ipc_name};
   praas::process::FunctionsLibrary library{config.code_location, config.code_config_location};
   instance = &invoker;
 
@@ -94,8 +94,8 @@ int main(int argc, char** argv)
     } else {
       context.start_invocation(invoc_value.key);
       int ret = (*func)(invoc_value, context);
-      spdlog::error("ret {}", ret);
-      invoker.finish(context, ret);
+      invoker.finish(context.invocation_id(), context.as_buffer(), ret);
+      context.end_invocation();
     }
 
   }

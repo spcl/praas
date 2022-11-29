@@ -1,6 +1,5 @@
-
-#ifndef PRAAS__CONTROLL_PLANE_CONFIG_HPP
-#define PRAAS__CONTROLL_PLANE_CONFIG_HPP
+#ifndef PRAAS_PROCESS_CONTROLLER_CONFIG_HPP
+#define PRAAS_PROCESS_CONTROLLER_CONFIG_HPP
 
 #include <praas/process/runtime/ipc/ipc.hpp>
 #include <praas/process/runtime/functions.hpp>
@@ -40,6 +39,8 @@ namespace praas::process::config {
     int function_workers;
     runtime::ipc::IPCMode ipc_mode;
     int ipc_message_size;
+
+    std::string process_id;
 
     Code code;
 
