@@ -146,13 +146,17 @@ namespace praas::process {
 
   Workers::Workers(config::Controller & cfg)
   {
+
+    // This is Linux specific
+    const char* exec_path = "cpp_invoker_exe";
+
     for (int i = 0; i < cfg.function_workers; ++i) {
 
       std::string ipc_name = fmt::format("/praas_queue_{}_{}", getpid(), _worker_counter++);
 
       // FIXME: enable Python
       // FIXME: make configurable
-      const char* argv[] = {"/work/serverless/2022/praas/code/build/process/bin/cpp_invoker_exe",
+      const char* argv[] = {exec_path,
                             "--process-id",
                             cfg.process_id.c_str(),
                             "--ipc-mode",
