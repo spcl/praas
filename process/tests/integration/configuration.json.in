@@ -16,7 +16,7 @@
     "cpp": {
       "add": {
         "code": {
-          "module": "/work/serverless/2022/praas/code/build/process/tests/examples/libexample_cpp.so",
+          "module": "@PRAAS_DIRECTORY@/process/tests/examples/libexample_cpp.so",
           "function": "add"
         },
         "trigger": {
@@ -26,7 +26,7 @@
       },
       "zero_return": {
         "code": {
-          "module": "/work/serverless/2022/praas/code/build/process/tests/examples/libexample_cpp.so",
+          "module": "@PRAAS_DIRECTORY@/process/tests/examples/libexample_cpp.so",
           "function": "zero_return"
         },
         "trigger": {
@@ -36,7 +36,7 @@
       },
       "error_function": {
         "code": {
-          "module": "/work/serverless/2022/praas/code/build/process/tests/examples/libexample_cpp.so",
+          "module": "@PRAAS_DIRECTORY@/process/tests/examples/libexample_cpp.so",
           "function": "error_function"
         },
         "trigger": {
@@ -46,7 +46,7 @@
       },
       "large_payload": {
         "code": {
-          "module": "/work/serverless/2022/praas/code/build/process/tests/examples/libexample_cpp.so",
+          "module": "@PRAAS_DIRECTORY@/process/tests/examples/libexample_cpp.so",
           "function": "large_payload"
         },
         "trigger": {
@@ -56,7 +56,7 @@
       },
       "send_message": {
         "code": {
-          "module": "/work/serverless/2022/praas/code/build/process/tests/examples/libexample_cpp.so",
+          "module": "@PRAAS_DIRECTORY@/process/tests/examples/libexample_cpp.so",
           "function": "send_message"
         },
         "trigger": {
@@ -66,7 +66,7 @@
       },
       "get_message_self": {
         "code": {
-          "module": "/work/serverless/2022/praas/code/build/process/tests/examples/libexample_cpp.so",
+          "module": "@PRAAS_DIRECTORY@/process/tests/examples/libexample_cpp.so",
           "function": "get_message_self"
         },
         "trigger": {
@@ -76,7 +76,7 @@
       },
       "get_message_any": {
         "code": {
-          "module": "/work/serverless/2022/praas/code/build/process/tests/examples/libexample_cpp.so",
+          "module": "@PRAAS_DIRECTORY@/process/tests/examples/libexample_cpp.so",
           "function": "get_message_any"
         },
         "trigger": {
@@ -86,7 +86,7 @@
       },
       "get_message_explicit": {
         "code": {
-          "module": "/work/serverless/2022/praas/code/build/process/tests/examples/libexample_cpp.so",
+          "module": "@PRAAS_DIRECTORY@/process/tests/examples/libexample_cpp.so",
           "function": "get_message_explicit"
         },
         "trigger": {

@@ -9,6 +9,7 @@
 #include "examples/cpp/test.hpp"
 
 #include <boost/iostreams/device/array.hpp>
+#include <filesystem>
 #include <future>
 #include <thread>
 
@@ -60,8 +61,10 @@ public:
   {
     cfg.set_defaults();
     cfg.verbose = true;
-    // FIXME: compiler time defaults
-    cfg.code.location = "/work/serverless/2022/praas/code/praas/process/tests/integration";
+
+    // Linux specific
+    auto path = std::filesystem::canonical("/proc/self/exe").parent_path() / "integration";
+    cfg.code.location = path;
     cfg.code.config_location = "configuration.json";
 
     controller = std::make_unique<Controller>(cfg);

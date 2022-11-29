@@ -8,10 +8,11 @@
 
 #include "examples/cpp/test.hpp"
 
-#include <boost/iostreams/device/array.hpp>
+#include <filesystem>
 #include <future>
 #include <thread>
 
+#include <boost/iostreams/device/array.hpp>
 #include <boost/interprocess/streams/bufferstream.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <cereal/archives/binary.hpp>
@@ -50,8 +51,10 @@ public:
   {
     cfg.set_defaults();
     cfg.verbose = true;
-    // FIXME: compiler time defaults
-    cfg.code.location = "/work/serverless/2022/praas/code/praas/process/tests/integration";
+
+    // Linux specific
+    auto path = std::filesystem::canonical("/proc/self/exe").parent_path() / "integration";
+    cfg.code.location = path;
     cfg.code.config_location = "configuration.json";
 
     cfg.function_workers = workers;
