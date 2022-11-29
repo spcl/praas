@@ -33,9 +33,9 @@ public:
   );
 };
 
-size_t generate_input(int arg1, int arg2, const runtime::Buffer<char> & buf)
+size_t generate_input(std::string key, const runtime::Buffer<char> & buf)
 {
-  Input input{arg1, arg2};
+  InputMsgKey input{key};
   boost::interprocess::bufferstream stream(buf.data(), buf.size);
   cereal::BinaryOutputArchive archive_out{stream};
   archive_out(input);
@@ -44,25 +44,17 @@ size_t generate_input(int arg1, int arg2, const runtime::Buffer<char> & buf)
   return pos;
 }
 
-int get_output(const runtime::Buffer<char> & buf)
-{
-  Output out;
-  boost::iostreams::stream<boost::iostreams::array_source> stream(buf.data(), buf.size);
-  cereal::BinaryInputArchive archive_in{stream};
-  out.load(archive_in);
-
-  return out.result;
-}
-
 class ProcessMessagingTest : public testing::TestWithParam<const char*> {
 public:
-  void SetUp() override
+  void SetUp(int workers)
   {
     cfg.set_defaults();
     cfg.verbose = true;
     // FIXME: compiler time defaults
     cfg.code.location = "/work/serverless/2022/praas/code/praas/process/tests/integration";
     cfg.code.config_location = "configuration.json";
+
+    cfg.function_workers = workers;
 
     controller = std::make_unique<Controller>(cfg);
     controller->set_remote(&server);
@@ -71,12 +63,17 @@ public:
 
     EXPECT_CALL(server, invocation_result)
         .WillRepeatedly(
-            [&](auto _process, auto _id, int _return_code, auto && _payload) {
-              process = _process;
-              id = _id;
-              return_code = _return_code;
-              payload = std::move(_payload);
-              finished.set_value();
+            [&](auto _process, auto _id, int _return_code, auto && _payload) mutable {
+
+              saved_results[idx].process = _process;
+              saved_results[idx].id = _id;
+              saved_results[idx].return_code = _return_code;
+              saved_results[idx].payload = std::move(_payload);
+              saved_results[idx].finished.set_value();
+
+              saved_results[idx].timestamp = std::chrono::system_clock::now();
+
+              idx++;
             }
         );
   }
@@ -93,19 +90,30 @@ public:
   MockTCPServer server;
 
   // Results
-  std::promise<void> finished;
-  std::optional<std::string> process;
-  std::string id;
-  int return_code;
-  runtime::Buffer<char> payload;
+  static constexpr int INVOC_COUNT = 4;
+  std::atomic<int> idx{};
+
+  using timepoint_t = std::chrono::time_point<std::chrono::system_clock>;
+
+  struct Result {
+    std::promise<void> finished;
+    std::optional<std::string> process;
+    std::string id;
+    int return_code;
+    runtime::Buffer<char> payload;
+    timepoint_t timestamp;
+  };
+  std::array<Result, INVOC_COUNT> saved_results;
 
   void reset()
   {
-    process = std::nullopt;
-    id.clear();
-    return_code = -1;
-    payload = runtime::Buffer<char>{};
-    finished = std::promise<void>{};
+    for(int idx = 0; idx < INVOC_COUNT; ++idx) {
+      saved_results[idx].process = std::nullopt;
+      saved_results[idx].id.clear();
+      saved_results[idx].return_code = -1;
+      saved_results[idx].payload = runtime::Buffer<char>{};
+      saved_results[idx].finished = std::promise<void>{};
+    }
   }
 };
 
@@ -123,6 +131,9 @@ public:
 
 TEST_P(ProcessMessagingTest, GetPutOneWorker)
 {
+
+  SetUp(1);
+
   const int BUF_LEN = 1024;
   std::string put_function_name = "send_message";
   std::string get_function_name = GetParam();
@@ -140,17 +151,18 @@ TEST_P(ProcessMessagingTest, GetPutOneWorker)
     msg.function_name(put_function_name);
     msg.invocation_id(invocation_id[idx]);
 
-    auto buf = buffers.retrieve_buffer(0);
+    auto buf = buffers.retrieve_buffer(BUF_LEN);
+    buf.len = generate_input("msg_key", buf);
 
     controller->dataplane_message(std::move(msg), std::move(buf));
 
     // Wait for the invocation to finish
-    ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(3)));
+    ASSERT_EQ(std::future_status::ready, saved_results[0].finished.get_future().wait_for(std::chrono::seconds(3)));
 
     // Dataplane message
-    EXPECT_FALSE(process.has_value());
-    EXPECT_EQ(id, invocation_id[idx]);
-    EXPECT_EQ(return_code, 0);
+    EXPECT_FALSE(saved_results[0].process.has_value());
+    EXPECT_EQ(saved_results[0].id, invocation_id[idx]);
+    EXPECT_EQ(saved_results[0].return_code, 0);
   }
 
   reset();
@@ -162,18 +174,19 @@ TEST_P(ProcessMessagingTest, GetPutOneWorker)
     msg.function_name(get_function_name);
     msg.invocation_id(invocation_id[idx]);
 
-    auto buf = buffers.retrieve_buffer(0);
+    auto buf = buffers.retrieve_buffer(BUF_LEN);
+    buf.len = generate_input("msg_key", buf);
 
     controller->remote_message(std::move(msg), std::move(buf), process_id);
 
     // Wait for the invocation to finish
-    ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(3)));
+    ASSERT_EQ(std::future_status::ready, saved_results[1].finished.get_future().wait_for(std::chrono::seconds(3)));
 
     // Remote message
-    EXPECT_TRUE(process.has_value());
-    EXPECT_EQ(process.value(), process_id);
-    EXPECT_EQ(id, invocation_id[idx]);
-    EXPECT_EQ(return_code, 0);
+    EXPECT_TRUE(saved_results[1].process.has_value());
+    EXPECT_EQ(saved_results[1].process.value(), process_id);
+    EXPECT_EQ(saved_results[1].id, invocation_id[idx]);
+    EXPECT_EQ(saved_results[1].return_code, 0);
   }
 }
 
@@ -181,3 +194,68 @@ INSTANTIATE_TEST_SUITE_P(ProcessGetPutTestSelf,
                          ProcessMessagingTest,
                          testing::Values("get_message_self", "get_message_any", "get_message_explicit")
                          );
+/**
+ * (1) Get message blocking, (2) function puts a message that activates it.
+ *
+ * (1) Put message, (2) receive from self.
+ *
+ * (1) Put message, (2) receive from any.
+ */
+
+TEST_P(ProcessMessagingTest, GetPutTwoWorkers)
+{
+  SetUp(2);
+
+  const int BUF_LEN = 1024;
+  std::string put_function_name = "send_message";
+  std::string get_function_name = "get_message_self";
+  std::string process_id = "remote-process-1";
+  std::array<std::string, 2> invocation_id = { "first_id", "second_id" };
+
+  runtime::BufferQueue<char> buffers(10, 1024);
+
+  reset();
+
+  // First invocation
+  praas::common::message::InvocationRequest msg;
+  msg.function_name(get_function_name);
+  msg.invocation_id(invocation_id[0]);
+
+  auto buf = buffers.retrieve_buffer(BUF_LEN);
+  buf.len = generate_input("msg_key", buf);
+
+  controller->dataplane_message(std::move(msg), std::move(buf));
+
+  // Ensure that `get` function is running.
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+  praas::common::message::InvocationRequest put_msg;
+  put_msg.function_name(put_function_name);
+  put_msg.invocation_id(invocation_id[1]);
+
+  buf = buffers.retrieve_buffer(BUF_LEN);
+  buf.len = generate_input("msg_key", buf);
+
+  controller->dataplane_message(std::move(put_msg), std::move(buf));
+
+  // Wait for both invocations to finish
+  for(int i = 0; i < 2; ++i) {
+    ASSERT_EQ(std::future_status::ready, saved_results[i].finished.get_future().wait_for(std::chrono::seconds(3)));
+  }
+
+  // Results will arrive in a different order because they are executed by different workers.
+  std::sort(saved_results.begin(), saved_results.begin() + 2,
+      [](Result & first, Result & second) -> bool {
+        return first.id < second.id;
+      }
+  );
+
+  for(int i = 0; i < 2; ++i) {
+    // Dataplane message
+    EXPECT_FALSE(saved_results[i].process.has_value());
+    EXPECT_EQ(saved_results[i].id, invocation_id[i]);
+    EXPECT_EQ(saved_results[i].return_code, 0);
+    EXPECT_EQ(saved_results[i].return_code, 0);
+  }
+
+}

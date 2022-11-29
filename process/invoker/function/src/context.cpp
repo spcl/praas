@@ -82,7 +82,7 @@ namespace praas::function {
       ));
     }
 
-    if (req.process_id() != request.process_id()) {
+    if (req.process_id() != SELF && req.process_id() != ANY && req.process_id() != request.process_id()) {
       throw common::FunctionGetFailure(fmt::format(
           "Received incorrect get result - incorrect process id {}", request.process_id()
       ));

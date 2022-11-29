@@ -20,13 +20,16 @@ namespace praas::process::message {
   struct PendingMessage {
 
     enum class Type {
+      NONE,
       GET,
       INVOCATION
     };
 
-    Type type;
+    Type type = Type::NONE;
 
-    const FunctionWorker* source;
+    std::string source{};
+
+    const FunctionWorker* worker{};
 
   };
 
@@ -42,7 +45,9 @@ namespace praas::process::message {
    **/
   struct PendingMessages {
 
-    bool insert_get(const std::string& key, const std::string& source, FunctionWorker& worker);
+    void insert_get(const std::string& key, const std::string& source, FunctionWorker& worker);
+
+    const FunctionWorker* find_get(const std::string& key, const std::string& source);
 
   private:
 
@@ -55,7 +60,10 @@ namespace praas::process::message {
         }
     };
 
-    std::unordered_map<std::tuple<std::string, std::string>, PendingMessage, KeyHash> _msgs;
+    // Match by key
+    std::unordered_multimap<std::string, PendingMessage> _msgs;
+
+    static constexpr std::string_view ANY_PROCESS = "ANY";
   };
 
   struct Message {
@@ -78,6 +86,6 @@ namespace praas::process::message {
     static constexpr std::string_view ANY_PROCESS = "ANY";
   };
 
-} // namespace praas::process
+} // namespace praas::process::message
 
 #endif

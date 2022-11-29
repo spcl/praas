@@ -115,9 +115,9 @@ namespace praas::process {
         const char** args, runtime::ipc::IPCMode, std::string ipc_name, int ipc_msg_size
     );
 
-    runtime::ipc::IPCChannel& ipc_write();
+    runtime::ipc::IPCChannel& ipc_write() const;
 
-    runtime::ipc::IPCChannel& ipc_read();
+    runtime::ipc::IPCChannel& ipc_read() const;
 
     int pid() const
     {

@@ -47,24 +47,30 @@ extern "C" int large_payload(praas::function::Invocation invocation, praas::func
   return 0;
 }
 
-extern "C" int send_message(praas::function::Invocation /*unused*/, praas::function::Context& context)
+extern "C" int send_message(praas::function::Invocation invoc, praas::function::Context& context)
 {
   constexpr int MSG_SIZE = 1024;
   praas::function::Buffer buf = context.get_buffer(MSG_SIZE);
+
+  InputMsgKey key;
+  invoc.args[0].deserialize(key);
 
   Message msg;
   msg.some_data = 42;
   msg.message = "THIS IS A TEST MESSAGE";
   buf.serialize(msg);
 
-  context.put(praas::function::Context::SELF, "test_msg", buf.ptr, buf.len);
+  context.put(praas::function::Context::SELF, key.message_key, buf.ptr, buf.len);
 
   return 0;
 }
 
-int get_message(std::string_view source, praas::function::Context& context)
+int get_message(praas::function::Invocation invoc, std::string_view source, praas::function::Context& context)
 {
-  praas::function::Buffer buf = context.get(source, "test_msg");
+  InputMsgKey key;
+  invoc.args[0].deserialize(key);
+
+  praas::function::Buffer buf = context.get(source, key.message_key);
 
   Message msg;
   buf.deserialize(msg);
@@ -76,18 +82,23 @@ int get_message(std::string_view source, praas::function::Context& context)
   }
 }
 
-extern "C" int get_message_self(praas::function::Invocation /*unused*/, praas::function::Context& context)
+extern "C" int get_message_self(praas::function::Invocation invoc, praas::function::Context& context)
 {
-  return get_message(praas::function::Context::SELF, context);
+  return get_message(invoc, praas::function::Context::SELF, context);
 }
 
-extern "C" int get_message_any(praas::function::Invocation /*unused*/, praas::function::Context& context)
+extern "C" int get_message_any(praas::function::Invocation invoc, praas::function::Context& context)
 {
-  return get_message(praas::function::Context::ANY, context);
+  return get_message(invoc, praas::function::Context::ANY, context);
 }
 
-extern "C" int get_message_explicit(praas::function::Invocation /*unused*/, praas::function::Context& context)
+extern "C" int get_message_explicit(praas::function::Invocation invoc, praas::function::Context& context)
 {
-  return get_message(context.process_id(), context);
+  return get_message(invoc, context.process_id(), context);
+}
+
+extern "C" int get_message(praas::function::Invocation invoc, praas::function::Context& context)
+{
+  return get_message(invoc, context.process_id(), context);
 }
 

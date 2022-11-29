@@ -1,27 +1,54 @@
 #include <praas/process/controller/messages.hpp>
+#include <compare>
 
 namespace praas::process::message {
 
-  bool PendingMessages::insert_get(const std::string& key, const std::string& source, FunctionWorker& worker)
+  void PendingMessages::insert_get(
+      const std::string& key, const std::string& source, FunctionWorker& worker
+  )
   {
-    auto [_, success] = _msgs.try_emplace(std::tuple<std::string, std::string>(key, source), PendingMessage::Type::GET, &worker);
-    return success;
+    _msgs.emplace(
+        std::piecewise_construct,
+        std::forward_as_tuple(key),
+        std::forward_as_tuple(PendingMessage::Type::GET, source, &worker)
+    );
   }
 
-  bool MessageStore::put(const std::string& key, const std::string& source, runtime::Buffer<char> & payload)
+  const FunctionWorker* PendingMessages::find_get(const std::string& key, const std::string& source)
+  {
+    auto [begin, end] = _msgs.equal_range(key);
+
+    // Find the first matching function to consume the message
+    for (auto iter = begin; iter != end; ++iter) {
+
+      if ((*iter).second.source == ANY_PROCESS || (*iter).second.source == source ||
+          (*iter).second.type == PendingMessage::Type::GET) {
+        auto* worker = (*iter).second.worker;
+        _msgs.erase(iter);
+        return worker;
+      }
+    }
+
+    return nullptr;
+  }
+
+  bool MessageStore::put(
+      const std::string& key, const std::string& source, runtime::Buffer<char>& payload
+  )
   {
     auto [it, success] = _msgs.try_emplace(key, source, std::move(payload));
     return success;
   }
 
-  std::optional<runtime::Buffer<char>> MessageStore::try_get(const std::string& key, std::string_view source)
+  std::optional<runtime::Buffer<char>>
+  MessageStore::try_get(const std::string& key, std::string_view source)
   {
     auto it = _msgs.find(key);
-    if(it == _msgs.end()) {
+    if (it == _msgs.end()) {
       return std::nullopt;
     }
 
-    if(source != ANY_PROCESS && (*it).second.source != source) {
+    if (source != ANY_PROCESS && (*it).second.source != source) {
       return std::nullopt;
     }
 
@@ -30,4 +57,4 @@ namespace praas::process::message {
     return buf;
   }
 
-}
+} // namespace praas::process::message

@@ -134,12 +134,12 @@ namespace praas::process {
     _busy = false;
   }
 
-  runtime::ipc::IPCChannel& FunctionWorker::ipc_read()
+  runtime::ipc::IPCChannel& FunctionWorker::ipc_read() const
   {
     return *_ipc_read;
   }
 
-  runtime::ipc::IPCChannel& FunctionWorker::ipc_write()
+  runtime::ipc::IPCChannel& FunctionWorker::ipc_write() const
   {
     return *_ipc_write;
   }

@@ -273,11 +273,28 @@ namespace praas::process {
               // FIXME: check queue for pending messages
               // FIXME: put remote message to the tcp server
               if(req.process_id() == SELF_PROCESS || req.process_id() == _process_id) {
-                bool success = _mailbox.put(std::string{req.name()}, _process_id, payload);
-                if(!success) {
-                  spdlog::error("Could not store message to itself, with key {}", req.name());
+
+                // Is there are pending message for this message?
+                const FunctionWorker* pending_worker = _pending_msgs.find_get(std::string{req.name()}, _process_id);
+                if(pending_worker) {
+
+                    spdlog::info("Replying message with key {}", _process_id, req.name());
+
+                    runtime::ipc::GetRequest return_req;
+                    return_req.process_id(_process_id);
+                    return_req.name(req.name());
+
+                    pending_worker->ipc_write().send(return_req, std::move(payload));
+
                 } else {
-                  spdlog::info("Stored a message to {}, with key {}", _process_id, req.name());
+
+                  bool success = _mailbox.put(std::string{req.name()}, _process_id, payload);
+                  if(!success) {
+                    spdlog::error("Could not store message to itself, with key {}", req.name());
+                  } else {
+                    spdlog::info("Stored a message to {}, with key {}", _process_id, req.name());
+                  }
+
                 }
               }
             },
@@ -296,21 +313,21 @@ namespace praas::process {
                 worker.ipc_write().send(return_req, std::move(buf.value()));
               } else {
 
-                auto succ = _pending_msgs.insert_get(std::string{req.name()}, std::string{req.process_id()}, worker);
-                if(!succ) {
-                  spdlog::error("Could not store a pending get request, with key {} and source {}",
-                      req.name(), req.process_id()
-                  );
+                _pending_msgs.insert_get(std::string{req.name()}, std::string{req.process_id()}, worker);
+                //if(!succ) {
+                //  spdlog::error("Could not store a pending get request, with key {} and source {}",
+                //      req.name(), req.process_id()
+                //  );
 
-                  runtime::ipc::GetRequest req;
-                  req.process_id(req.process_id());
-                  req.name(req.name());
-                  req.data_len(-1);
+                //  runtime::ipc::GetRequest req;
+                //  req.process_id(req.process_id());
+                //  req.name(req.name());
+                //  req.data_len(-1);
 
-                  worker.ipc_write().send(req, runtime::BufferAccessor<char>{});
-                } else {
+                //  worker.ipc_write().send(req, runtime::BufferAccessor<char>{});
+                //} else {
                   spdlog::info("Stored pending message for key {}, source {}", req.name(), req.process_id());
-                }
+                //}
               }
             },
             [](auto&) { spdlog::error("Received unsupported message!"); }},

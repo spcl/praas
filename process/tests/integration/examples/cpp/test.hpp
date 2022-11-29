@@ -55,4 +55,19 @@ struct Message
   }
 };
 
+struct InputMsgKey
+{
+  std::string message_key;
+
+  void save(cereal::BinaryOutputArchive& archive) const
+  {
+    archive(message_key);
+  }
+
+  void load(cereal::BinaryInputArchive& archive)
+  {
+    archive(message_key);
+  }
+};
+
 #endif
