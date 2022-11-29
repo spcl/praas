@@ -21,7 +21,6 @@ namespace praas::process::remote {
 
 namespace praas::process {
 
-
   struct Controller {
 
     struct ExternalMessage {
@@ -56,6 +55,8 @@ namespace praas::process {
     void start();
 
     void shutdown();
+
+    void shutdown_channels();
 
     void remote_message(praas::common::message::Message &&, runtime::Buffer<char> &&, std::string process_id);
 
@@ -127,6 +128,11 @@ namespace praas::process {
 
     static constexpr std::string_view SELF_PROCESS = "SELF";
   };
+
+  extern Controller* INSTANCE;
+
+  void set_terminate(Controller* controller);
+  void set_signals();
 
 }
 

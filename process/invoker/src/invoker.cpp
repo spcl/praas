@@ -129,6 +129,8 @@ namespace praas::process {
   void Invoker::shutdown()
   {
     _ending = true;
+    _ipc_channel_read.reset();
+    _ipc_channel_write.reset();
   }
 
   function::Context Invoker::create_context()

@@ -224,6 +224,14 @@ namespace praas::process {
 
   }
 
+  void Workers::shutdown_channels()
+  {
+    for(FunctionWorker& worker : _workers) {
+      worker.ipc_read().shutdown();
+      worker.ipc_write().shutdown();
+    }
+  }
+
   void Workers::shutdown()
   {
     for(FunctionWorker& worker : _workers) {

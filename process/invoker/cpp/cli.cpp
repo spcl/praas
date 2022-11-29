@@ -27,6 +27,10 @@ void signal_handler(int signal)
 
 void failure_handler(int signum)
 {
+  if(instance != nullptr) {
+    instance->shutdown();
+  }
+
   fprintf(stderr, "Unfortunately, the invoker has crashed - signal %d.\n", signum);
   void *array[10];
   size_t size;

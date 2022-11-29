@@ -73,6 +73,15 @@ namespace praas::process::runtime::ipc {
 
   POSIXMQChannel::~POSIXMQChannel()
   {
+    shutdown();
+  }
+
+  void POSIXMQChannel::shutdown()
+  {
+    if(_queue == -1) {
+      return;
+    }
+
     if (_created) {
       common::util::assert_other(mq_close(_queue), -1);
       common::util::assert_other(mq_unlink(_name.c_str()), -1);
@@ -81,6 +90,7 @@ namespace praas::process::runtime::ipc {
     } else {
       common::util::assert_other(mq_close(_queue), -1);
     }
+    _queue = -1;
   }
 
   int POSIXMQChannel::fd() const
@@ -122,7 +132,9 @@ namespace praas::process::runtime::ipc {
 
     _send(msg.bytes(), msg.BUF_SIZE);
     for (const auto & buf : data) {
-      _send(buf.data(), buf.len);
+      if (buf.len > 0) {
+        _send(buf.data(), buf.len);
+      }
     }
   }
 
@@ -139,7 +151,7 @@ namespace praas::process::runtime::ipc {
 
       auto size = (len - pos < _msg_size) ? len - pos : _msg_size;
       int ret = mq_send(_queue, data + pos, size, 1);
-      spdlog::info("Send {} at pos {} out of {}", ret, pos, size);
+      spdlog::info("Send {} at pos {} out of {} {}", ret, pos, size, errno);
 
       if (ret == -1) {
 

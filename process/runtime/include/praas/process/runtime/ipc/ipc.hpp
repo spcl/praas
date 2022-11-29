@@ -35,6 +35,8 @@ namespace praas::process::runtime::ipc {
     virtual bool blocking_receive(Buffer<std::byte> & buf) = 0;
 
     virtual const Message& message() const = 0;
+
+    virtual void shutdown() = 0;
   };
 
   struct POSIXMQChannel : public IPCChannel {
@@ -64,6 +66,8 @@ namespace praas::process::runtime::ipc {
     void send(Message& msg, const std::vector<Buffer<char>>& data) override;
     void send(Message& msg, BufferAccessor<char> buf) override;
     void send(Message& msg, BufferAccessor<std::byte> buf) override;
+
+    void shutdown() override;
 
     const Message& message() const override
     {

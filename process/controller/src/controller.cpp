@@ -13,10 +13,79 @@
 #include <fstream>
 #include <memory>
 
+#include <execinfo.h>
+#include <signal.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
+#include <sys/time.h>
 
 namespace praas::process {
+
+  Controller* INSTANCE = nullptr;
+
+  void set_terminate(Controller* controller)
+  {
+    INSTANCE = controller;
+    // Set a termination handler to ensure that IPC mechanisms are released when we quite.
+    std::set_terminate(
+      []() mutable {
+        if(INSTANCE) {
+          INSTANCE->shutdown();
+        }
+        abort();
+      }
+    );
+  }
+
+  void signal_handler(int)
+  {
+    if(INSTANCE) {
+      INSTANCE->shutdown();
+    }
+  }
+
+  void failure_handler(int signum)
+  {
+    if(INSTANCE) {
+      INSTANCE->shutdown_channels();
+    }
+
+    fprintf(stderr, "Unfortunately, the process has crashed - signal %d.\n", signum);
+    void *array[10];
+    size_t size;
+    // get void*'s for all entries on the stack
+    size = backtrace(array, 10);
+    // print out all the frames to stderr
+    fprintf(stderr, "Error: signal %d:\n", signum);
+    backtrace_symbols_fd(array, size, STDERR_FILENO);
+    //exit(1);
+  }
+
+  void set_signals()
+  {
+    {
+      // Catch SIGINT
+      struct sigaction sigIntHandler;
+      sigIntHandler.sa_handler = &signal_handler;
+      sigemptyset(&sigIntHandler.sa_mask);
+      sigIntHandler.sa_flags = 0;
+      sigaction(SIGINT, &sigIntHandler, NULL);
+    }
+
+    {
+      // Catch falure signals
+      struct sigaction sa;
+      memset(&sa, 0, sizeof(struct sigaction));
+      sigemptyset(&sa.sa_mask);
+      sa.sa_handler = failure_handler;
+      sa.sa_flags   = SA_SIGINFO;
+
+      sigaction(SIGSEGV, &sa, NULL);
+      sigaction(SIGTERM, &sa, NULL);
+      sigaction(SIGPIPE, &sa, NULL);
+      sigaction(SIGABRT, &sa, NULL);
+    }
+  }
 
   namespace {
 
@@ -88,6 +157,12 @@ namespace praas::process {
           epoll_add(_epoll_fd, worker.ipc_read().fd(), &worker, EPOLLIN | EPOLLPRI)
       );
     }
+
+    // FIXME: do we want to make it optional?
+    // Ensure that IPC mechanisms are released in case of an unhandled exception
+    set_terminate(this);
+
+    set_signals();
   }
 
   Controller::~Controller()
@@ -338,9 +413,15 @@ namespace praas::process {
     poll();
   }
 
+  void Controller::shutdown_channels()
+  {
+    return _workers.shutdown_channels();
+  }
+
   void Controller::shutdown()
   {
     _ending = true;
+
     spdlog::info("Closing controller polling.");
   }
 

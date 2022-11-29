@@ -161,6 +161,8 @@ namespace praas::process {
 
     void shutdown();
 
+    void shutdown_channels();
+
   private:
     FunctionWorker* _get_idle_worker();
 
