@@ -44,8 +44,27 @@ namespace praas::process::runtime {
 
     Buffer(const Buffer&) = delete;
     Buffer& operator=(const Buffer&) = delete;
-    Buffer(Buffer &&) noexcept = default;
-    Buffer& operator=(Buffer &&) noexcept = default;
+
+    Buffer(Buffer && obj) noexcept:
+      ptr(std::move(obj.ptr)),
+      size(obj.size),
+      len(obj.len)
+    {
+      obj.ptr = nullptr;
+      obj.size = obj.len = 0;
+    }
+
+    Buffer& operator=(Buffer && obj) noexcept
+    {
+      ptr = std::move(obj.ptr);
+      size = obj.size;
+      len = obj.len;
+
+      obj.ptr = nullptr;
+      obj.size = obj.len = 0;
+
+      return *this;
+    }
 
     template<typename U>
     Buffer(Buffer<U> && obj) noexcept
