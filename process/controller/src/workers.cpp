@@ -109,7 +109,13 @@ namespace praas::process {
       int fd = open(out_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
       dup2(fd, 1);
       dup2(fd, 2);
-      int ret = execvp(args[0], const_cast<char**>(&args[0]));
+      //int ret = execvp(args[0], const_cast<char**>(&args[0]));
+      char *envp[] =
+      {
+          "PYTHONPATH=/work/serverless/2022/praas/code/build/process/",
+          0
+      };
+      int ret = execvpe(args[0], const_cast<char**>(&args[0]), envp);
       if (ret == -1) {
         spdlog::error("Invoker process failed {}, reason {}", errno, strerror(errno));
         close(fd);
@@ -150,13 +156,26 @@ namespace praas::process {
     // This is Linux specific
     const char* exec_path = "cpp_invoker_exe";
 
+    // FIXME: Python - cmake
+    // FIXME: configure language - arg
+
     for (int i = 0; i < cfg.function_workers; ++i) {
 
       std::string ipc_name = fmt::format("/praas_queue_{}_{}", getpid(), _worker_counter++);
 
-      // FIXME: enable Python
-      // FIXME: make configurable
-      const char* argv[] = {exec_path,
+      //const char* argv[] = {exec_path,
+      //                      "--process-id",
+      //                      cfg.process_id.c_str(),
+      //                      "--ipc-mode",
+      //                      "posix_mq",
+      //                      "--ipc-name",
+      //                      ipc_name.c_str(),
+      //                      "--code-location",
+      //                      cfg.code.location.c_str(),
+      //                      "--code-config-location",
+      //                      cfg.code.config_location.c_str(),
+      //                      nullptr};
+      const char* argv[] = {"python", "/work/serverless/2022/praas/code/praas/process/invoker/python/cli/cli.py",
                             "--process-id",
                             cfg.process_id.c_str(),
                             "--ipc-mode",

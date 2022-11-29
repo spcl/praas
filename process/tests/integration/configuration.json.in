@@ -1,11 +1,20 @@
 {
   "functions": {
     "python": {
-      "test": {
-        "name": "test",
+      "add": {
         "code": {
-          "module": "test.py",
-          "function": "test"
+          "module": "/work/serverless/2022/praas/code/praas/process/tests/integration/examples/python/test.py",
+          "function": "add"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
+      "zero_return": {
+        "code": {
+          "module": "/work/serverless/2022/praas/code/praas/process/tests/integration/examples/python/test.py",
+          "function": "zero_return"
         },
         "trigger": {
           "type": "direct",

@@ -47,6 +47,16 @@ function(process_link tgt)
 
 endfunction()
 
+function(process_link_private tgt)
+
+  target_link_libraries(${tgt} PRIVATE common_library)
+  target_link_libraries(${tgt} PRIVATE spdlog::spdlog)
+  target_link_libraries(${tgt} PRIVATE fmt::fmt)
+  target_link_libraries(${tgt} PRIVATE cereal::cereal)
+  target_link_libraries(${tgt} PRIVATE TBB::tbb)
+
+endfunction()
+
 ###
 # Runtime library
 ###
@@ -85,6 +95,9 @@ process_link(process_exe)
 ###
 
 file(GLOB invoker_files "invoker/src/*.cpp")
+get_filename_component(fullpath_python ${CMAKE_CURRENT_SOURCE_DIR}/invoker/src/python.cpp ABSOLUTE)
+list(REMOVE_ITEM invoker_files ${fullpath_python})
+
 add_library(invoker_lib STATIC ${invoker_files})
 target_include_directories(invoker_lib SYSTEM PUBLIC "invoker/include")
 target_include_directories(invoker_lib SYSTEM PUBLIC "invoker/function/include")
@@ -97,8 +110,8 @@ process_link(invoker_lib)
 # Function API
 ###
 
-file(GLOB func_api_files "invoker/function/src/*.cpp")
-add_library(function_lib STATIC ${func_api_files})
+#file(GLOB func_api_files "invoker/function/src/*.cpp")
+add_library(function_lib STATIC invoker/function/src/context.cpp invoker/function/src/invocation.cpp)
 target_include_directories(function_lib PUBLIC $<TARGET_PROPERTY:process_lib,INTERFACE_INCLUDE_DIRECTORIES>)
 target_include_directories(function_lib SYSTEM PUBLIC "invoker/function/include")
 target_include_directories(function_lib SYSTEM PUBLIC "invoker/include")
@@ -122,10 +135,32 @@ target_link_libraries(cpp_invoker_exe PRIVATE function_lib)
 process_dependencies(cpp_invoker_exe)
 process_link(cpp_invoker_exe)
 
+add_feature_info(invoker_cpp ON "enabled")
+
 ###
 # Python invoker
 ###
-# FIXME: Python
+find_package(Python COMPONENTS Interpreter Development)
+find_package(pybind11 CONFIG)
+
+if(Python_FOUND AND pybind11_FOUND)
+
+    message(STATUS "Building Python invoker.")
+    set(PRAAS_WITH_INVOKER_PYTHON TRUE)
+    add_compile_definitions(WITH_INVOKER_PYTHON)
+    add_feature_info(invoker_python ON "enabled")
+
+    pybind11_add_module(pypraas invoker/python/bindings/function.cpp invoker/python/bindings/invoker.cpp)
+    target_link_libraries(pypraas PRIVATE invoker_lib)
+    target_link_libraries(pypraas PRIVATE function_lib)
+    process_link_private(pypraas)
+
+else()
+
+    set(PRAAS_WITH_INVOKER_PYTHON FALSE)
+    add_feature_info(invoker_python ON "disabled")
+
+endif()
 
 if(WITH_TESTING)
   add_subdirectory(tests)
