@@ -16,6 +16,7 @@
 #include <boost/interprocess/streams/bufferstream.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <cereal/archives/binary.hpp>
+#include <cereal/archives/json.hpp>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -39,8 +40,21 @@ size_t generate_input(int arg1, int arg2, const runtime::Buffer<char> & buf)
   Input input{arg1, arg2};
   boost::interprocess::bufferstream stream(buf.data(), buf.size);
   cereal::BinaryOutputArchive archive_out{stream};
-  archive_out(input);
+  archive_out(cereal::make_nvp("input", input));
   assert(stream.good());
+  size_t pos = stream.tellp();
+  return pos;
+}
+
+size_t generate_input_json(int arg1, int arg2, const runtime::Buffer<char> & buf)
+{
+  Input input{arg1, arg2};
+  boost::interprocess::bufferstream stream(buf.data(), buf.size);
+  {
+    cereal::JSONOutputArchive archive_out{stream};
+    archive_out(cereal::make_nvp("input", input));
+    assert(stream.good());
+  }
   size_t pos = stream.tellp();
   return pos;
 }
@@ -147,7 +161,7 @@ TEST_F(ProcessInvocationTest, SimpleInvocation)
     msg.invocation_id(invocation_id[idx]);
 
     auto buf = buffers.retrieve_buffer(BUF_LEN);
-    buf.len = generate_input(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
+    buf.len = generate_input_json(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
     // Send more data than needed - check that it still works
     msg.payload_size(buf.len + 64);
 
@@ -176,7 +190,7 @@ TEST_F(ProcessInvocationTest, SimpleInvocation)
     msg.invocation_id(invocation_id[idx]);
 
     auto buf = buffers.retrieve_buffer(BUF_LEN);
-    buf.len = generate_input(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
+    buf.len = generate_input_json(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
     msg.payload_size(buf.len);
 
     controller->remote_message(std::move(msg), std::move(buf), process_id);

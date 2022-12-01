@@ -1,18 +1,31 @@
 
 from dataclasses import dataclass
+import json
+
+import pypraas
 
 @dataclass
-class input:
+class Input:
     arg1: int
     arg2: int
 
 @dataclass
-class output:
+class Output:
     res: int
 
 def add(invocation, context):
 
-    print(invocation.args[0])
+    input_str = invocation.args[0].str()
+    input_data = json.loads(input_str)['input']
+
+    result = Output
+    result.res = input_data['arg1'] + input_data['arg2']
+
+    out_buf = context.get_output_buffer()
+
+    json.dump(res, pypraas.BufferWriter(out_buf))
+
+    return 0
 
 def zero_return(invocation, context):
 

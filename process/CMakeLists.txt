@@ -150,10 +150,10 @@ if(Python_FOUND AND pybind11_FOUND)
     add_compile_definitions(WITH_INVOKER_PYTHON)
     add_feature_info(invoker_python ON "enabled")
 
-    pybind11_add_module(pypraas invoker/python/bindings/function.cpp invoker/python/bindings/invoker.cpp)
-    target_link_libraries(pypraas PRIVATE invoker_lib)
-    target_link_libraries(pypraas PRIVATE function_lib)
-    process_link_private(pypraas)
+    pybind11_add_module(_pypraas invoker/python/bindings/function.cpp invoker/python/bindings/invoker.cpp)
+    target_link_libraries(_pypraas PRIVATE invoker_lib)
+    target_link_libraries(_pypraas PRIVATE function_lib)
+    process_link_private(_pypraas)
 
 else()
 

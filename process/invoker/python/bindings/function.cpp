@@ -12,7 +12,7 @@
 
   void define_pypraas_runtime(py::module & m) {
 
-    py::class_<praas::process::runtime::BufferAccessor<char>>(m, "buffer_accessor")
+    py::class_<praas::process::runtime::BufferAccessor<char>>(m, "BufferAccessor")
         .def(py::init());
 
   }
@@ -22,35 +22,44 @@
     m.doc() = "praas function module";
 
     // FIXME: function
-    m.attr("__name__") = "pypraas.function";
+    m.attr("__name__") = "_pypraas.function";
 
-    py::class_<praas::function::Invocation>(m, "invocation")
+    py::class_<praas::function::Invocation>(m, "Invocation")
         .def(py::init())
         .def_readonly("key", &praas::function::Invocation::key)
         .def_readonly("function_name", &praas::function::Invocation::function_name)
         .def_readonly("args", &praas::function::Invocation::args);
 
-    py::class_<praas::function::Context>(m, "context")
+    py::class_<praas::function::Context>(m, "Context")
         .def_property_readonly("invocation_id", &praas::function::Context::invocation_id)
         .def_property_readonly("process_id", &praas::function::Context::process_id)
         .def("start_invocation", &praas::function::Context::start_invocation)
         .def("end_invocation", &praas::function::Context::end_invocation)
+        .def("get_output_buffer", &praas::function::Context::get_output_buffer)
         .def("as_buffer", &praas::function::Context::as_buffer);
 
-    py::class_<praas::function::Buffer>(m, "buffer")
-        .def(py::init());
-        //.def_property_readonly("pointer", &praas::function::Buffer::ptr)
-        //.def_property_readonly("length", &praas::function::Buffer::len)
-        //.def_property_readonly("size", &praas::function::Buffer::size);
+    py::class_<praas::function::Buffer>(m, "Buffer")
+        .def(py::init())
+        .def_readonly("pointer", &praas::function::Buffer::ptr)
+        .def_readonly("size", &praas::function::Buffer::size)
+        .def_readwrite("length", &praas::function::Buffer::len)
+        .def("str", &praas::function::Buffer::str)
+        .def("view", [](praas::function::Buffer & self) {
+           return py::memoryview::from_memory(
+            self.ptr,
+            sizeof(std::byte) * self.len
+          );
+        });
   }
 
-  PYBIND11_MODULE(pypraas, m) {
+  PYBIND11_MODULE(_pypraas, m) {
 
-    m.def_submodule("function", "test");
+    auto function_module = m.def_submodule("function");
+    auto invoker_module = m.def_submodule("invoker");
 
     define_pypraas_runtime(m);
-    define_pypraas_function(m);
-    define_pypraas_invoker(m);
+    define_pypraas_function(function_module);
+    define_pypraas_invoker(invoker_module);
   }
 
 #endif

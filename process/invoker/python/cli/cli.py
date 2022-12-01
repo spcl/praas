@@ -63,7 +63,7 @@ def invoke(process_id, ipc_mode, ipc_name, code_location, code_config_location):
     print(functions._functions)
 
     # FIXME: ipc mode as string
-    invoker = pypraas.invoker(process_id, pypraas.IPCMode.POSIX_MQ, ipc_name)
+    invoker = pypraas.invoker.Invoker(process_id, pypraas.invoker.IPCMode.POSIX_MQ, ipc_name)
 
     context = invoker.create_context()
 

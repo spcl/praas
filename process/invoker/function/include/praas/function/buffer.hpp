@@ -17,6 +17,11 @@ namespace praas::function {
 
     size_t size{};
 
+    char* str() const
+    {
+      return reinterpret_cast<char*>(ptr);
+    }
+
     template<typename Obj>
     void deserialize(Obj & obj)
     {

@@ -9,16 +9,18 @@ struct Input
   int arg1;
   int arg2;
 
-  void save(cereal::BinaryOutputArchive& archive) const
+  template<typename Ar>
+  void save(Ar & archive) const
   {
-    archive(arg1);
-    archive(arg2);
+    archive(CEREAL_NVP(arg1));
+    archive(CEREAL_NVP(arg2));
   }
 
-  void load(cereal::BinaryInputArchive& archive)
+  template<typename Ar>
+  void load(Ar & archive)
   {
-    archive(arg1);
-    archive(arg2);
+    archive(CEREAL_NVP(arg1));
+    archive(CEREAL_NVP(arg2));
   }
 };
 
@@ -28,12 +30,12 @@ struct Output
 
   void save(cereal::BinaryOutputArchive& archive) const
   {
-    archive(result);
+    archive(CEREAL_NVP(result));
   }
 
   void load(cereal::BinaryInputArchive& archive)
   {
-    archive(result);
+    archive(CEREAL_NVP(result));
   }
 };
 
@@ -44,14 +46,14 @@ struct Message
 
   void save(cereal::BinaryOutputArchive& archive) const
   {
-    archive(message);
-    archive(some_data);
+    archive(CEREAL_NVP(message));
+    archive(CEREAL_NVP(some_data));
   }
 
   void load(cereal::BinaryInputArchive& archive)
   {
-    archive(message);
-    archive(some_data);
+    archive(CEREAL_NVP(message));
+    archive(CEREAL_NVP(some_data));
   }
 };
 
@@ -61,12 +63,12 @@ struct InputMsgKey
 
   void save(cereal::BinaryOutputArchive& archive) const
   {
-    archive(message_key);
+    archive(CEREAL_NVP(message_key));
   }
 
   void load(cereal::BinaryInputArchive& archive)
   {
-    archive(message_key);
+    archive(CEREAL_NVP(message_key));
   }
 };
 
