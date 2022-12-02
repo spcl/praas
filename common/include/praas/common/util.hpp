@@ -26,8 +26,8 @@ namespace praas::common::util {
     return true;
   }
 
-  template <typename U>
-  bool expect_other(U&& u, int val)
+  template <typename U, typename V>
+  bool expect_other(U&& u, V val)
   {
     if (u == val) {
       spdlog::error(
@@ -47,8 +47,8 @@ namespace praas::common::util {
       exit(1);
   }
 
-  template <typename U>
-  void assert_other(U&& u, int val)
+  template <typename U, typename V>
+  void assert_other(U&& u, V val)
   {
     if (!expect_other(u, val))
       exit(1);
