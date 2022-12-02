@@ -26,14 +26,16 @@ struct Input
 
 struct Output
 {
-  int result;
+  int result{};
 
-  void save(cereal::BinaryOutputArchive& archive) const
+  template<typename Ar>
+  void save(Ar & archive) const
   {
     archive(CEREAL_NVP(result));
   }
 
-  void load(cereal::BinaryInputArchive& archive)
+  template<typename Ar>
+  void load(Ar & archive)
   {
     archive(CEREAL_NVP(result));
   }

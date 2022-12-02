@@ -4,6 +4,7 @@
 #include <praas/process/controller/config.hpp>
 #include <praas/process/controller/controller.hpp>
 #include <praas/process/controller/remote.hpp>
+#include <praas/process/runtime/functions.hpp>
 #include <praas/process/runtime/ipc/messages.hpp>
 
 #include "examples/cpp/test.hpp"
@@ -35,7 +36,7 @@ public:
   );
 };
 
-size_t generate_input(int arg1, int arg2, const runtime::Buffer<char> & buf)
+size_t generate_input_binary(int arg1, int arg2, const runtime::Buffer<char> & buf)
 {
   Input input{arg1, arg2};
   boost::interprocess::bufferstream stream(buf.data(), buf.size);
@@ -59,7 +60,7 @@ size_t generate_input_json(int arg1, int arg2, const runtime::Buffer<char> & buf
   return pos;
 }
 
-int get_output(const runtime::Buffer<char> & buf)
+int get_output_binary(const runtime::Buffer<char> & buf)
 {
   Output out;
   boost::iostreams::stream<boost::iostreams::array_source> stream(buf.data(), buf.size);
@@ -69,7 +70,17 @@ int get_output(const runtime::Buffer<char> & buf)
   return out.result;
 }
 
-class ProcessInvocationTest : public ::testing::Test {
+int get_output_json(const runtime::Buffer<char> & buf)
+{
+  Output out;
+  boost::iostreams::stream<boost::iostreams::array_source> stream(buf.data(), buf.size);
+  cereal::JSONInputArchive archive_in{stream};
+  out.load(archive_in);
+
+  return out.result;
+}
+
+class ProcessInvocationTest : public testing::TestWithParam<std::string> {
 public:
   void SetUp() override
   {
@@ -80,6 +91,10 @@ public:
     auto path = std::filesystem::canonical("/proc/self/exe").parent_path() / "integration";
     cfg.code.location = path;
     cfg.code.config_location = "configuration.json";
+    cfg.code.language = runtime::functions::string_to_language(GetParam());
+
+    // process/tests/<exe> -> process
+    cfg.deployment_location = std::filesystem::canonical("/proc/self/exe").parent_path().parent_path();
 
     controller = std::make_unique<Controller>(cfg);
     controller->set_remote(&server);
@@ -102,6 +117,26 @@ public:
   {
     controller->shutdown();
     controller_thread.join();
+  }
+
+  size_t generate_input(int arg1, int arg2, const runtime::Buffer<char> & buf)
+  {
+    if(cfg.code.language == runtime::functions::Language::CPP) {
+      return generate_input_binary(arg1, arg2, buf);
+    } else if(cfg.code.language == runtime::functions::Language::PYTHON) {
+      return generate_input_json(arg1, arg2, buf);
+    }
+    return 0;
+  }
+
+  int get_output(const runtime::Buffer<char> & buf)
+  {
+    if(cfg.code.language == runtime::functions::Language::CPP) {
+      return get_output_binary(buf);
+    } else if(cfg.code.language == runtime::functions::Language::PYTHON) {
+      return get_output_json(buf);
+    }
+    return -1;
   }
 
   std::thread controller_thread;
@@ -139,7 +174,7 @@ public:
  * Verify they are being executed concurrently.
  */
 
-TEST_F(ProcessInvocationTest, SimpleInvocation)
+TEST_P(ProcessInvocationTest, SimpleInvocation)
 {
   const int BUF_LEN = 1024;
   std::string function_name = "add";
@@ -161,14 +196,14 @@ TEST_F(ProcessInvocationTest, SimpleInvocation)
     msg.invocation_id(invocation_id[idx]);
 
     auto buf = buffers.retrieve_buffer(BUF_LEN);
-    buf.len = generate_input_json(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
+    buf.len = generate_input(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
     // Send more data than needed - check that it still works
     msg.payload_size(buf.len + 64);
 
     controller->dataplane_message(std::move(msg), std::move(buf));
 
     // Wait for the invocation to finish
-    ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(3)));
+    ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(1)));
 
     // Dataplane message
     EXPECT_FALSE(process.has_value());
@@ -190,13 +225,13 @@ TEST_F(ProcessInvocationTest, SimpleInvocation)
     msg.invocation_id(invocation_id[idx]);
 
     auto buf = buffers.retrieve_buffer(BUF_LEN);
-    buf.len = generate_input_json(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
+    buf.len = generate_input(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
     msg.payload_size(buf.len);
 
     controller->remote_message(std::move(msg), std::move(buf), process_id);
 
     // Wait for the invocation to finish
-    ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(3)));
+    ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(1)));
 
     // Remote message
     EXPECT_TRUE(process.has_value());
@@ -210,7 +245,7 @@ TEST_F(ProcessInvocationTest, SimpleInvocation)
   }
 }
 
-TEST_F(ProcessInvocationTest, ZeroPayloadOutput)
+TEST_P(ProcessInvocationTest, ZeroPayloadOutput)
 {
   std::string function_name = "zero_return";
   std::string invocation_id = "first_id";
@@ -224,7 +259,7 @@ TEST_F(ProcessInvocationTest, ZeroPayloadOutput)
   controller->dataplane_message(std::move(msg), std::move(buf));
 
   // Wait for the invocation to finish
-  ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(3)));
+  ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(1)));
 
   // Dataplane message
   EXPECT_FALSE(process.has_value());
@@ -234,7 +269,7 @@ TEST_F(ProcessInvocationTest, ZeroPayloadOutput)
   EXPECT_EQ(payload.len, 0);
 }
 
-TEST_F(ProcessInvocationTest, ReturnError)
+TEST_P(ProcessInvocationTest, ReturnError)
 {
   std::string function_name = "error_function";
   std::string invocation_id = "first_id";
@@ -248,7 +283,7 @@ TEST_F(ProcessInvocationTest, ReturnError)
   controller->dataplane_message(std::move(msg), std::move(buf));
 
   // Wait for the invocation to finish
-  ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(3)));
+  ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(1)));
 
   // Dataplane message
   EXPECT_FALSE(process.has_value());
@@ -257,7 +292,7 @@ TEST_F(ProcessInvocationTest, ReturnError)
   EXPECT_EQ(return_code, 1);
 }
 
-TEST_F(ProcessInvocationTest, LargePayload)
+TEST_P(ProcessInvocationTest, LargePayload)
 {
   // 4 megabyte input - 1 mega of integers
   const int BUF_LEN = 1024 * 1024 * sizeof(int);
@@ -284,7 +319,7 @@ TEST_F(ProcessInvocationTest, LargePayload)
   controller->remote_message(std::move(msg), std::move(buf), process_id);
 
   // Wait for the invocation to finish
-  ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(3)));
+  ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(1)));
 
   EXPECT_TRUE(process.has_value());
   EXPECT_EQ(process.value(), process_id);
@@ -298,4 +333,9 @@ TEST_F(ProcessInvocationTest, LargePayload)
   }
 
 }
+
+INSTANTIATE_TEST_SUITE_P(ProcessInvocationTest,
+                         ProcessInvocationTest,
+                         testing::Values("cpp", "python")
+                         );
 

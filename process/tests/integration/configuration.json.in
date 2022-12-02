@@ -3,7 +3,7 @@
     "python": {
       "add": {
         "code": {
-          "module": "/work/serverless/2022/praas/code/praas/process/tests/integration/examples/python/test.py",
+          "module": "@PRAAS_SOURCE_DIRECTORY@/process/tests/integration/examples/python/test.py",
           "function": "add"
         },
         "trigger": {
@@ -13,8 +13,28 @@
       },
       "zero_return": {
         "code": {
-          "module": "/work/serverless/2022/praas/code/praas/process/tests/integration/examples/python/test.py",
+          "module": "@PRAAS_SOURCE_DIRECTORY@/process/tests/integration/examples/python/test.py",
           "function": "zero_return"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
+      "error_function": {
+        "code": {
+          "module": "@PRAAS_SOURCE_DIRECTORY@/process/tests/integration/examples/python/test.py",
+          "function": "error_function"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
+      "large_payload": {
+        "code": {
+          "module": "@PRAAS_SOURCE_DIRECTORY@/process/tests/integration/examples/python/test.py",
+          "function": "large_payload"
         },
         "trigger": {
           "type": "direct",

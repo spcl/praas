@@ -37,5 +37,6 @@ set_target_properties(example_cpp PROPERTIES LIBRARY_OUTPUT_DIRECTORY examples)
 target_link_libraries(example_cpp PRIVATE function_lib)
 
 set(PRAAS_DIRECTORY ${CMAKE_BINARY_DIR})
+set(PRAAS_SOURCE_DIRECTORY ${CMAKE_SOURCE_DIR})
 configure_file(integration/configuration.json.in integration/configuration.json @ONLY)
 

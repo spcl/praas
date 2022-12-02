@@ -112,7 +112,7 @@ namespace praas::process {
   struct FunctionWorker {
 
     FunctionWorker(
-        const char** args, runtime::ipc::IPCMode, std::string ipc_name, int ipc_msg_size
+        const char** args, runtime::ipc::IPCMode, std::string ipc_name, int ipc_msg_size, char** env = {}
     );
 
     runtime::ipc::IPCChannel& ipc_write() const;
@@ -164,6 +164,11 @@ namespace praas::process {
     void shutdown_channels();
 
   private:
+
+    void _launch_cpp(config::Controller & cfg, const std::string& ipc_name);
+
+    void _launch_python(config::Controller & cfg, const std::string& ipc_name);
+
     FunctionWorker* _get_idle_worker();
 
     std::vector<FunctionWorker> _workers;

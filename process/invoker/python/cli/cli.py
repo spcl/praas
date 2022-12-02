@@ -85,7 +85,10 @@ def invoke(process_id, ipc_mode, ipc_name, code_location, code_config_location):
 
         ret = func(invocation, context)
 
-        # FIXME: invoke + return code
+        if ret is None:
+            print("Function did not return status!")
+            ret = 1
+
         invoker.finish(context.invocation_id, context.as_buffer(), ret);
 
         context.end_invocation()

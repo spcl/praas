@@ -18,8 +18,6 @@ class BufferStringWriter:
     def __init__(self, buf):
         self.buffer = buf
         self.view = buf.view_writable()
-        print(buf.length)
-        print(len(self.view))
 
     def write(self, string):
 
@@ -27,9 +25,5 @@ class BufferStringWriter:
         str_len = len(str_encoded)
         pos = self.buffer.length
 
-        print(str_encoded, str_len, pos, type(pos), type(str_len))
-        print(self.view)
-        print(pos, pos + str_len)
-        print(len(self.view[ pos : (pos + str_len) ]))
         self.view[ pos : pos + str_len ] = str_encoded
         self.buffer.length = pos + str_len

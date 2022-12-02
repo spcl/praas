@@ -24,6 +24,8 @@ namespace praas::process::config {
     std::string config_location;
     runtime::functions::Language language;
 
+    std::string language_runtime_path;
+
     void load(cereal::JSONInputArchive& archive);
     void set_defaults();
   };
@@ -41,6 +43,8 @@ namespace praas::process::config {
     int ipc_message_size;
 
     std::string process_id;
+
+    std::string deployment_location;
 
     Code code;
 

@@ -28,6 +28,7 @@ namespace praas::process::config {
     location = DEFAULT_CODE_LOCATION;
     config_location = DEFAULT_CODE_CONFIG_LOCATION;
     language = runtime::functions::Language::CPP;
+    language_runtime_path = "";
   }
 
   void Controller::load(cereal::JSONInputArchive& archive)
@@ -53,6 +54,8 @@ namespace praas::process::config {
     ipc_mode = runtime::ipc::IPCMode::POSIX_MQ;
     ipc_message_size = DEFAULT_MSG_SIZE;
     process_id = "TEST_PROCESS_ID";
+
+    deployment_location = "";
 
     code.set_defaults();
   }

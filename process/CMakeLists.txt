@@ -134,6 +134,7 @@ target_link_libraries(cpp_invoker_exe PRIVATE invoker_lib)
 target_link_libraries(cpp_invoker_exe PRIVATE function_lib)
 process_dependencies(cpp_invoker_exe)
 process_link(cpp_invoker_exe)
+set_target_properties(cpp_invoker_exe PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin/invoker")
 
 add_feature_info(invoker_cpp ON "enabled")
 
@@ -160,6 +161,7 @@ if(Python_FOUND AND pybind11_FOUND)
     configure_file(invoker/python/pypraas/__init__.py ${CMAKE_CURRENT_BINARY_DIR}/pypraas/__init__.py COPYONLY)
     configure_file(invoker/python/pypraas/buffer.py ${CMAKE_CURRENT_BINARY_DIR}/pypraas/buffer.py COPYONLY)
 
+    configure_file(invoker/python/cli/cli.py ${CMAKE_CURRENT_BINARY_DIR}/bin/invoker/python.py COPYONLY)
 
 else()
 

@@ -33,18 +33,36 @@ public:
   );
 };
 
-size_t generate_input(int arg1, int arg2, const runtime::Buffer<char>& buf)
+size_t generate_input_binary(int arg1, int arg2, const runtime::Buffer<char> & buf)
 {
   Input input{arg1, arg2};
   boost::interprocess::bufferstream stream(buf.data(), buf.size);
-  cereal::BinaryOutputArchive archive_out{stream};
-  archive_out(input);
-  assert(stream.good());
+  {
+    cereal::BinaryOutputArchive archive_out{stream};
+    archive_out(cereal::make_nvp("input", input));
+    assert(stream.good());
+  }
+  EXPECT_TRUE(stream.good());
   size_t pos = stream.tellp();
   return pos;
 }
 
-int get_output(const runtime::Buffer<char>& buf)
+size_t generate_input_json(int arg1, int arg2, const runtime::Buffer<char> & buf)
+{
+  Input input{arg1, arg2};
+  boost::interprocess::bufferstream stream(buf.data(), buf.size);
+  {
+    cereal::JSONOutputArchive archive_out{stream};
+    archive_out(cereal::make_nvp("input", input));
+    EXPECT_TRUE(stream.good());
+  }
+  size_t pos = stream.tellp();
+  // Ensure that other languages will interpret the data correctly
+  buf.data()[pos] = '\0';
+  return pos + 1;
+}
+
+int get_output_binary(const runtime::Buffer<char> & buf)
 {
   Output out;
   boost::iostreams::stream<boost::iostreams::array_source> stream(buf.data(), buf.size);
@@ -54,7 +72,17 @@ int get_output(const runtime::Buffer<char>& buf)
   return out.result;
 }
 
-class ProcessManyWorkersInvocationTest : public ::testing::Test {
+int get_output_json(const runtime::Buffer<char> & buf)
+{
+  Output out;
+  boost::iostreams::stream<boost::iostreams::array_source> stream(buf.data(), buf.size);
+  cereal::JSONInputArchive archive_in{stream};
+  out.load(archive_in);
+
+  return out.result;
+}
+
+class ProcessManyWorkersInvocationTest : public testing::TestWithParam<std::string> {
 public:
 
   void SetUp(int workers)
@@ -66,8 +94,11 @@ public:
     auto path = std::filesystem::canonical("/proc/self/exe").parent_path() / "integration";
     cfg.code.location = path;
     cfg.code.config_location = "configuration.json";
+    cfg.code.language = runtime::functions::string_to_language(GetParam());
 
     cfg.function_workers = workers;
+    // process/tests/<exe> -> process
+    cfg.deployment_location = std::filesystem::canonical("/proc/self/exe").parent_path().parent_path();
 
     controller = std::make_unique<Controller>(cfg);
     controller->set_remote(&server);
@@ -108,6 +139,26 @@ public:
     }
   }
 
+  size_t generate_input(int arg1, int arg2, const runtime::Buffer<char> & buf)
+  {
+    if(cfg.code.language == runtime::functions::Language::CPP) {
+      return generate_input_binary(arg1, arg2, buf);
+    } else if(cfg.code.language == runtime::functions::Language::PYTHON) {
+      return generate_input_json(arg1, arg2, buf);
+    }
+    return 0;
+  }
+
+  int get_output(const runtime::Buffer<char> & buf)
+  {
+    if(cfg.code.language == runtime::functions::Language::CPP) {
+      return get_output_binary(buf);
+    } else if(cfg.code.language == runtime::functions::Language::PYTHON) {
+      return get_output_json(buf);
+    }
+    return -1;
+  }
+
   std::atomic<int> idx{};
 
   std::thread controller_thread;
@@ -130,7 +181,7 @@ public:
   std::array<Result, INVOC_COUNT> saved_results;
 };
 
-TEST_F(ProcessManyWorkersInvocationTest, SubsequentInvocations)
+TEST_P(ProcessManyWorkersInvocationTest, SubsequentInvocations)
 {
 
   SetUp(1);
@@ -164,14 +215,14 @@ TEST_F(ProcessManyWorkersInvocationTest, SubsequentInvocations)
     auto buf = buffers.retrieve_buffer(BUF_LEN);
     buf.len = generate_input(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
     // Send more data than needed - check that it still works
-    msg.payload_size(buf.len + 64);
+    msg.payload_size(buf.len);
 
     controller->dataplane_message(std::move(msg), std::move(buf));
   }
 
   // wait
   for(int idx = 0; idx < COUNT; ++idx) {
-    ASSERT_EQ(std::future_status::ready, saved_results[idx].finished.get_future().wait_for(std::chrono::seconds(3)));
+    ASSERT_EQ(std::future_status::ready, saved_results[idx].finished.get_future().wait_for(std::chrono::seconds(1)));
   }
 
   // Validate result
@@ -195,7 +246,7 @@ TEST_F(ProcessManyWorkersInvocationTest, SubsequentInvocations)
 
 }
 
-TEST_F(ProcessManyWorkersInvocationTest, ConcurrentInvocations)
+TEST_P(ProcessManyWorkersInvocationTest, ConcurrentInvocations)
 {
   SetUp(2);
 
@@ -232,7 +283,7 @@ TEST_F(ProcessManyWorkersInvocationTest, ConcurrentInvocations)
   for (int idx = 0; idx < COUNT; ++idx) {
     ASSERT_EQ(
         std::future_status::ready,
-        saved_results[idx].finished.get_future().wait_for(std::chrono::seconds(3))
+        saved_results[idx].finished.get_future().wait_for(std::chrono::seconds(1))
     );
   }
 
@@ -255,5 +306,10 @@ TEST_F(ProcessManyWorkersInvocationTest, ConcurrentInvocations)
     EXPECT_EQ(res, results[idx]);
 
   }
-
 }
+
+INSTANTIATE_TEST_SUITE_P(ProcessManyWorkersInvocationTest,
+                         ProcessManyWorkersInvocationTest,
+                         testing::Values("cpp", "python")
+                         );
+
