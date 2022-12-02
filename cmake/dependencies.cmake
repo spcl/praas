@@ -31,6 +31,20 @@ if(NOT sockpp_FOUND)
 endif()
 
 ###
+# format
+###
+find_package(fmt QUIET)
+if(NOT fmt_FOUND)
+  message(STATUS "Downloading and building fmt dependency")
+  FetchContent_Declare(fmt
+    GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+    GIT_TAG 9.1.0
+  )
+  set(BUILD_SHARED_LIBS OFF)
+  FetchContent_MakeAvailable(fmt)
+endif()
+
+###
 # spdlog
 ###
 find_package(spdlog QUIET)
@@ -41,6 +55,7 @@ if(NOT spdlog_FOUND)
     # default branch is v1.x - for some reason, cmake switches to master
     GIT_TAG v1.8.0
   )
+  SET(SPDLOG_FMT_EXTERNAL OFF)
   FetchContent_MakeAvailable(spdlog)
 else()
   add_custom_target(spdlog)
@@ -59,19 +74,6 @@ if(NOT cereal_FOUND)
   set(SKIP_PORTABILITY_TEST ON)
   set(JUST_INSTALL_CEREAL ON)
   FetchContent_MakeAvailable(cereal)
-endif()
-
-###
-# format
-###
-find_package(fmt QUIET)
-if(NOT fmt_FOUND)
-  message(STATUS "Downloading and building fmt dependency")
-  FetchContent_Declare(fmt
-    GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-  )
-  set(BUILD_SHARED_LIBS OFF)
-  FetchContent_MakeAvailable(fmt)
 endif()
 
 ###

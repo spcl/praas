@@ -8,6 +8,8 @@ project(praas)
 include(FetchContent)
 include(FeatureSummary)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 # disable checking for fetch content updates in every reconfiguration
 set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 
@@ -87,6 +89,9 @@ target_link_libraries(common_library PRIVATE spdlog::spdlog)
 target_link_libraries(common_library PRIVATE stduuid)
 
 if(WITH_TESTING)
+
+  # enable memcheck
+  include (CTest)
 
   set(TESTS common/tests/unit/messages.cpp common/tests/unit/uuid.cpp)
   foreach(test ${TESTS})
