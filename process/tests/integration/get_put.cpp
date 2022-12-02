@@ -34,18 +34,33 @@ public:
   );
 };
 
-size_t generate_input(std::string key, const runtime::Buffer<char> & buf)
+size_t generate_input_binary(std::string key, const runtime::Buffer<char> & buf)
 {
   InputMsgKey input{key};
   boost::interprocess::bufferstream stream(buf.data(), buf.size);
   cereal::BinaryOutputArchive archive_out{stream};
   archive_out(input);
-  assert(stream.good());
+  EXPECT_TRUE(stream.good());
   size_t pos = stream.tellp();
   return pos;
 }
 
-class ProcessMessagingTest : public testing::TestWithParam<const char*> {
+size_t generate_input_json(std::string key, const runtime::Buffer<char> & buf)
+{
+  InputMsgKey input{key};
+  boost::interprocess::bufferstream stream(buf.data(), buf.size);
+  {
+    cereal::JSONOutputArchive archive_out{stream};
+    archive_out(cereal::make_nvp("input", input));
+    EXPECT_TRUE(stream.good());
+  }
+  size_t pos = stream.tellp();
+  // Ensure that other languages will interpret the data correctly
+  buf.data()[pos] = '\0';
+  return pos + 1;
+}
+
+class ProcessMessagingTest : public testing::TestWithParam<std::tuple<const char*, const char*>> {
 public:
   void SetUp(int workers)
   {
@@ -56,8 +71,11 @@ public:
     auto path = std::filesystem::canonical("/proc/self/exe").parent_path() / "integration";
     cfg.code.location = path;
     cfg.code.config_location = "configuration.json";
+    cfg.code.language = runtime::functions::string_to_language(std::get<1>(GetParam()));
 
     cfg.function_workers = workers;
+    // process/tests/<exe> -> process
+    cfg.deployment_location = std::filesystem::canonical("/proc/self/exe").parent_path().parent_path();
 
     controller = std::make_unique<Controller>(cfg);
     controller->set_remote(&server);
@@ -85,6 +103,16 @@ public:
   {
     controller->shutdown();
     controller_thread.join();
+  }
+
+  size_t generate_input(std::string key, const runtime::Buffer<char> & buf)
+  {
+    if(cfg.code.language == runtime::functions::Language::CPP) {
+      return generate_input_binary(key, buf);
+    } else if(cfg.code.language == runtime::functions::Language::PYTHON) {
+      return generate_input_json(key, buf);
+    }
+    return 0;
   }
 
   std::thread controller_thread;
@@ -139,7 +167,7 @@ TEST_P(ProcessMessagingTest, GetPutOneWorker)
 
   const int BUF_LEN = 1024;
   std::string put_function_name = "send_message";
-  std::string get_function_name = GetParam();
+  std::string get_function_name = std::get<0>(GetParam());
   std::string process_id = "remote-process-1";
   std::array<std::string, 2> invocation_id = { "first_id", "second_id" };
 
@@ -160,7 +188,7 @@ TEST_P(ProcessMessagingTest, GetPutOneWorker)
     controller->dataplane_message(std::move(msg), std::move(buf));
 
     // Wait for the invocation to finish
-    ASSERT_EQ(std::future_status::ready, saved_results[0].finished.get_future().wait_for(std::chrono::seconds(3)));
+    ASSERT_EQ(std::future_status::ready, saved_results[0].finished.get_future().wait_for(std::chrono::seconds(1)));
 
     // Dataplane message
     EXPECT_FALSE(saved_results[0].process.has_value());
@@ -183,7 +211,7 @@ TEST_P(ProcessMessagingTest, GetPutOneWorker)
     controller->remote_message(std::move(msg), std::move(buf), process_id);
 
     // Wait for the invocation to finish
-    ASSERT_EQ(std::future_status::ready, saved_results[1].finished.get_future().wait_for(std::chrono::seconds(3)));
+    ASSERT_EQ(std::future_status::ready, saved_results[1].finished.get_future().wait_for(std::chrono::seconds(1)));
 
     // Remote message
     EXPECT_TRUE(saved_results[1].process.has_value());
@@ -195,8 +223,14 @@ TEST_P(ProcessMessagingTest, GetPutOneWorker)
 
 INSTANTIATE_TEST_SUITE_P(ProcessGetPutTestSelf,
                          ProcessMessagingTest,
-                         testing::Values("get_message_self", "get_message_any", "get_message_explicit")
-                         );
+                         testing::Values(
+                           std::make_tuple("get_message_self", "cpp"),
+                           std::make_tuple("get_message_self", "python"),
+                           std::make_tuple("get_message_any", "cpp"),
+                           std::make_tuple("get_message_any", "cpp"),
+                           std::make_tuple("get_message_explicit", "python"),
+                           std::make_tuple("get_message_explicit", "python")
+                         ));
 /**
  * (1) Get message blocking, (2) function puts a message that activates it.
  *
@@ -243,7 +277,7 @@ TEST_P(ProcessMessagingTest, GetPutTwoWorkers)
 
   // Wait for both invocations to finish
   for(int i = 0; i < 2; ++i) {
-    ASSERT_EQ(std::future_status::ready, saved_results[i].finished.get_future().wait_for(std::chrono::seconds(3)));
+    ASSERT_EQ(std::future_status::ready, saved_results[i].finished.get_future().wait_for(std::chrono::seconds(1)));
   }
 
   // Results will arrive in a different order because they are executed by different workers.

@@ -42,6 +42,8 @@ class Functions:
         mod = importlib.util.module_from_spec(spec)
         loader.exec_module(mod)
 
+        sys.modules[name] = mod
+
         return mod
 
     def get_func(self, func_name):
@@ -88,6 +90,8 @@ def invoke(process_id, ipc_mode, ipc_name, code_location, code_config_location):
         if ret is None:
             print("Function did not return status!")
             ret = 1
+        else:
+            print("Function ended with status {}", ret)
 
         invoker.finish(context.invocation_id, context.as_buffer(), ret);
 

@@ -63,12 +63,14 @@ struct InputMsgKey
 {
   std::string message_key;
 
-  void save(cereal::BinaryOutputArchive& archive) const
+  template<typename Ar>
+  void save(Ar & archive) const
   {
     archive(CEREAL_NVP(message_key));
   }
 
-  void load(cereal::BinaryInputArchive& archive)
+  template<typename Ar>
+  void load(Ar & archive)
   {
     archive(CEREAL_NVP(message_key));
   }

@@ -1,4 +1,6 @@
 
+import pickle
+
 class BufferWriter:
 
     def __init__(self, buf):
@@ -27,3 +29,11 @@ class BufferStringWriter:
 
         self.view[ pos : pos + str_len ] = str_encoded
         self.buffer.length = pos + str_len
+
+def serialize(buffer, obj):
+
+    pickle.dump(obj, BufferWriter(buffer))
+
+def deserialize(buffer):
+
+    return pickle.loads(buffer.view_readable())

@@ -24,9 +24,10 @@ namespace praas::function {
 
   Buffer Context::get_buffer(size_t size)
   {
-    _user_buffers.emplace_back(new std::byte[size], 0, size);
+    _user_buffers.emplace_back(new std::byte[size], size, 0);
     return Buffer{
-        _user_buffers.back().ptr.get(), _user_buffers.back().size, _user_buffers.back().len};
+        _user_buffers.back().ptr.get(), _user_buffers.back().len, _user_buffers.back().size
+    };
   }
 
   void Context::write_output(const std::byte* ptr, size_t len, size_t pos)
@@ -60,11 +61,12 @@ namespace praas::function {
     process::runtime::ipc::PutRequest req;
     req.process_id(destination);
     req.name(msg_key);
-    req.data_len(buf.size);
+    req.data_len(buf.len);
 
     // find the buffer
     for (auto& user_buf : _user_buffers) {
       if (user_buf.data() == buf.ptr) {
+        user_buf.len = buf.len;
         _invoker.put(req, user_buf);
         return;
       }

@@ -288,11 +288,12 @@ namespace praas::process {
 
                 } else {
 
+                  int length = payload.len;
                   bool success = _mailbox.put(std::string{req.name()}, _process_id, payload);
                   if(!success) {
                     spdlog::error("Could not store message to itself, with key {}", req.name());
                   } else {
-                    spdlog::info("Stored a message to {}, with key {}", _process_id, req.name());
+                    spdlog::info("Stored a message to {}, with key {}, length {}", _process_id, req.name(), length);
                   }
 
                 }
@@ -309,7 +310,7 @@ namespace praas::process {
                 return_req.process_id(req.process_id());
                 return_req.name(req.name());
 
-                spdlog::info("Returned message for key {}, source {}", req.name(), req.process_id());
+                spdlog::info("Returned message for key {}, source {}, length {}", req.name(), req.process_id(), buf.value().len);
                 worker.ipc_write().send(return_req, std::move(buf.value()));
               } else {
 
