@@ -35,7 +35,8 @@
         .def_property_readonly("process_id", &praas::function::Context::process_id)
         .def("start_invocation", &praas::function::Context::start_invocation)
         .def("end_invocation", &praas::function::Context::end_invocation)
-        .def("get_output_buffer", &praas::function::Context::get_output_buffer)
+        .def("get_output_buffer", &praas::function::Context::get_output_buffer, py::arg("size") = 0)
+        .def("set_output_buffer", &praas::function::Context::set_output_buffer)
         .def("as_buffer", &praas::function::Context::as_buffer);
 
     py::class_<praas::function::Buffer>(m, "Buffer")
@@ -44,10 +45,16 @@
         .def_readonly("size", &praas::function::Buffer::size)
         .def_readwrite("length", &praas::function::Buffer::len)
         .def("str", &praas::function::Buffer::str)
-        .def("view", [](praas::function::Buffer & self) {
+        .def("view_readable", [](praas::function::Buffer & self) {
            return py::memoryview::from_memory(
             self.ptr,
             sizeof(std::byte) * self.len
+          );
+        })
+        .def("view_writable", [](praas::function::Buffer & self) {
+           return py::memoryview::from_memory(
+            self.ptr,
+            sizeof(std::byte) * self.size
           );
         });
   }

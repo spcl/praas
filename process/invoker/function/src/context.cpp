@@ -17,6 +17,11 @@ namespace praas::function {
     return _output_buf_view;
   }
 
+  void Context::set_output_buffer(Buffer buf)
+  {
+    _output_buf_view = buf;
+  }
+
   Buffer Context::get_buffer(size_t size)
   {
     _user_buffers.emplace_back(new std::byte[size], 0, size);

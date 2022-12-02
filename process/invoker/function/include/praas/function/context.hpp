@@ -46,6 +46,8 @@ namespace praas::function {
     // The pointer must stay valid until the end
     Buffer& get_output_buffer(size_t size = 0);
 
+    void set_output_buffer(Buffer buf);
+
     Buffer get_buffer(size_t size);
 
     void write_output(const std::byte* ptr, size_t len, size_t pos);
@@ -54,6 +56,7 @@ namespace praas::function {
     {
       _invoc_id = invoc_id;
       _output.len = 0;
+      _output_buf_view.len = 0;
     }
 
     void end_invocation()

@@ -155,6 +155,12 @@ if(Python_FOUND AND pybind11_FOUND)
     target_link_libraries(_pypraas PRIVATE function_lib)
     process_link_private(_pypraas)
 
+    set_target_properties(_pypraas PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/pypraas)
+
+    configure_file(invoker/python/pypraas/__init__.py ${CMAKE_CURRENT_BINARY_DIR}/pypraas/__init__.py COPYONLY)
+    configure_file(invoker/python/pypraas/buffer.py ${CMAKE_CURRENT_BINARY_DIR}/pypraas/buffer.py COPYONLY)
+
+
 else()
 
     set(PRAAS_WITH_INVOKER_PYTHON FALSE)

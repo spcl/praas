@@ -85,11 +85,6 @@ def invoke(process_id, ipc_mode, ipc_name, code_location, code_config_location):
 
         ret = func(invocation, context)
 
-        print("ID", context.invocation_id)
-        print("Key", invocation.key)
-        print("Name", invocation.function_name)
-        print("Len", len(invocation.args), flush=True)
-
         # FIXME: invoke + return code
         invoker.finish(context.invocation_id, context.as_buffer(), ret);
 
