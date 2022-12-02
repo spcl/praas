@@ -60,7 +60,7 @@ size_t generate_input_json(std::string key, const runtime::Buffer<char> & buf)
   return pos + 1;
 }
 
-class ProcessMessagingTest : public testing::TestWithParam<std::tuple<const char*, const char*>> {
+class ProcessMessagingTest : public testing::TestWithParam<std::tuple<std::string, std::string>> {
 public:
   void SetUp(int workers)
   {
@@ -223,13 +223,9 @@ TEST_P(ProcessMessagingTest, GetPutOneWorker)
 
 INSTANTIATE_TEST_SUITE_P(ProcessGetPutTestSelf,
                          ProcessMessagingTest,
-                         testing::Values(
-                           std::make_tuple("get_message_self", "cpp"),
-                           std::make_tuple("get_message_self", "python"),
-                           std::make_tuple("get_message_any", "cpp"),
-                           std::make_tuple("get_message_any", "cpp"),
-                           std::make_tuple("get_message_explicit", "python"),
-                           std::make_tuple("get_message_explicit", "python")
+                         testing::Combine(
+                           testing::Values("get_message_self", "get_message_any", "get_message_explicit"),
+                           testing::Values("cpp", "python")
                          ));
 /**
  * (1) Get message blocking, (2) function puts a message that activates it.
