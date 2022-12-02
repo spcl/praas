@@ -102,13 +102,13 @@ namespace praas::process::runtime {
 
     operator BufferAccessor<T>() const
     {
-      return BufferAccessor<T>(ptr.get(), size);
+      return BufferAccessor<T>(ptr.get(), len);
     }
 
     template<typename U>
     BufferAccessor<U> accessor() const
     {
-      return BufferAccessor<U>(reinterpret_cast<U*>(ptr.get()), size);
+      return BufferAccessor<U>(reinterpret_cast<U*>(ptr.get()), len);
     }
   };
 

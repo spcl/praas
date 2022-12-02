@@ -151,7 +151,7 @@ namespace praas::process::runtime::ipc {
 
       auto size = (len - pos < _msg_size) ? len - pos : _msg_size;
       int ret = mq_send(_queue, data + pos, size, 1);
-      spdlog::info("Send {} at pos {} out of {} {}", ret, pos, size, errno);
+      spdlog::info("Sending status {}, {} bytes, at pos {}, out of {} bytes to sent, errno {}", ret, size, pos, len, errno);
 
       if (ret == -1) {
 

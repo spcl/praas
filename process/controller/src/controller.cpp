@@ -278,7 +278,7 @@ namespace praas::process {
                 const FunctionWorker* pending_worker = _pending_msgs.find_get(std::string{req.name()}, _process_id);
                 if(pending_worker) {
 
-                    spdlog::info("Replying message with key {}", _process_id, req.name());
+                    spdlog::info("Replying message to {} with key {}, message len {}", _process_id, req.name(), payload.len);
 
                     runtime::ipc::GetRequest return_req;
                     return_req.process_id(_process_id);
