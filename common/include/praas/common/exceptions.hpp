@@ -56,6 +56,11 @@ namespace praas::common {
     InvalidArgument(const std::string& name) : PraaSException(name) {}
   };
 
+  struct FunctionGetFailure : PraaSException {
+
+    FunctionGetFailure(const std::string& name) : PraaSException(name) {}
+  };
+
 } // namespace praas::common
 
 #endif
