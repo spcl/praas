@@ -29,7 +29,7 @@ public:
   MOCK_METHOD(void, put_message, (), (override));
   MOCK_METHOD(
       void, invocation_result,
-      (const std::optional<std::string>&, std::string_view, int, runtime::Buffer<char> &&), (override)
+      (remote::RemoteType, std::optional<std::string_view>, std::string_view, int, runtime::Buffer<char> &&), (override)
   );
 };
 
@@ -105,7 +105,7 @@ public:
 
     EXPECT_CALL(server, invocation_result)
         .WillRepeatedly(
-            [&](auto _process, auto _id, int _return_code, auto && _payload) mutable {
+            [&](auto source, auto _process, auto _id, int _return_code, auto && _payload) mutable {
 
               saved_results[idx].process = _process;
               saved_results[idx].id = _id;

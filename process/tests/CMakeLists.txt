@@ -19,6 +19,7 @@ set(TESTS integration/invocation.cpp
           integration/invocation_many_workers.cpp
           integration/get_put.cpp
           integration/local_invocation.cpp
+          integration/remote.cpp
 )
 foreach(test ${TESTS})
 
@@ -26,6 +27,7 @@ foreach(test ${TESTS})
   process_dependencies(${test_name})
   target_link_libraries(${test_name} PRIVATE controller_lib)
   process_link(${test_name})
+  target_link_libraries(${test_name} PRIVATE praas_sdk)
 
 endforeach()
 
