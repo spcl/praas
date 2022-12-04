@@ -2,6 +2,7 @@
 #define PRAAS_FUNCTION_CONTEXT_HPP
 
 #include <praas/function/buffer.hpp>
+#include <praas/function/invocation.hpp>
 #include <praas/process/runtime/buffer.hpp>
 
 #include <memory>
@@ -29,6 +30,8 @@ namespace praas::function {
 
     // Non-owning!
     Buffer get(std::string_view source, std::string_view msg_key);
+
+    function::InvocationResult invoke(std::string_view process_id, std::string_view function, std::string_view invocation_id, Buffer input);
 
     // FIXME: state ops
     // FIXME: invocation ops

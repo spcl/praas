@@ -55,9 +55,7 @@ size_t generate_input_json(std::string key, const runtime::Buffer<char> & buf)
     EXPECT_TRUE(stream.good());
   }
   size_t pos = stream.tellp();
-  // Ensure that other languages will interpret the data correctly
-  buf.data()[pos] = '\0';
-  return pos + 1;
+  return pos;
 }
 
 class ProcessMessagingTest : public testing::TestWithParam<std::tuple<std::string, std::string>> {
@@ -221,12 +219,22 @@ TEST_P(ProcessMessagingTest, GetPutOneWorker)
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(ProcessGetPutTestSelf,
-                         ProcessMessagingTest,
-                         testing::Combine(
-                           testing::Values("get_message_self", "get_message_any", "get_message_explicit"),
-                           testing::Values("cpp", "python")
-                         ));
+#if defined(PRAAS_WITH_INVOKER_PYTHON)
+  INSTANTIATE_TEST_SUITE_P(ProcessGetPutTestSelf,
+                           ProcessMessagingTest,
+                           testing::Combine(
+                             testing::Values("get_message_self", "get_message_any", "get_message_explicit"),
+                             testing::Values("cpp", "python")
+                           ));
+#else
+  INSTANTIATE_TEST_SUITE_P(ProcessGetPutTestSelf,
+                           ProcessMessagingTest,
+                           testing::Combine(
+                             testing::Values("get_message_self", "get_message_any", "get_message_explicit"),
+                             testing::Values("cpp")
+                           ));
+#endif
+
 /**
  * (1) Get message blocking, (2) function puts a message that activates it.
  *

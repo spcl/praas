@@ -57,9 +57,7 @@ size_t generate_input_json(int arg1, int arg2, const runtime::Buffer<char> & buf
     EXPECT_TRUE(stream.good());
   }
   size_t pos = stream.tellp();
-  // Ensure that other languages will interpret the data correctly
-  buf.data()[pos] = '\0';
-  return pos + 1;
+  return pos;
 }
 
 int get_output_binary(const runtime::Buffer<char> & buf)
@@ -75,7 +73,7 @@ int get_output_binary(const runtime::Buffer<char> & buf)
 int get_output_json(const runtime::Buffer<char> & buf)
 {
   Output out;
-  boost::iostreams::stream<boost::iostreams::array_source> stream(buf.data(), buf.size);
+  boost::iostreams::stream<boost::iostreams::array_source> stream(buf.data(), buf.len);
   cereal::JSONInputArchive archive_in{stream};
   out.load(archive_in);
 
@@ -308,8 +306,14 @@ TEST_P(ProcessManyWorkersInvocationTest, ConcurrentInvocations)
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(ProcessManyWorkersInvocationTest,
-                         ProcessManyWorkersInvocationTest,
-                         testing::Values("cpp", "python")
-                         );
-
+#if defined(PRAAS_WITH_INVOKER_PYTHON)
+  INSTANTIATE_TEST_SUITE_P(ProcessManyWorkersInvocationTest,
+                           ProcessManyWorkersInvocationTest,
+                           testing::Values("cpp", "python")
+                           );
+#else
+  INSTANTIATE_TEST_SUITE_P(ProcessManyWorkersInvocationTest,
+                           ProcessManyWorkersInvocationTest,
+                           testing::Values("cpp")
+                           );
+#endif

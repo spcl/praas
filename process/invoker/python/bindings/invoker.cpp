@@ -1,7 +1,7 @@
 #include <praas/process/invoker.hpp>
 #include <praas/process/runtime/ipc/ipc.hpp>
 
-#if defined(WITH_INVOKER_PYTHON)
+#if defined(PRAAS_WITH_INVOKER_PYTHON)
   #include <pybind11/pybind11.h>
   #include <pybind11/stl.h>
 

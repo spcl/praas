@@ -107,4 +107,39 @@ namespace praas::function {
     return Buffer{buf.ptr.get(), buf.len, buf.size};
   }
 
+  function::InvocationResult Context::invoke(std::string_view process_id, std::string_view function_name, std::string_view invocation_id, Buffer input)
+  {
+    process::runtime::ipc::InvocationRequest req;
+    req.process_id(process_id);
+    req.function_name(function_name);
+    req.invocation_id(invocation_id);
+    req.buffers(input.len);
+
+    // find the buffer
+    bool submitted = false;
+    for (auto& user_buf : _user_buffers) {
+      if (user_buf.data() == input.ptr) {
+        user_buf.len = input.len;
+        _invoker.put(req, user_buf);
+        submitted = true;
+      }
+    }
+    // Buffer not found
+    if(!submitted)
+      throw common::PraaSException{"Submitted vinoke request with a non-existing buffer!"};
+
+    auto [result, data] = _invoker.get<process::runtime::ipc::InvocationResultParsed>();
+
+    if (req.invocation_id() != result.invocation_id()) {
+      throw common::FunctionGetFailure(
+          fmt::format("Received incorrect invocation result - incorrect invocation id {}", result.invocation_id())
+      );
+    }
+
+    _user_buffers.push_back(std::move(data));
+    auto& buf = _user_buffers.back();
+
+    return InvocationResult{std::string{invocation_id}, std::string{function_name}, result.return_code(), Buffer{buf.ptr.get(), buf.len, buf.size}};
+  }
+
 }; // namespace praas::function

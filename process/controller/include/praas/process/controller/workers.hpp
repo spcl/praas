@@ -37,6 +37,11 @@ namespace praas::process {
       return source == Type::DATAPLANE || source == Type::PROCESS;
     }
 
+    bool is_local() const
+    {
+      return !is_remote();
+    }
+
     Type source;
     std::optional<std::string> remote_process;
   };

@@ -6,10 +6,6 @@
 #include <string>
 #include <vector>
 
-#if defined(PRAAS_WITH_INVOKER_PYTHON)
-  #include <pybind11/pybind11.h>
-#endif
-
 namespace praas::function {
 
   struct Invocation {
@@ -22,6 +18,19 @@ namespace praas::function {
 
     std::vector<praas::function::Buffer> args;
 
+  };
+
+  struct InvocationResult {
+
+    //InvocationResult() = default;
+
+    std::string key;
+
+    std::string function_name;
+
+    int return_code;
+
+    praas::function::Buffer payload;
   };
 
 }

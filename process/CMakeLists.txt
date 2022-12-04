@@ -148,7 +148,7 @@ if(Python_FOUND AND pybind11_FOUND)
 
     message(STATUS "Building Python invoker.")
     set(PRAAS_WITH_INVOKER_PYTHON TRUE)
-    add_compile_definitions(WITH_INVOKER_PYTHON)
+    add_compile_definitions(PRAAS_WITH_INVOKER_PYTHON)
     add_feature_info(invoker_python ON "enabled")
 
     pybind11_add_module(_pypraas invoker/python/bindings/function.cpp invoker/python/bindings/invoker.cpp)
@@ -170,6 +170,6 @@ else()
 
 endif()
 
-if(WITH_TESTING)
+if(PRAAS_WITH_TESTING)
   add_subdirectory(tests)
 endif()

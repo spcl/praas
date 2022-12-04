@@ -3,7 +3,7 @@
 #include <praas/function/invocation.hpp>
 #include <praas/process/runtime/buffer.hpp>
 
-#if defined(WITH_INVOKER_PYTHON)
+#if defined(PRAAS_WITH_INVOKER_PYTHON)
 
   #include <pybind11/pybind11.h>
   #include <pybind11/stl.h>
@@ -32,6 +32,15 @@
                       &praas::function::Invocation::function_name)
         .def_readonly("args", &praas::function::Invocation::args);
 
+    py::class_<praas::function::InvocationResult>(m, "InvocationResult")
+        .def(py::init())
+        .def_readonly("key", &praas::function::InvocationResult::key)
+        .def_readonly("function_name",
+                      &praas::function::InvocationResult::function_name)
+        .def_readonly("return_code",
+                      &praas::function::InvocationResult::return_code)
+        .def_readonly("payload", &praas::function::InvocationResult::payload);
+
     py::class_<praas::function::Context>(m, "Context")
         .def_property_readonly("invocation_id",
                                &praas::function::Context::invocation_id)
@@ -49,7 +58,8 @@
         .def("put", py::overload_cast<std::string_view, std::string_view,
                                       praas::function::Buffer>(
                         &praas::function::Context::put))
-        .def("get", &praas::function::Context::get);
+        .def("get", &praas::function::Context::get)
+        .def("invoke", &praas::function::Context::invoke);
 
     py::class_<praas::function::Buffer>(m, "Buffer")
         .def(py::init())

@@ -117,3 +117,35 @@ def get_message_any(invocation, context):
 def get_message_explicit(invocation, context):
     return get_message(invocation, context.process_id, context)
 
+def power(invocation, context):
+
+    input_str = invocation.args[0].str()
+    input_data = json.loads(input_str)
+
+    if input_data['input']['arg2'] > 2:
+
+        input_data['input']['arg2'] = input_data['input']['arg2'] - 1
+        buf = context.get_buffer(1024)
+        json.dump(input_data, pypraas.BufferStringWriter(buf))
+
+        invoc_result = context.invoke(
+            context.process_id,
+            "power",
+            "second_add" + str(input_data['input']['arg2'] - 1),
+            buf
+        )
+        result_data = json.loads(invoc_result.payload.str())
+
+        result = Output(result_data['result'] * input_data['input']['arg1'])
+
+    else:
+        result = Output(input_data['input']['arg1'] ** 2)
+
+    out_buf = context.get_output_buffer()
+
+    json.dump(result, pypraas.BufferStringWriter(out_buf), cls = EnhancedJSONEncoder)
+
+    context.set_output_buffer(out_buf)
+
+    return 0
+

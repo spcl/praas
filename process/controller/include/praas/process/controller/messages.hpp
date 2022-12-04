@@ -27,7 +27,7 @@ namespace praas::process::message {
 
     Type type = Type::NONE;
 
-    std::string source{};
+    std::optional<std::string> source{};
 
     const FunctionWorker* worker{};
 
@@ -47,7 +47,12 @@ namespace praas::process::message {
 
     void insert_get(const std::string& key, const std::string& source, FunctionWorker& worker);
 
+    void insert_invocation(std::string_view key, FunctionWorker& worker);
+
     const FunctionWorker* find_get(const std::string& key, const std::string& source);
+
+    // FIXME: inlined vector?
+    void find_invocation(std::string_view key, std::vector<const FunctionWorker*> & output);
 
   private:
 
@@ -60,7 +65,10 @@ namespace praas::process::message {
         }
     };
 
-    // Match by key
+    // Match by key. We cannot do a tuple<str, str> key because we might want to search for *any*
+    // message.
+    //
+    // For invocations, we might have multiple senders waiting for a result (multi-source).
     std::unordered_multimap<std::string, PendingMessage> _msgs;
 
     static constexpr std::string_view ANY_PROCESS = "ANY";

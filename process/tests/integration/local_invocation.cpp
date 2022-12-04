@@ -80,7 +80,7 @@ int get_output_json(const runtime::Buffer<char> & buf)
   return out.result;
 }
 
-class ProcessInvocationTest : public testing::TestWithParam<std::string> {
+class ProcessLocalInvocationTest : public testing::TestWithParam<std::string> {
 public:
   void SetUp() override
   {
@@ -95,6 +95,8 @@ public:
 
     // process/tests/<exe> -> process
     cfg.deployment_location = std::filesystem::canonical("/proc/self/exe").parent_path().parent_path();
+
+    cfg.function_workers = 4;
 
     controller = std::make_unique<Controller>(cfg);
     controller->set_remote(&server);
@@ -162,41 +164,33 @@ public:
 };
 
 /**
- * Regular invocations.
- * Return payload 0.
- * Remote message vs dataplane message.
- * High return payload (megabytes), requiring multi-part messages).
- * Error code from failing invocations.
+ * Four workers.
  *
- * Python invocations.
- *
- * Multi-function invocations - 2 functions on 1 worker, 2 functions on 2 workers.
- * Verify they are being executed concurrently.
+ * Invoke one, two, and three recursive functions.
  */
 
-TEST_P(ProcessInvocationTest, SimpleInvocation)
+TEST_P(ProcessLocalInvocationTest, SimpleInvocation)
 {
   const int BUF_LEN = 1024;
-  std::string function_name = "add";
+  std::string function_name = "power";
   std::string process_id = "remote-process-1";
-  std::array<std::string, 2> invocation_id = { "first_id", "second_id" };
+  std::array<std::string, 3> invocation_id = { "first_id", "second_id", "third_id" };
 
-  std::array<std::tuple<int, int>, 2> args = { std::make_tuple(42, 4), std::make_tuple(-1, 35) };
-  std::array<int, 2> results = { 46, 34 };
+  std::array<std::tuple<int, int>, 3> args = { std::make_tuple(2, 3), std::make_tuple(2, 4), std::make_tuple(3, 5)};
+  std::array<int, 3> results = { 8, 16, 243};
 
   runtime::BufferQueue<char> buffers(10, 1024);
 
-  reset();
+  for(int i = 0; i < invocation_id.size(); ++i) {
 
-  // First invocation
-  {
-    int idx = 0;
+    reset();
+
     praas::common::message::InvocationRequest msg;
     msg.function_name(function_name);
-    msg.invocation_id(invocation_id[idx]);
+    msg.invocation_id(invocation_id[i]);
 
     auto buf = buffers.retrieve_buffer(BUF_LEN);
-    buf.len = generate_input(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
+    buf.len = generate_input(std::get<0>(args[i]), std::get<1>(args[i]), buf);
     // Send more data than needed - check that it still works
     msg.payload_size(buf.len + 64);
 
@@ -207,141 +201,24 @@ TEST_P(ProcessInvocationTest, SimpleInvocation)
 
     // Dataplane message
     EXPECT_FALSE(process.has_value());
-    EXPECT_EQ(id, invocation_id[idx]);
+    EXPECT_EQ(id, invocation_id[i]);
     EXPECT_EQ(return_code, 0);
 
     ASSERT_TRUE(payload.len > 0);
     int res = get_output(payload);
-    EXPECT_EQ(res, results[idx]);
+    EXPECT_EQ(res, results[i]);
+
   }
-
-  reset();
-
-  // Second invocation
-  {
-    int idx = 1;
-    praas::common::message::InvocationRequest msg;
-    msg.function_name(function_name);
-    msg.invocation_id(invocation_id[idx]);
-
-    auto buf = buffers.retrieve_buffer(BUF_LEN);
-    buf.len = generate_input(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
-    msg.payload_size(buf.len);
-
-    controller->remote_message(std::move(msg), std::move(buf), process_id);
-
-    // Wait for the invocation to finish
-    ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(1)));
-
-    // Remote message
-    EXPECT_TRUE(process.has_value());
-    EXPECT_EQ(process.value(), process_id);
-    EXPECT_EQ(id, invocation_id[idx]);
-    EXPECT_EQ(return_code, 0);
-
-    ASSERT_TRUE(payload.len > 0);
-    int res = get_output(payload);
-    EXPECT_EQ(res, results[idx]);
-  }
-}
-
-TEST_P(ProcessInvocationTest, ZeroPayloadOutput)
-{
-  std::string function_name = "zero_return";
-  std::string invocation_id = "first_id";
-
-  praas::common::message::InvocationRequest msg;
-  msg.function_name(function_name);
-  msg.invocation_id(invocation_id);
-
-  auto buf = runtime::Buffer<char>{};
-
-  controller->dataplane_message(std::move(msg), std::move(buf));
-
-  // Wait for the invocation to finish
-  ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(1)));
-
-  // Dataplane message
-  EXPECT_FALSE(process.has_value());
-  EXPECT_EQ(id, invocation_id);
-  EXPECT_EQ(return_code, 0);
-
-  EXPECT_EQ(payload.len, 0);
-}
-
-TEST_P(ProcessInvocationTest, ReturnError)
-{
-  std::string function_name = "error_function";
-  std::string invocation_id = "first_id";
-
-  praas::common::message::InvocationRequest msg;
-  msg.function_name(function_name);
-  msg.invocation_id(invocation_id);
-
-  auto buf = runtime::Buffer<char>{};
-
-  controller->dataplane_message(std::move(msg), std::move(buf));
-
-  // Wait for the invocation to finish
-  ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(1)));
-
-  // Dataplane message
-  EXPECT_FALSE(process.has_value());
-  EXPECT_EQ(id, invocation_id);
-  EXPECT_EQ(payload.len, 0);
-  EXPECT_EQ(return_code, 1);
-}
-
-TEST_P(ProcessInvocationTest, LargePayload)
-{
-  // 4 megabyte input - 1 mega of integers
-  const int BUF_LEN = 1024 * 1024 * sizeof(int);
-  std::string function_name = "large_payload";
-  std::string process_id = "remote-process-1";
-  std::string invocation_id = "first_id";
-
-  runtime::BufferQueue<char> buffers(1, BUF_LEN);
-
-  praas::common::message::InvocationRequest msg;
-  msg.function_name(function_name);
-  msg.invocation_id(invocation_id);
-
-  auto buf = buffers.retrieve_buffer(BUF_LEN);
-  int data_len = BUF_LEN / sizeof(int);
-  int* data_input = reinterpret_cast<int*>(buf.data());
-  for(int i = 0; i < data_len; ++i) {
-    data_input[i] = i;
-  }
-  buf.len = BUF_LEN;
-
-  msg.payload_size(buf.len);
-
-  controller->remote_message(std::move(msg), std::move(buf), process_id);
-
-  // Wait for the invocation to finish
-  ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(1)));
-
-  EXPECT_TRUE(process.has_value());
-  EXPECT_EQ(process.value(), process_id);
-  EXPECT_EQ(id, invocation_id);
-  EXPECT_EQ(return_code, 0);
-
-  ASSERT_EQ(payload.len, BUF_LEN);
-  int* data_output = reinterpret_cast<int*>(payload.data());
-  for(int i = 0; i < data_len; ++i) {
-    EXPECT_EQ(i + 2, data_output[i]);
-  }
-
 }
 
 #if defined(PRAAS_WITH_INVOKER_PYTHON)
-  INSTANTIATE_TEST_SUITE_P(ProcessInvocationTest,
-                           ProcessInvocationTest,
+  INSTANTIATE_TEST_SUITE_P(ProcessLocalInvocationTest,
+                           ProcessLocalInvocationTest,
                            testing::Values("cpp", "python")
                            );
 #else
-  INSTANTIATE_TEST_SUITE_P(ProcessInvocationTest,
-                           ProcessInvocationTest,
+  INSTANTIATE_TEST_SUITE_P(ProcessLocalInvocationTest,
+                           ProcessLocalInvocationTest,
                            testing::Values("cpp")
                            );
 #endif

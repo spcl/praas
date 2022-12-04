@@ -58,7 +58,7 @@ namespace praas::process {
     // print out all the frames to stderr
     fprintf(stderr, "Error: signal %d:\n", signum);
     backtrace_symbols_fd(array, size, STDERR_FILENO);
-    //exit(1);
+    exit(1);
   }
 
   void set_signals()
@@ -234,8 +234,6 @@ namespace praas::process {
     auto parsed_msg = msg.parse();
 
     // FIXME: invocation request
-    // FIXME: put
-    // FIXME: get
     std::visit(
         runtime::ipc::overloaded{
             [&, this](runtime::ipc::InvocationResultParsed& req) mutable {
@@ -252,7 +250,6 @@ namespace praas::process {
 
                 // FIXME: send to the tcp server
                 // FIXME: check work queue for the source
-                // FIXME: invoke locally
                 if (invocation.source.is_remote()) {
 
                   _server->invocation_result(
@@ -261,6 +258,28 @@ namespace praas::process {
                     req.return_code(),
                     std::move(payload)
                   );
+
+                } else if(invocation.source.is_local()) {
+
+                  std::vector<const FunctionWorker*> pending_workers;
+                  _pending_msgs.find_invocation(req.invocation_id(), pending_workers);
+
+                  // FIXME: remove this copy, our message types are broken
+                  runtime::ipc::InvocationResult result;
+                  result.invocation_id(req.invocation_id());
+                  result.return_code(req.return_code());
+                  result.buffer_length(req.buffer_length());
+
+                  for(const FunctionWorker* worker : pending_workers) {
+
+                    spdlog::info("Replying invocation locally with key {}, message len {}",
+                      result.invocation_id(), payload.len
+                    );
+
+                    worker->ipc_write().send(result, payload);
+
+                  }
+
                 }
 
               } else {
@@ -268,9 +287,22 @@ namespace praas::process {
               }
               _workers.finish(worker);
             },
+            [&, this](runtime::ipc::InvocationRequestParsed& req) mutable {
+              spdlog::info(
+                  "Received invocation request of {}, status {}, input size {}",
+                  req.function_name(), req.invocation_id(), payload.len
+              );
+
+              _work_queue.add_payload(
+                  std::string{req.function_name()}, std::string{req.invocation_id()},
+                  std::move(payload),
+                  InvocationSource::from_local()
+              );
+              _pending_msgs.insert_invocation(req.invocation_id(), worker);
+
+            },
             [&, this](runtime::ipc::PutRequestParsed& req) mutable {
 
-              // FIXME: check queue for pending messages
               // FIXME: put remote message to the tcp server
               if(req.process_id() == SELF_PROCESS || req.process_id() == _process_id) {
 

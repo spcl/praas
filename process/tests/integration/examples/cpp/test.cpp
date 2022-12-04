@@ -3,6 +3,8 @@
 #include <praas/function/invocation.hpp>
 #include <praas/function/context.hpp>
 
+#include <iostream>
+
 extern "C" int add(praas::function::Invocation invocation, praas::function::Context& context)
 {
   Input in{};
@@ -100,5 +102,33 @@ extern "C" int get_message_explicit(praas::function::Invocation invoc, praas::fu
 extern "C" int get_message(praas::function::Invocation invoc, praas::function::Context& context)
 {
   return get_message(invoc, context.process_id(), context);
+}
+
+// Computes arg1 ** arg2
+extern "C" int power(praas::function::Invocation invocation, praas::function::Context& context)
+{
+  Input in{};
+  Output out{};
+
+  invocation.args[0].deserialize(in);
+
+  if(in.arg2 > 2) {
+    Input invoc_in{in.arg1, in.arg2 - 1};
+    auto buf = context.get_buffer(1024);
+    buf.serialize(invoc_in);
+
+    praas::function::InvocationResult invoc_result
+      = context.invoke(context.process_id(), "power", "second_add" + std::to_string(in.arg2-1), buf);
+    invoc_result.payload.deserialize(out);
+    out.result *= in.arg1;
+  } else {
+    out.result = in.arg1 * in.arg1;
+  }
+
+  // Serialize again just for validation
+  auto& output_buf = context.get_output_buffer();
+  output_buf.serialize(out);
+
+  return 0;
 }
 

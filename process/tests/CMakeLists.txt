@@ -18,6 +18,7 @@ endforeach()
 set(TESTS integration/invocation.cpp
           integration/invocation_many_workers.cpp
           integration/get_put.cpp
+          integration/local_invocation.cpp
 )
 foreach(test ${TESTS})
 
