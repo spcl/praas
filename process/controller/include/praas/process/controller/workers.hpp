@@ -2,6 +2,7 @@
 #define PRAAS_PROCESS_CONTROLLER_WORKERS_HPP
 
 #include <praas/process/controller/config.hpp>
+#include <praas/process/controller/remote.hpp>
 #include <praas/process/runtime/buffer.hpp>
 #include <praas/process/runtime/functions.hpp>
 #include <praas/process/runtime/ipc/ipc.hpp>
@@ -15,26 +16,31 @@
 namespace praas::process {
 
   struct InvocationSource {
-    enum class Type { DATAPLANE = 0, LOCAL, PROCESS };
 
     static InvocationSource from_process(const std::string& remote_process)
     {
-      return {Type::PROCESS, remote_process};
+      return {remote::RemoteType::PROCESS, remote_process};
     }
 
     static InvocationSource from_local()
     {
-      return {Type::LOCAL, std::nullopt};
+      return {remote::RemoteType::LOCAL_FUNCTION, std::nullopt};
     }
 
     static InvocationSource from_dataplane()
     {
-      return {Type::DATAPLANE, std::nullopt};
+      return {remote::RemoteType::DATA_PLANE, std::nullopt};
+    }
+
+    static InvocationSource from_controlplane()
+    {
+      return {remote::RemoteType::CONTROL_PLANE, std::nullopt};
     }
 
     bool is_remote() const
     {
-      return source == Type::DATAPLANE || source == Type::PROCESS;
+      return source == remote::RemoteType::DATA_PLANE || source == remote::RemoteType::PROCESS
+        || source == remote::RemoteType::CONTROL_PLANE;
     }
 
     bool is_local() const
@@ -42,7 +48,7 @@ namespace praas::process {
       return !is_remote();
     }
 
-    Type source;
+    remote::RemoteType source;
     std::optional<std::string> remote_process;
   };
 

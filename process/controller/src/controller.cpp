@@ -179,24 +179,36 @@ namespace praas::process {
   }
 
   void Controller::remote_message(
-      praas::common::message::Message&& msg, runtime::Buffer<char>&& payload, std::string process_id
+      praas::common::message::Message && msg, runtime::Buffer<char>&& payload, std::string process_id
   )
   {
     {
       std::lock_guard<std::mutex> lock(_deque_lock);
-      _external_queue.emplace_back(process_id, msg, std::move(payload));
+      _external_queue.emplace_back(remote::RemoteType::PROCESS, process_id, msg, std::move(payload));
     }
     uint64_t tmp = 1;
     common::util::assert_other(write(_event_fd, &tmp, sizeof(tmp)), -1);
   }
 
   void Controller::dataplane_message(
-      praas::common::message::Message&& msg, runtime::Buffer<char>&& payload
+      praas::common::message::Message && msg, runtime::Buffer<char>&& payload
   )
   {
     {
       std::lock_guard<std::mutex> lock(_deque_lock);
-      _external_queue.emplace_back(std::nullopt, msg, std::move(payload));
+      _external_queue.emplace_back(remote::RemoteType::DATA_PLANE, std::nullopt, msg, std::move(payload));
+    }
+    uint64_t tmp = 1;
+    common::util::assert_other(write(_event_fd, &tmp, sizeof(tmp)), -1);
+  }
+
+  void Controller::controlplane_message(
+      praas::common::message::Message && msg, runtime::Buffer<char>&& payload
+  )
+  {
+    {
+      std::lock_guard<std::mutex> lock(_deque_lock);
+      _external_queue.emplace_back(remote::RemoteType::CONTROL_PLANE, std::nullopt, msg, std::move(payload));
     }
     uint64_t tmp = 1;
     common::util::assert_other(write(_event_fd, &tmp, sizeof(tmp)), -1);
@@ -253,13 +265,14 @@ namespace praas::process {
                 if (invocation.source.is_remote()) {
 
                   _server->invocation_result(
+                    invocation.source.source,
                     invocation.source.remote_process,
                     req.invocation_id(),
                     req.return_code(),
                     std::move(payload)
                   );
 
-                } else if(invocation.source.is_local()) {
+                } else {
 
                   std::vector<const FunctionWorker*> pending_workers;
                   _pending_msgs.find_invocation(req.invocation_id(), pending_workers);

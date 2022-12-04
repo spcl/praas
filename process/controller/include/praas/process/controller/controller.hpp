@@ -2,6 +2,7 @@
 #define PRAAS_PROCESS_CONTROLLER_HPP
 
 #include <praas/process/controller/config.hpp>
+#include <praas/process/controller/remote.hpp>
 #include <praas/process/controller/workers.hpp>
 #include <praas/process/runtime/ipc/ipc.hpp>
 #include <praas/process/controller/messages.hpp>
@@ -10,6 +11,7 @@
 
 #include <memory>
 #include <string>
+#include <variant>
 
 #include <oneapi/tbb/concurrent_queue.h>
 
@@ -24,7 +26,8 @@ namespace praas::process {
   struct Controller {
 
     struct ExternalMessage {
-      // No value? Source is data plane.
+      remote::RemoteType source_type;
+      // No value? Source is data or control plane.
       // Value? Process id.
       std::optional<std::string> source;
       praas::common::message::Message msg;
@@ -33,16 +36,7 @@ namespace praas::process {
 
     // State
 
-    // Messages
-
-    // Func queue
-
     // Swapper object
-
-    // TCP Poller object
-
-    // lock-free queue from TCP server
-    // lock-free queue to TCP server
 
     Controller(config::Controller cfg);
 
@@ -58,9 +52,13 @@ namespace praas::process {
 
     void shutdown_channels();
 
+    // FIXME: this is only required because of the split between message and parsed message
+    // There should be one type only!
     void remote_message(praas::common::message::Message &&, runtime::Buffer<char> &&, std::string process_id);
 
     void dataplane_message(praas::common::message::Message &&, runtime::Buffer<char> &&);
+
+    void controlplane_message(praas::common::message::Message &&, runtime::Buffer<char> &&);
 
   private:
 
@@ -111,7 +109,7 @@ namespace praas::process {
     // Queue storing pending invocations
     WorkQueue _work_queue;
 
-    // Server handling remote messages
+    // TCP Server handling remote messages
     remote::Server* _server{};
 
     // Pending messages
