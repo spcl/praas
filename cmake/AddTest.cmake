@@ -1,7 +1,7 @@
 
 function(PraaS_AddTest component target_name test_file)
 
-  if(NOT WITH_TESTING)
+  if(NOT PRAAS_WITH_TESTING)
     message(FATAL_ERROR "Tests are disabled - cannot add tests")
   endif()
 

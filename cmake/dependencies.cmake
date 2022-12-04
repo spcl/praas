@@ -122,10 +122,16 @@ if(NOT DROGON_FOUND)
   FetchContent_Declare(drogon
     GIT_REPOSITORY https://github.com/drogonframework/drogon
   )
+  set (BUILD_TESTING OFF CACHE INTERNAL "Turn off tests")
+  set (BUILD_SQLITE OFF CACHE INTERNAL "Turn off tests")
+  set (BUILD_POSTGRESQL OFF CACHE INTERNAL "Turn off tests")
+  set (BUILD_MYSQL OFF CACHE INTERNAL "Turn off tests")
+  set (BUILD_ORM OFF CACHE INTERNAL "Turn off tests")
+  set (BUILD_BROTLI OFF CACHE INTERNAL "Turn off tests")
   FetchContent_MakeAvailable(drogon)
 endif()
 
-if(WITH_TESTING)
+if(PRAAS_WITH_TESTING)
 
   ###
   # google test

@@ -23,7 +23,7 @@ set(PRAAS_COMPONENTS "" CACHE STRING "Components to build")
 set(PRAAS_DEPLOYMENTS "" CACHE STRING "Deployments to to build")
 set(PRAAS_BACKENDS "" CACHE STRING "Backends to build")
 option(WITH_CXX_LINTING "Enable linting and formatting of C++ options." OFF)
-option(WITH_TESTING "Enable testing" OFF)
+option(PRAAS_WITH_TESTING "Enable testing" OFF)
 
 ###
 # C++ linting
@@ -58,12 +58,12 @@ include(dependencies)
 ###
 # Enable testing
 ###
-if(WITH_TESTING)
+if(PRAAS_WITH_TESTING)
 
   enable_testing()
   include(GoogleTest)
   include(AddTest)
-  add_compile_definitions(WITH_TESTING)
+  add_compile_definitions(PRAAS_WITH_TESTING)
   add_feature_info(testing ON "enabled")
 
 endif()
@@ -88,7 +88,7 @@ target_link_libraries(common_library PRIVATE cereal::cereal)
 target_link_libraries(common_library PRIVATE spdlog::spdlog)
 target_link_libraries(common_library PRIVATE stduuid)
 
-if(WITH_TESTING)
+if(PRAAS_WITH_TESTING)
 
   # enable memcheck
   include (CTest)

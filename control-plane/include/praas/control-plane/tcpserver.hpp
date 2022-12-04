@@ -39,7 +39,7 @@ namespace praas::control_plane::tcpserver {
 
     ~TCPServer();
 
-#if defined(WITH_TESTING)
+#if defined(PRAAS_WITH_TESTING)
     virtual void add_process(const process::ProcessPtr& ptr);
 #else
     void add_process(const process::ProcessPtr& ptr);
@@ -50,7 +50,7 @@ namespace praas::control_plane::tcpserver {
      *
      * @param {name} [TODO:description]
      */
-#if defined(WITH_TESTING)
+#if defined(PRAAS_WITH_TESTING)
     virtual void remove_process(const process::Process&);
 #else
     void remove_process(const process::Process&);

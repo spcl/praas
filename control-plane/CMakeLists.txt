@@ -61,7 +61,7 @@ target_link_libraries(control_plane PRIVATE control_plane_lib)
 control_plane_dependencies(control_plane)
 control_plane_link(control_plane)
 
-if(WITH_TESTING)
+if(PRAAS_WITH_TESTING)
 
   set(TESTS tests/unit/resources.cpp
             tests/unit/config.cpp
