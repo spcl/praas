@@ -223,10 +223,12 @@ TEST(Messages, InvocationResultMsg)
 
     InvocationResult req;
     req.invocation_id(invoc_id);
-    req.response_size(payload_size);
+    req.total_length(payload_size);
+    req.return_code(0);
 
     EXPECT_EQ(req.invocation_id(), invoc_id);
-    EXPECT_EQ(req.response_size(), payload_size);
+    EXPECT_EQ(req.total_length(), payload_size);
+    EXPECT_EQ(req.return_code(), 0);
     EXPECT_EQ(req.type(), Message::Type::INVOCATION_RESULT);
   }
 
@@ -236,10 +238,12 @@ TEST(Messages, InvocationResultMsg)
 
     InvocationResult req;
     req.invocation_id(invoc_id);
-    req.response_size(payload_size);
+    req.total_length(payload_size);
+    req.return_code(4);
 
     EXPECT_EQ(req.invocation_id(), invoc_id);
-    EXPECT_EQ(req.response_size(), payload_size);
+    EXPECT_EQ(req.total_length(), payload_size);
+    EXPECT_EQ(req.return_code(), 4);
   }
 }
 
@@ -254,7 +258,7 @@ TEST(Messages, InvocationResultMsgIncorrect)
 
   {
     InvocationResult req;
-    EXPECT_THROW(req.response_size(-1), praas::common::InvalidArgument);
+    EXPECT_THROW(req.return_code(-1), praas::common::InvalidArgument);
   }
 }
 
@@ -265,7 +269,8 @@ TEST(Messages, InvocationResultMsgParse)
 
   InvocationResult req;
   req.invocation_id(invoc_id);
-  req.response_size(payload_size);
+  req.total_length(payload_size);
+  req.return_code(0);
 
   Message& msg = *static_cast<Message*>(&req);
   auto parsed = msg.parse();

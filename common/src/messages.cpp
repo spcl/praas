@@ -32,6 +32,18 @@ namespace praas::common::message {
     return parse_message(reinterpret_cast<const int8_t*>(data));
   }
 
+  int32_t Message::total_length() const
+  {
+    // NOLINTNEXTLINE
+    return *reinterpret_cast<const int32_t*>(data.data() + 2);
+  }
+
+  void Message::total_length(int32_t len)
+  {
+    // NOLINTNEXTLINE
+    *reinterpret_cast<int32_t*>(data.data() + 2) = len;
+  }
+
   Message::MessageVariants Message::parse_message(const int8_t* data)
   {
 
@@ -173,7 +185,7 @@ namespace praas::common::message {
     return Message::Type::INVOCATION_REQUEST;
   }
 
-  void InvocationRequest::invocation_id(const std::string& name)
+  void InvocationRequest::invocation_id(std::string_view name)
   {
     if (name.length() > Message::ID_LENGTH) {
       throw common::InvalidArgument{
@@ -187,7 +199,7 @@ namespace praas::common::message {
     invocation_id_len = name.length();
   }
 
-  void InvocationRequest::function_name(const std::string& name)
+  void InvocationRequest::function_name(std::string_view name)
   {
     if (name.length() > Message::NAME_LENGTH) {
       throw common::InvalidArgument{
@@ -216,7 +228,7 @@ namespace praas::common::message {
     return std::string_view{reinterpret_cast<const char*>(buf), invocation_id_len};
   }
 
-  int32_t InvocationResultParsed::response_size() const
+  int32_t InvocationResultParsed::return_code() const
   {
     // NOLINTNEXTLINE
     return *reinterpret_cast<const int32_t*>(buf + Message::NAME_LENGTH);
@@ -227,7 +239,7 @@ namespace praas::common::message {
     return Message::Type::INVOCATION_RESULT;
   }
 
-  void InvocationResult::invocation_id(const std::string& invocation_id)
+  void InvocationResult::invocation_id(std::string_view invocation_id)
   {
     if (invocation_id.length() > Message::NAME_LENGTH) {
       throw common::InvalidArgument{fmt::format(
@@ -242,7 +254,7 @@ namespace praas::common::message {
     invocation_id_len = invocation_id.length();
   }
 
-  void InvocationResult::response_size(int32_t size)
+  void InvocationResult::return_code(int32_t size)
   {
     if (size < 0) {
       throw common::InvalidArgument{fmt::format("Response size too small: {}", size)};

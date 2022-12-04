@@ -78,10 +78,10 @@ namespace praas::common::message {
     // 2 bytes of identifier: 6
     // 2 bytes
 
-    static constexpr uint16_t HEADER_OFFSET = 2;
+    static constexpr uint16_t HEADER_OFFSET = 6;
     static constexpr uint16_t NAME_LENGTH = 32;
     static constexpr uint16_t ID_LENGTH = 16;
-    static constexpr uint16_t BUF_SIZE = 58;
+    static constexpr uint16_t BUF_SIZE = 64;
     std::array<int8_t, BUF_SIZE> data{};
 
     Message(Type type = Type::GENERIC_HEADER)
@@ -91,6 +91,10 @@ namespace praas::common::message {
     }
 
     Type type() const;
+
+    int32_t total_length() const;
+
+    void total_length(int32_t);
 
     const int8_t* bytes() const
     {
@@ -227,8 +231,8 @@ namespace praas::common::message {
     using InvocationRequestParsed::payload_size;
     using InvocationRequestParsed::type;
 
-    void invocation_id(const std::string& invocation_id);
-    void function_name(const std::string& function_name);
+    void invocation_id(std::string_view invocation_id);
+    void function_name(std::string_view function_name);
     void payload_size(int32_t);
   };
 
@@ -244,7 +248,7 @@ namespace praas::common::message {
     }
 
     std::string_view invocation_id() const;
-    int32_t response_size() const;
+    int32_t return_code() const;
     static Message::Type type();
   };
 
@@ -259,11 +263,11 @@ namespace praas::common::message {
     }
 
     using InvocationResultParsed::invocation_id;
-    using InvocationResultParsed::response_size;
+    using InvocationResultParsed::return_code;
     using InvocationResultParsed::type;
 
-    void invocation_id(const std::string& invocation_id);
-    void response_size(int32_t);
+    void invocation_id(std::string_view invocation_id);
+    void return_code(int32_t);
   };
 
   struct DataPlaneMetricsParsed {
