@@ -141,12 +141,16 @@ namespace praas::process::runtime::ipc {
 
   struct InvocationRequestParsed {
     const int8_t* buf;
+    size_t process_id_len;
     size_t id_len;
     size_t name_len;
 
     InvocationRequestParsed(const int8_t* buf)
         : buf(buf),
           // NOLINTNEXTLINE
+          process_id_len(strnlen(
+                reinterpret_cast<const char*>(buf + Message::ID_LENGTH + Message::NAME_LENGTH),
+          Message::ID_LENGTH)),
           id_len(strnlen(reinterpret_cast<const char*>(buf), Message::ID_LENGTH)),
           name_len(strnlen(
               // NOLINTNEXTLINE
@@ -155,6 +159,7 @@ namespace praas::process::runtime::ipc {
     {
     }
 
+    std::string_view process_id() const;
     std::string_view invocation_id() const;
     std::string_view function_name() const;
     int32_t buffers() const;
@@ -174,10 +179,13 @@ namespace praas::process::runtime::ipc {
     using InvocationRequestParsed::buffers;
     using InvocationRequestParsed::function_name;
     using InvocationRequestParsed::invocation_id;
+    using InvocationRequestParsed::process_id;
 
+    void process_id(std::string_view id);
     void invocation_id(std::string_view id);
-    void function_name(const std::string& name);
+    void function_name(std::string_view name);
     void buffers(int32_t* begin, int32_t* end);
+    void buffers(int32_t buf);
 
     template <typename Iter>
     void buffers(Iter begin, Iter end)
@@ -191,7 +199,7 @@ namespace praas::process::runtime::ipc {
 
       // NOLINTNEXTLINE
       auto ptr = reinterpret_cast<int32_t*>(
-          data.data() + HEADER_OFFSET + Message::NAME_LENGTH + Message::ID_LENGTH
+          data.data() + HEADER_OFFSET + Message::NAME_LENGTH + 2*Message::ID_LENGTH
       );
       *ptr++ = elems;
 

@@ -108,16 +108,19 @@ TEST(IPCMessagesInvocTest, InvocMessage)
 
   {
     std::string invoc_id{"test-name"};
+    std::string proc_id{"proc-name"};
     std::string func_name{"test-id"};
     std::array<int, 1> buffers = {5};
 
     InvocationRequest req;
+    req.process_id(proc_id);
     req.invocation_id(invoc_id);
     req.function_name(func_name);
     req.buffers(buffers.begin(), buffers.end());
     req.total_length(10);
 
     EXPECT_EQ(req.type(), Message::Type::INVOCATION_REQUEST);
+    EXPECT_EQ(req.process_id(), proc_id);
     EXPECT_EQ(req.invocation_id(), invoc_id);
     EXPECT_EQ(req.function_name(), func_name);
     EXPECT_EQ(req.buffers(), buffers.size());
@@ -129,17 +132,20 @@ TEST(IPCMessagesInvocTest, InvocMessage)
   }
 
   {
+    std::string proc_id(GetRequest::ID_LENGTH, 'x');
     std::string invoc_id(GetRequest::ID_LENGTH, 't');
     std::string func_name(GetRequest::NAME_LENGTH, 's');
     std::array<int, 5> buffers = {5, 42, 0, 1, 32};
 
     InvocationRequest req;
+    req.process_id(proc_id);
     req.invocation_id(invoc_id);
     req.function_name(func_name);
     req.buffers(buffers.begin(), buffers.end());
     req.total_length(42);
 
     EXPECT_EQ(req.type(), Message::Type::INVOCATION_REQUEST);
+    EXPECT_EQ(req.process_id(), proc_id);
     EXPECT_EQ(req.invocation_id(), invoc_id);
     EXPECT_EQ(req.function_name(), func_name);
     EXPECT_EQ(req.buffers(), buffers.size());
@@ -165,11 +171,13 @@ TEST(IPCMessagesInvocTest, InvocMessageIncorrect)
 
 TEST(IPCMessagesInvocTest, InvocMessageParse)
 {
+  std::string proc_id{"proc-name"};
   std::string invoc_id{"test-name"};
   std::string func_name{"test-id"};
   std::array<int, 1> buffers = {5};
 
   InvocationRequest req;
+  req.process_id(proc_id);
   req.invocation_id(invoc_id);
   req.function_name(func_name);
   req.buffers(buffers.begin(), buffers.end());
@@ -186,6 +194,7 @@ TEST(IPCMessagesInvocTest, InvocMessageParse)
       overloaded{
           [=](InvocationRequestParsed& req) {
 
+            EXPECT_EQ(req.process_id(), proc_id);
             EXPECT_EQ(req.invocation_id(), invoc_id);
             EXPECT_EQ(req.function_name(), func_name);
             EXPECT_EQ(req.buffers(), buffers.size());
