@@ -108,7 +108,7 @@ namespace praas::control_plane::tcpserver {
                   );
                 }
               },
-              [](const common::message::InvocationResultParsed& res) mutable -> void {
+              [](const common::message::InvocationResultParsed&) mutable -> void {
                 // FIXME:
               },
               [](const common::message::SwapRequestParsed&) mutable -> void {
@@ -126,7 +126,7 @@ namespace praas::control_plane::tcpserver {
               },
               [this, connectionPtr](const common::message::ProcessConnectionParsed& msg
               ) mutable -> void { handle_connection(connectionPtr, msg); },
-              [](const common::message::InvocationRequestParsed& msg) mutable -> void {}},
+              [](const common::message::InvocationRequestParsed&) mutable -> void {}},
           msg
       );
 

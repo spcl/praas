@@ -66,7 +66,6 @@ protected:
 
 TEST_F(TCPServerTest, SwapProcess)
 {
-  int PORT = 10000;
   std::string resource_name{"sandbox"};
   std::string process_name{"sandbox"};
   std::string swap_loc{"swaps"};
@@ -112,7 +111,6 @@ TEST_F(TCPServerTest, SwapProcess)
 
 TEST_F(TCPServerTest, SwapProcessAndConfirm)
 {
-  int PORT = 10000;
   std::string resource_name{"sandbox"};
   std::string process_name{"sandbox"};
   std::string swap_loc{"swaps"};

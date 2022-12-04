@@ -73,7 +73,6 @@ TEST_F(TCPServerTest, StartServer)
 
 TEST_F(TCPServerTest, ConnectProcess)
 {
-  int PORT = 10000;
 
   config::TCPServer config;
   config.set_defaults();
@@ -98,7 +97,6 @@ TEST_F(TCPServerTest, ConnectProcess)
 
 TEST_F(TCPServerTest, RegisterProcess)
 {
-  int PORT = 10000;
   std::string resource_name{"sandbox"};
   std::string process_name{"sandbox"};
   process::Resources resources{1, 128, resource_name};

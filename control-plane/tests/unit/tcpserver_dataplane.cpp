@@ -67,7 +67,6 @@ protected:
 
 TEST_F(TCPServerTest, UpdateMetrics)
 {
-  int PORT = 10000;
   std::string resource_name{"sandbox"};
   std::string process_name{"sandbox"};
   process::Resources resources{1, 128, resource_name};
@@ -113,7 +112,6 @@ TEST_F(TCPServerTest, UpdateMetrics)
 
 TEST_F(TCPServerTest, UpdateMetricsIncorrect)
 {
-  int PORT = 10000;
   std::string resource_name{"sandbox"};
   std::string process_name{"sandbox"};
   process::Resources resources{1, 128, resource_name};
