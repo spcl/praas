@@ -29,6 +29,24 @@ namespace praas::process {
 
     std::tuple<runtime::ipc::GetRequestParsed, process::runtime::Buffer<char>> get(runtime::ipc::Message & msg);
 
+    template<typename MsgType>
+    std::tuple<MsgType, process::runtime::Buffer<char>> get()
+    {
+      auto [read, data] = _ipc_channel_read->receive();
+      if(!read) {
+        throw common::FunctionGetFailure{"Failed get - forgot to send reason"};
+      }
+
+      // Receive GET request result with payload.
+      auto parsed_msg = _ipc_channel_read->message().parse();
+      if(!std::holds_alternative<MsgType>(parsed_msg)) {
+        throw common::FunctionGetFailure{"Received incorrect message!"};
+      }
+
+      auto& req = std::get<MsgType>(parsed_msg);
+      return std::make_tuple(req, std::move(data));
+    }
+
     function::Context create_context();
 
   private:

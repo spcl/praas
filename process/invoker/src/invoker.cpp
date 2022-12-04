@@ -111,19 +111,7 @@ namespace praas::process {
     // Send GET request, zero payload.
     _ipc_channel_write->send(msg, process::runtime::BufferAccessor<std::byte>{});
 
-    auto [read, data] = _ipc_channel_read->receive();
-    if(!read) {
-      throw common::FunctionGetFailure{"Failed get - forgot to send reason"};
-    }
-
-    // Receive GET request result with payload.
-    auto parsed_msg = _ipc_channel_read->message().parse();
-    if(!std::holds_alternative<runtime::ipc::GetRequestParsed>(parsed_msg)) {
-      throw common::FunctionGetFailure{"Waiting for get result, received incorrect message!"};
-    }
-
-    auto& req = std::get<runtime::ipc::GetRequestParsed>(parsed_msg);
-    return std::make_tuple(req, std::move(data));
+    return this->get<runtime::ipc::GetRequestParsed>();
   }
 
   void Invoker::shutdown()
