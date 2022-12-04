@@ -122,15 +122,21 @@ namespace praas::process::runtime::ipc {
   int32_t InvocationRequestParsed::buffers() const
   {
     // NOLINTNEXTLINE
-    return *reinterpret_cast<const int32_t*>(buf + Message::ID_LENGTH + Message::NAME_LENGTH);
+    return *reinterpret_cast<const int32_t*>(buf + 2*Message::ID_LENGTH + Message::NAME_LENGTH);
   }
 
   const int32_t* InvocationRequestParsed::buffers_lengths() const
   {
     // NOLINTNEXTLINE
     return reinterpret_cast<const int32_t*>(
-        buf + Message::ID_LENGTH + Message::NAME_LENGTH + sizeof(int32_t)
+        buf + 2*Message::ID_LENGTH + Message::NAME_LENGTH + sizeof(int32_t)
     );
+  }
+
+  std::string_view InvocationRequestParsed::process_id() const
+  {
+    return std::string_view{// NOLINTNEXTLINE
+                            reinterpret_cast<const char*>(buf + Message::ID_LENGTH + Message::NAME_LENGTH), process_id_len};
   }
 
   std::string_view InvocationRequestParsed::invocation_id() const
@@ -145,11 +151,26 @@ namespace praas::process::runtime::ipc {
                             reinterpret_cast<const char*>(buf + Message::ID_LENGTH), name_len};
   }
 
-  void InvocationRequest::invocation_id(std::string_view id)
+  void InvocationRequest::process_id(std::string_view id)
   {
     if (id.length() > Message::ID_LENGTH) {
       throw common::InvalidArgument{
           fmt::format("Invocation ID too long: {} > {}", id.length(), Message::ID_LENGTH)};
+    }
+
+    std::strncpy(
+        // NOLINTNEXTLINE
+        reinterpret_cast<char*>(data.data() + HEADER_OFFSET + Message::ID_LENGTH + Message::NAME_LENGTH),
+        id.data(), Message::ID_LENGTH
+    );
+    process_id_len = id.length();
+  }
+
+  void InvocationRequest::invocation_id(std::string_view id)
+  {
+    if (id.length() > Message::ID_LENGTH) {
+      throw common::InvalidArgument{
+          fmt::format("Process ID too long: {} > {}", id.length(), Message::ID_LENGTH)};
     }
 
     std::strncpy(
@@ -159,7 +180,7 @@ namespace praas::process::runtime::ipc {
     id_len = id.length();
   }
 
-  void InvocationRequest::function_name(const std::string& name)
+  void InvocationRequest::function_name(std::string_view name)
   {
     if (name.length() > Message::NAME_LENGTH) {
       throw common::InvalidArgument{
@@ -174,6 +195,16 @@ namespace praas::process::runtime::ipc {
     name_len = name.length();
   }
 
+  void InvocationRequest::buffers(int32_t buffer_len)
+  {
+    // NOLINTNEXTLINE
+    auto ptr = reinterpret_cast<int32_t*>(
+        data.data() + HEADER_OFFSET + Message::NAME_LENGTH + 2*Message::ID_LENGTH
+    );
+    *ptr++ = 1;
+    *ptr = buffer_len;
+  }
+
   void InvocationRequest::buffers(int32_t* begin, int32_t* end)
   {
     int elems = std::distance(begin, end);
@@ -184,7 +215,7 @@ namespace praas::process::runtime::ipc {
 
     // NOLINTNEXTLINE
     auto ptr = reinterpret_cast<int32_t*>(
-        data.data() + HEADER_OFFSET + Message::NAME_LENGTH + Message::ID_LENGTH
+        data.data() + HEADER_OFFSET + Message::NAME_LENGTH + 2*Message::ID_LENGTH
     );
     *ptr++ = elems;
 
