@@ -1,0 +1,18 @@
+
+cmake_minimum_required(VERSION 3.11)
+project(praas-sdk)
+set (CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+file(GLOB sdk_files "src/*.cpp")
+add_library(praas_sdk STATIC ${sdk_files})
+target_include_directories(praas_sdk SYSTEM PUBLIC "include")
+set_property(TARGET praas_sdk PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+add_dependencies(praas_sdk spdlog::spdlog)
+add_dependencies(praas_sdk common_library)
+add_dependencies(praas_sdk sockpp-static)
+target_include_directories(praas_sdk SYSTEM PUBLIC $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(praas_sdk SYSTEM PUBLIC $<TARGET_PROPERTY:sockpp-static,INTERFACE_INCLUDE_DIRECTORIES>)
+target_link_libraries(praas_sdk PUBLIC common_library)
+target_link_libraries(praas_sdk PUBLIC sockpp-static)
+target_link_libraries(praas_sdk PUBLIC spdlog::spdlog)
