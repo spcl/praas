@@ -17,9 +17,10 @@ namespace praas::function {
 
     size_t size{};
 
-    char* str() const
+    // We cannot return char* directly - the string might not be NULL-terminated
+    std::string_view str() const
     {
-      return reinterpret_cast<char*>(ptr);
+      return std::string_view(reinterpret_cast<char*>(ptr), len);
     }
 
     template<typename Obj>
