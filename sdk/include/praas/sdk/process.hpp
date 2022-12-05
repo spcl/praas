@@ -10,7 +10,14 @@ namespace praas::sdk {
 
   struct Process {
 
+    Process() = default;
+
     Process(const std::string& addr, int port);
+
+    Process(const Process &) = delete;
+    Process(Process &&) = default;
+    Process& operator=(const Process &) = delete;
+    Process& operator=(Process &&) = default;
 
     ~Process();
 
@@ -19,6 +26,11 @@ namespace praas::sdk {
     void disconnect();
 
     InvocationResult invoke(std::string_view function_name, std::string invocation_id, char* ptr, size_t len);
+
+    sockpp::tcp_connector& connection()
+    {
+      return _dataplane;
+    }
 
   private:
 
