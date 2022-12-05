@@ -1,6 +1,7 @@
 #ifndef PRAAS_PROCESS_INVOKER_HPP
 #define PRAAS_PROCESS_INVOKER_HPP
 
+#include <praas/common/application.hpp>
 #include <praas/function/context.hpp>
 #include <praas/function/invocation.hpp>
 #include <praas/process/runtime/buffer.hpp>
@@ -49,6 +50,11 @@ namespace praas::process {
 
     function::Context create_context();
 
+    common::Application& application()
+    {
+      return _app_status;
+    }
+
   private:
     // Standard input size = 5 MB
     static constexpr int BUFFER_SIZE = 1024 * 1024 * 5;
@@ -56,6 +62,8 @@ namespace praas::process {
     std::string _process_id;
 
     process::runtime::Buffer<std::byte> _input;
+
+    common::Application _app_status;
 
     std::atomic<bool> _ending{};
 

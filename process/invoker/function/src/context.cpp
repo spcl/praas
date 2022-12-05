@@ -107,6 +107,16 @@ namespace praas::function {
     return Buffer{buf.ptr.get(), buf.len, buf.size};
   }
 
+  const std::vector<std::string> & Context::active_processes() const
+  {
+    return _invoker.application().active_processes;
+  }
+
+  const std::vector<std::string> & Context::swapped_processes() const
+  {
+    return _invoker.application().swapped_processes;
+  }
+
   function::InvocationResult Context::invoke(std::string_view process_id, std::string_view function_name, std::string_view invocation_id, Buffer input)
   {
     process::runtime::ipc::InvocationRequest req;

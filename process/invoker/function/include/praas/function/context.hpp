@@ -67,6 +67,10 @@ namespace praas::function {
       _user_buffers.clear();
     }
 
+    const std::vector<std::string>& active_processes() const;
+
+    const std::vector<std::string>& swapped_processes() const;
+
     // make private
     process::runtime::BufferAccessor<char> as_buffer() const;
   private:

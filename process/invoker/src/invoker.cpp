@@ -11,6 +11,7 @@
 #include <sys/signal.h>
 
 #include <spdlog/spdlog.h>
+#include "praas/common/application.hpp"
 
 namespace praas::process {
 
@@ -28,63 +29,81 @@ namespace praas::process {
 
     // Make sure we are killed if the parent controller forgets about us.
     prctl(PR_SET_PDEATHSIG, SIGHUP);
+
+    // FIXME: receive full status
+    _app_status.active_processes.emplace_back(_process_id);
   }
 
   std::optional<praas::function::Invocation> Invoker::poll()
   {
     praas::function::Invocation invoc;
+    bool received_invocation = false;
 
-    try {
-      auto read = _ipc_channel_read->blocking_receive(_input);
+    while(!received_invocation) {
 
-      if(!read) {
-        throw praas::common::PraaSException(fmt::format(
-            "Did not receive a full buffer - failed receive!"
-        ));
-      }
+      try {
+        auto read = _ipc_channel_read->blocking_receive(_input);
 
-      auto parsed_msg = _ipc_channel_read->message().parse();
+        if(!read) {
+          throw praas::common::PraaSException(fmt::format(
+              "Did not receive a full buffer - failed receive!"
+          ));
+        }
 
-      std::visit(
-          runtime::ipc::overloaded{
-              [&](runtime::ipc::InvocationRequestParsed& req) mutable {
-                spdlog::info(
-                    "Received invocation request of {}, key {}, inputs {}", req.function_name(),
-                    req.invocation_id(), req.buffers()
-                );
+        auto parsed_msg = _ipc_channel_read->message().parse();
 
-                // Validate
-                size_t total_len = 0;
-                for (int i = 0; i < req.buffers(); ++i) {
-                  total_len += req.buffers_lengths()[i];
-                }
-                if (total_len > _input.len) {
-                  throw praas::common::PraaSException(fmt::format(
-                      "Header declared {} bytes, but we only received {}!", total_len, _input.len
-                  ));
-                }
+        spdlog::error("mesg");
 
-                invoc.key = req.invocation_id();
-                invoc.function_name = req.function_name();
+        std::visit(
+            runtime::ipc::overloaded{
+                [&](runtime::ipc::InvocationRequestParsed& req) mutable {
+                  spdlog::info(
+                      "Received invocation request of {}, key {}, inputs {}", req.function_name(),
+                      req.invocation_id(), req.buffers()
+                  );
 
-                std::byte* ptr = _input.ptr.get();
-                for (int i = 0; i < req.buffers(); ++i) {
+                  // Validate
+                  size_t total_len = 0;
+                  for (int i = 0; i < req.buffers(); ++i) {
+                    total_len += req.buffers_lengths()[i];
+                  }
+                  if (total_len > _input.len) {
+                    throw praas::common::PraaSException(fmt::format(
+                        "Header declared {} bytes, but we only received {}!", total_len, _input.len
+                    ));
+                  }
 
-                  size_t len = req.buffers_lengths()[i];
-                  invoc.args.emplace_back(ptr, len, len);
-                  ptr += len;
-                };
-              },
-              [](auto&) { spdlog::error("Received unsupported message!"); }},
-          parsed_msg
-      );
+                  invoc.key = req.invocation_id();
+                  invoc.function_name = req.function_name();
 
-    } catch (praas::common::PraaSException& exc) {
-      if (_ending) {
-        spdlog::info("Shutting down the invoker");
-      } else {
-        spdlog::error("Unexpected end of the invoker {}", exc.what());
-        return std::nullopt;
+                  std::byte* ptr = _input.ptr.get();
+                  for (int i = 0; i < req.buffers(); ++i) {
+
+                    size_t len = req.buffers_lengths()[i];
+                    invoc.args.emplace_back(ptr, len, len);
+                    ptr += len;
+                  };
+
+                  received_invocation = true;
+                },
+                [&](runtime::ipc::ApplicationUpdateParsed& req) mutable {
+                  spdlog::info("Received application update - process change for {}", req.process_id());
+                  _app_status.update(
+                    static_cast<common::Application::Status>(req.status_change()),
+                    req.process_id()
+                  );
+                },
+                [](auto&) { spdlog::error("Received unsupported message!"); }},
+            parsed_msg
+        );
+
+      } catch (praas::common::PraaSException& exc) {
+        if (_ending) {
+          spdlog::info("Shutting down the invoker");
+        } else {
+          spdlog::error("Unexpected end of the invoker {}", exc.what());
+          return std::nullopt;
+        }
       }
     }
 
