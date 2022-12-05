@@ -158,7 +158,7 @@ namespace praas::process::remote {
       auto msg = praas::common::message::Message::parse_message(buffer->peek());
 
       // FIXME: swap request
-      std::visit(
+      consumed = std::visit(
           common::message::overloaded{
             [this, buffer, conn = conn.get()](
               common::message::InvocationRequestParsed & invoc
@@ -197,7 +197,7 @@ namespace praas::process::remote {
 
     }
 
-    //spdlog::error("Consumed message? {} There are {} bytes remaining", consumed, buffer->readableBytes());
+    spdlog::error("[TCPServer] Consumed message? {} There are {} bytes remaining", consumed, buffer->readableBytes());
     // Check if there is more data to be read
     if(consumed && buffer->readableBytes() > 0) {
       _handle_message(connectionPtr, buffer);
