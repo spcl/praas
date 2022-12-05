@@ -215,3 +215,39 @@ def get_remote_message(invocation, context):
 
     return 0
 
+def put_get_remote_message(invocation, context):
+
+    active_processes = context.active_processes
+    if active_processes[0] == context.process_id:
+        other_process_id = active_processes[1]
+    else:
+        other_process_id = active_processes[0]
+
+    input_str = invocation.args[0].str()
+    input_data = json.loads(input_str)['input']
+    message_key = input_data['message_key']
+
+    MSG_SIZE = 1024
+    buf = context.get_buffer(MSG_SIZE)
+
+    msg = Message()
+    msg.some_data = 42
+    msg.message = f"MESSAGE {other_process_id}"
+    pypraas.serialize(buf, msg)
+
+    # Send message
+    context.put(other_process_id, message_key, buf);
+
+    msg_buf = context.get(other_process_id, message_key)
+    if msg_buf.length <= 0:
+        return 1
+    msg = pypraas.deserialize(msg_buf)
+
+    if type(msg) != Message:
+        return 1
+
+    if msg.some_data != 42 or msg.message != f"MESSAGE {context.process_id}":
+        return 1
+
+    return 0
+

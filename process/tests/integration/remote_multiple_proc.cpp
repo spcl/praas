@@ -221,6 +221,78 @@ TEST_P(ProcessRemoteServers, DataPlaneInvocations)
   }
 }
 
+TEST_P(ProcessRemoteServers, SimultaenousMessaging)
+{
+  SetUp(1);
+
+  const int BUF_LEN = 1024;
+  runtime::BufferQueue<char> buffers(10, 1024);
+
+  std::vector<std::unique_ptr<remote::TCPServer>> servers;
+  for(int i = 0; i < PROC_COUNT; ++i) {
+    cfg.port = 8080 + i;
+    servers.emplace_back(std::make_unique<remote::TCPServer>(*controllers[i].get(), cfg));
+    controllers[i]->set_remote(servers.back().get());
+    servers.back()->poll();
+  }
+
+  std::vector<praas::sdk::Process> processes;
+  for(int i = 0; i < PROC_COUNT; ++i) {
+    processes.emplace_back(std::string{"localhost"}, 8080 + i);
+    ASSERT_TRUE(processes.back().connect());
+  }
+
+  const int COUNT = 4;
+  std::array<std::string, COUNT> invocation_id = { "first_id", "second_id", "third_id", "another_id" };
+
+  praas::common::message::ApplicationUpdate msg;
+  msg.status_change(static_cast<int>(praas::common::Application::Status::ACTIVE));
+  msg.process_id(controllers[1]->process_id());
+  msg.ip_address("localhost");
+  msg.port(8080 + 1);
+  processes[0].connection().write_n(msg.bytes(), msg.BUF_SIZE);
+
+  msg.process_id(controllers[0]->process_id());
+  msg.ip_address("localhost");
+  msg.port(8080);
+  processes[1].connection().write_n(msg.bytes(), msg.BUF_SIZE);
+
+  auto buf = buffers.retrieve_buffer(BUF_LEN);
+  buf.len = generate_input("msg_key", buf);
+
+  praas::sdk::InvocationResult first, second;
+
+  std::thread first_thread{
+    [&]() mutable {
+      first = processes[0].invoke("put_get_remote_message", invocation_id[idx], buf.data(), buf.len);
+    }
+  };
+  std::thread second_thread{
+    [&]() mutable {
+      second = processes[1].invoke("put_get_remote_message", invocation_id[idx], buf.data(), buf.len);
+    }
+  };
+
+  first_thread.join(), second_thread.join();
+
+  ASSERT_EQ(first.return_code, 0);
+  ASSERT_EQ(second.return_code, 0);
+
+  spdlog::info("");
+  for(int i = 0; i < 4; ++i) {
+    spdlog::info("-----------------------------------------------");
+  }
+  spdlog::info("");
+
+  for(int i = 0; i < PROC_COUNT; ++i) {
+    processes[i].disconnect();
+  }
+
+  for(int i = 0; i < PROC_COUNT; ++i) {
+    servers[i]->shutdown();
+  }
+}
+
 
 #if defined(PRAAS_WITH_INVOKER_PYTHON)
   INSTANTIATE_TEST_SUITE_P(ProcessRemoteServers,

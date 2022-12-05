@@ -195,3 +195,35 @@ extern "C" int get_remote_message(praas::function::Invocation invoc, praas::func
   }
 }
 
+extern "C" int put_get_remote_message(praas::function::Invocation invoc, praas::function::Context& context)
+{
+  std::string other_process_id;
+  if(context.active_processes()[0] == context.process_id()) {
+    other_process_id = context.active_processes()[1];
+  } else {
+    other_process_id = context.active_processes()[0];
+  }
+
+  InputMsgKey key;
+  invoc.args[0].deserialize(key);
+
+  praas::function::Buffer buf = context.get_buffer(1024);
+  Message message;
+  message.some_data = 22;
+  message.message = "MESSAGE " + other_process_id;
+  buf.serialize(message);
+
+  context.put(other_process_id, key.message_key, buf.ptr, buf.len);
+
+  praas::function::Buffer get_buf = context.get(praas::function::Context::ANY, key.message_key);
+
+  Message msg;
+  get_buf.deserialize(msg);
+
+  if(msg.some_data != 22 || msg.message != "MESSAGE " + context.process_id()) {
+    return 1;
+  }
+
+  return 0;
+}
+

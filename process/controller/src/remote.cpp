@@ -480,7 +480,6 @@ namespace praas::process::remote {
           if (conn->connected()) {
 
             connection->status = Connection::Status::CONNECTED;
-            spdlog::info("Connected!");
             praas::common::message::ProcessConnection req;
             req.process_name(_controller.process_id());
             conn->send(req.bytes(), req.BUF_SIZE);
@@ -513,6 +512,7 @@ namespace praas::process::remote {
       }
     );
 
+    spdlog::info("[TCPServer] Establishing connection to {}:{}", conn->ip_address, conn->port);
     conn->client->connect();
   }
 
