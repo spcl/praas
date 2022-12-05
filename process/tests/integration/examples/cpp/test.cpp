@@ -173,6 +173,7 @@ extern "C" int get_remote_message(praas::function::Invocation invoc, praas::func
 
   Message msg;
   buf.deserialize(msg);
+  std::cerr << msg.some_data << " " << msg.message << std::endl;
 
   if(msg.some_data != 42 || msg.message != "THIS IS A TEST MESSAGE") {
     return 1;

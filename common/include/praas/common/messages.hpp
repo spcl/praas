@@ -23,6 +23,7 @@ namespace praas::common::message {
   struct DataPlaneMetricsParsed;
   struct ProcessClosureParsed;
   struct ApplicationUpdateParsed;
+  struct PutMessageParsed;
 
   struct Message {
 
@@ -36,6 +37,7 @@ namespace praas::common::message {
       DATAPLANE_METRICS,
       PROCESS_CLOSURE,
       APPLICATION_UPDATE,
+      PUT_MESSAGE,
       END_FLAG
     };
 
@@ -105,7 +107,9 @@ namespace praas::common::message {
 
     using MessageVariants = std::variant<
         ProcessConnectionParsed, SwapRequestParsed, SwapConfirmationParsed, InvocationRequestParsed,
-        InvocationResultParsed, DataPlaneMetricsParsed, ProcessClosureParsed, ApplicationUpdateParsed>;
+        InvocationResultParsed, DataPlaneMetricsParsed, ProcessClosureParsed, ApplicationUpdateParsed,
+        PutMessageParsed
+    >;
 
     MessageVariants parse();
     static MessageVariants parse_message(const int8_t* data);
@@ -140,7 +144,7 @@ namespace praas::common::message {
     }
 
     using ProcessConnectionParsed::process_name;
-    void process_name(const std::string& name);
+    void process_name(std::string_view name);
 
     using ProcessConnectionParsed::type;
   };
@@ -356,6 +360,40 @@ namespace praas::common::message {
     void ip_address(std::string_view id);
     void status_change(int32_t code);
     void port(int32_t code);
+  };
+
+  struct PutMessageParsed {
+    const int8_t* buf;
+    size_t name_len;
+    size_t id_len;
+
+    PutMessageParsed(const int8_t* buf)
+        : buf(buf),
+          // NOLINTNEXTLINE
+          name_len(strnlen(reinterpret_cast<const char*>(buf), Message::NAME_LENGTH))
+    {
+    }
+
+    std::string_view name() const;
+    std::string_view process_id() const;
+    int32_t payload_size() const;
+  };
+
+  struct PutMessage : Message, PutMessageParsed {
+
+    PutMessage()
+        : Message(Type::PUT_MESSAGE),
+          PutMessageParsed(this->data.data() + HEADER_OFFSET)
+    {
+    }
+
+    using PutMessageParsed::name;
+    using PutMessageParsed::payload_size;
+    using PutMessageParsed::process_id;
+
+    void name(std::string_view id);
+    void process_id(std::string_view id);
+    void payload_size(int32_t);
   };
 
 } // namespace praas::common::message

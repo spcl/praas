@@ -93,11 +93,17 @@ namespace praas::process::remote {
 
       auto msg = praas::common::message::Message::parse_message(buffer->peek());
 
+      std::cerr << "test" << std::endl;
       if(std::holds_alternative<common::message::ProcessConnectionParsed>(msg)) {
         _handle_connection(connectionPtr, std::get<common::message::ProcessConnectionParsed>(msg));
-        buffer->retrieve(praas::common::message::Message::BUF_SIZE);
       } else {
         spdlog::error("Ignoring message from an unknown receipient");
+      }
+      buffer->retrieve(praas::common::message::Message::BUF_SIZE);
+
+      if(buffer->readableBytes() > 0) {
+        std::cerr << "receive again" << std::endl;
+        _handle_message(connectionPtr, buffer);
       }
       return;
     }
@@ -114,7 +120,6 @@ namespace praas::process::remote {
       // Three types of messages require long payloads:
       // invoke
       // put
-      // FIXME: put
       auto msg = conn->cur_msg.parse();
       consumed = std::visit(
           common::message::overloaded{
@@ -125,6 +130,15 @@ namespace praas::process::remote {
                   *conn,
                   invoc,
                   buffer
+              );
+            },
+            [this, buffer, conn = conn.get()](
+              common::message::PutMessageParsed & req
+            ) mutable -> bool {
+              return _handle_put_message(
+                *conn,
+                req,
+                buffer
               );
             },
             [](auto &) mutable -> bool {
@@ -147,7 +161,6 @@ namespace praas::process::remote {
       // FIXME: process update (list of processes)
       // FIXME: put request
       // FIXME: swap request
-      std::cerr << "test " << std::holds_alternative<common::message::ApplicationUpdateParsed>(msg) << std::endl;
       consumed = std::visit(
           common::message::overloaded{
             [this, buffer, conn = conn.get()](
@@ -159,10 +172,12 @@ namespace praas::process::remote {
                   buffer
               );
             },
-            [buffer](common::message::SwapRequestParsed&) mutable -> bool {
-              // FIXME: implement
-              buffer->retrieve(praas::common::message::Message::BUF_SIZE);
-              return true;
+            [this, buffer, conn = conn.get()](common::message::PutMessageParsed& req) mutable -> bool {
+              return _handle_put_message(
+                *conn,
+                req,
+                buffer
+              );
             },
             [this, connectionPtr, buffer](common::message::ProcessConnectionParsed& msg) mutable -> bool {
               // Connection always consumed a message
@@ -185,6 +200,7 @@ namespace praas::process::remote {
 
     }
 
+    std::cerr << consumed << " " << buffer->readableBytes() << std::endl;
     // Check if there is more data to be read
     if(consumed && buffer->readableBytes() > 0) {
       _handle_message(connectionPtr, buffer);
@@ -241,6 +257,48 @@ namespace praas::process::remote {
     }
   }
 
+  bool TCPServer::_handle_put_message(Connection& connection,
+      const common::message::PutMessageParsed& msg, trantor::MsgBuffer* buffer)
+  {
+    // We just started
+    if(connection.bytes_to_read == 0) {
+
+      connection.bytes_to_read = msg.payload_size();
+      spdlog::info("Start receiving message of size {}", connection.bytes_to_read);
+      // FIXME: avoid copy here - just store the actual variant
+      common::message::PutMessage req;
+      req.name(msg.name());
+      connection.cur_msg = std::move(req);
+
+      buffer->retrieve(praas::common::message::Message::BUF_SIZE);
+    }
+
+    // Check that we have the payload
+    if(buffer->readableBytes() >= msg.payload_size()) {
+
+      auto buf = _buffers.retrieve_buffer(msg.payload_size());
+      std::copy_n(buffer->peek(), msg.payload_size(), buf.data());
+      buf.len = msg.payload_size();
+      buffer->retrieve(msg.payload_size());
+
+      spdlog::info(
+          "Received complete put messsage of {}, with {} bytes of input",
+          msg.name(),
+          msg.payload_size()
+      );
+
+      _controller.remote_message(std::move(connection.cur_msg), std::move(buf), connection.id.value());
+
+      connection.bytes_to_read = 0;
+
+      return true;
+    }
+    // Not enough payload, not consumed
+    else {
+      return false;
+    }
+  }
+
   bool TCPServer::_handle_connection(const trantor::TcpConnectionPtr& connectionPtr, const common::message::ProcessConnectionParsed& msg)
   {
     std::shared_ptr<Connection> conn;
@@ -255,6 +313,8 @@ namespace praas::process::remote {
       } else if(msg.process_name() == CONTROLPLANE_ID) {
         _control_plane = (*find_iter).second;
       }
+
+      spdlog::info("Registered new remote connection for an existing IP data");
 
       connectionPtr->setContext((*find_iter).second);
 
@@ -358,14 +418,68 @@ namespace praas::process::remote {
     if(iter == _connection_data.end()) {
       // FIXME: return error?
       spdlog::error("Sending message to an unknown process {}!", process_id);
+      return;
     }
 
+    Connection* conn = iter->second.get();
 
-    //if(iter->second->conn) {
+    if(!conn->conn) {
+      spdlog::info("Establish connection");
 
-    //  iter->second->conn->send(
+      // FIXME: is it only for put message?
+      auto put_req = std::make_unique<praas::common::message::PutMessage>();
+      put_req->name(name);
+      put_req->process_id(_controller.process_id());
+      put_req->payload_size(payload.len);
+      conn->pending_msg = std::move(put_req);
+      conn->pending_payload = std::move(payload);
 
-    //}
+      _connect(conn, name);
+
+    } else {
+      spdlog::info("Communicate");
+      // FIXME: send message
+      conn->conn->send(payload.data(), payload.len);
+    }
+  }
+
+  void TCPServer::_connect(Connection * conn, std::string_view name)
+  {
+
+    conn->client = std::make_shared<trantor::TcpClient>(
+      this->_server.getLoop(),
+      trantor::InetAddress{conn->ip_address, static_cast<uint16_t>(conn->port)},
+      "client"
+    );
+
+    conn->client->setConnectionCallback(
+      [this, connection = conn](const trantor::TcpConnectionPtr &conn) -> void {
+          if (conn->connected()) {
+
+            spdlog::info("Connected!");
+            praas::common::message::ProcessConnection req;
+            req.process_name(_controller.process_id());
+            conn->send(req.bytes(), req.BUF_SIZE);
+
+            connection->conn = conn;
+
+            if(connection->pending_msg) {
+
+              spdlog::info("Send message {}", connection->pending_payload.len);
+              auto* msg = connection->pending_msg.get();
+              conn->send(msg->bytes(), msg->BUF_SIZE);
+              if(connection->pending_payload.len > 0) {
+                conn->send(connection->pending_payload.data(), connection->pending_payload.len);
+              }
+
+            }
+
+          } else {
+            spdlog::info("Process disconnected");
+          }
+      });
+
+    conn->client->connect();
   }
 
 }

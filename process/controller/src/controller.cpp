@@ -263,6 +263,34 @@ namespace praas::process {
                                           : InvocationSource::from_dataplane())
               );
             },
+            [&, this](common::message::PutMessageParsed& req) mutable {
+
+
+              // Is there are pending message for this message?
+              const FunctionWorker* pending_worker = _pending_msgs.find_get(std::string{req.name()}, _process_id);
+              if(pending_worker) {
+
+                  spdlog::error("Replying message to {} with key {}, message len {}", _process_id, req.name(), msg.payload.len);
+
+                  runtime::ipc::GetRequest return_req;
+                  return_req.process_id(_process_id);
+                  return_req.name(req.name());
+
+                  pending_worker->ipc_write().send(return_req, std::move(msg.payload));
+
+              } else {
+
+                int length = msg.payload.len;
+                bool success = _mailbox.put(std::string{req.name()}, _process_id, msg.payload);
+                if(!success) {
+                  spdlog::error("Could not store message to itself, with key {}", req.name());
+                } else {
+                  spdlog::error("Stored a message to {}, with key {}, length {}", _process_id, req.name(), length);
+                }
+
+              }
+
+            },
             [](auto&) { spdlog::error("Received unsupported message!"); }},
         parsed_msg
     );
@@ -508,6 +536,8 @@ namespace praas::process {
     spdlog::info("Closing controller polling.");
   }
 
+  // Store the message data, and check if there is a pending invocation waiting for this result
+  // FIXME: this should be a single type
   void Controller::_process_put(const runtime::ipc::PutRequestParsed & req, runtime::Buffer<char> && payload)
   {
     // local message
@@ -542,5 +572,6 @@ namespace praas::process {
       _server->put_message(req.process_id(), req.name(), std::move(payload));
     }
   }
+
 
 } // namespace praas::process

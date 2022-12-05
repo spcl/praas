@@ -184,8 +184,10 @@ TEST_P(ProcessRemoteServers, DataPlaneInvocations)
   buf.len = generate_input("msg_key", buf);
 
   auto result = processes[0].invoke("send_remote_message", invocation_id[idx], buf.data(), buf.len);
+  auto result_get = processes[1].invoke("get_remote_message", invocation_id[idx], buf.data(), buf.len);
+  //EXPECT_EQ(result_get.return_code, 0);
 
-  //std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
   //const int COUNT = 4;
   //int BUF_LEN = 1024;

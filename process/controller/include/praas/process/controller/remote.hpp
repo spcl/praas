@@ -6,6 +6,7 @@
 
 #include <optional>
 #include <string>
+#include <trantor/net/TcpClient.h>
 #include <unordered_map>
 
 #include <trantor/net/EventLoopThread.h>
@@ -60,7 +61,7 @@ namespace praas::process::remote {
     std::optional<std::string> id;
 
     //std::weak_ptr<trantor::TcpConnection> conn;
-    trantor::TcpConnectionPtr conn;
+    trantor::TcpConnectionPtr conn{};
 
     std::string ip_address{};
 
@@ -69,6 +70,13 @@ namespace praas::process::remote {
     common::message::Message cur_msg;
 
     std::size_t bytes_to_read{};
+
+    std::shared_ptr<trantor::TcpClient> client{};
+
+    runtime::Buffer<char> pending_payload{};
+
+    // FIXME: optimize - we need one message type
+    std::unique_ptr<common::message::Message> pending_msg{};
 
   };
 
@@ -99,12 +107,17 @@ namespace praas::process::remote {
 
   private:
 
+    void _connect(Connection * conn, std::string_view name);
+
     bool _handle_connection(const trantor::TcpConnectionPtr& connectionPtr, const common::message::ProcessConnectionParsed& msg);
 
     bool _handle_app_update(const trantor::TcpConnectionPtr& connectionPtr, const common::message::ApplicationUpdateParsed& msg);
 
     bool _handle_invocation(Connection& connection,
       const common::message::InvocationRequestParsed& msg, trantor::MsgBuffer* buffer);
+
+    bool _handle_put_message(Connection& connection, const common::message::PutMessageParsed& msg,
+        trantor::MsgBuffer* buffer);
 
     void _handle_message(const trantor::TcpConnectionPtr& connectionPtr, trantor::MsgBuffer* buffer);
 

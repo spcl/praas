@@ -90,6 +90,10 @@ namespace praas::common::message {
       return MessageVariants{ApplicationUpdateParsed(data + HEADER_OFFSET)};
     }
 
+    if (type == Type::PUT_MESSAGE) {
+      return MessageVariants{PutMessageParsed(data + HEADER_OFFSET)};
+    }
+
     throw common::NotImplementedError{};
   }
 
@@ -99,7 +103,7 @@ namespace praas::common::message {
     return std::string_view{reinterpret_cast<const char*>(buf), process_name_len};
   }
 
-  void ProcessConnection::process_name(const std::string& name)
+  void ProcessConnection::process_name(std::string_view name)
   {
     if (name.length() > Message::NAME_LENGTH) {
       throw common::InvalidArgument{
@@ -384,6 +388,58 @@ namespace praas::common::message {
   {
     // NOLINTNEXTLINE
     *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + Message::NAME_LENGTH + Message::ID_LENGTH + sizeof(int32_t)) = port;
+  }
+
+  std::string_view PutMessageParsed::name() const
+  {
+    return std::string_view{// NOLINTNEXTLINE
+                            reinterpret_cast<const char*>(buf), name_len};
+  }
+
+  std::string_view PutMessageParsed::process_id() const
+  {
+    return std::string_view{// NOLINTNEXTLINE
+                            reinterpret_cast<const char*>(buf + Message::NAME_LENGTH), name_len};
+  }
+
+  int32_t PutMessageParsed::payload_size() const
+  {
+    // NOLINTNEXTLINE
+    return *reinterpret_cast<const int32_t*>(buf + 2*Message::NAME_LENGTH);
+  }
+
+  void PutMessage::name(std::string_view name)
+  {
+    if (name.length() > Message::NAME_LENGTH) {
+      throw common::InvalidArgument{
+          fmt::format("Message name too long: {} > {}", name.length(), Message::NAME_LENGTH)};
+    }
+
+    std::strncpy(
+        // NOLINTNEXTLINE
+        reinterpret_cast<char*>(data.data() + HEADER_OFFSET), name.data(), Message::NAME_LENGTH
+    );
+    name_len = name.length();
+  }
+
+  void PutMessage::process_id(std::string_view name)
+  {
+    if (name.length() > Message::NAME_LENGTH) {
+      throw common::InvalidArgument{
+          fmt::format("Message name too long: {} > {}", name.length(), Message::NAME_LENGTH)};
+    }
+
+    std::strncpy(
+        // NOLINTNEXTLINE
+        reinterpret_cast<char*>(data.data() + HEADER_OFFSET + Message::NAME_LENGTH), name.data(), Message::NAME_LENGTH
+    );
+    id_len = name.length();
+  }
+
+  void PutMessage::payload_size(int32_t size)
+  {
+    // NOLINTNEXTLINE
+    *reinterpret_cast<int32_t*>(data.data() + 2*Message::NAME_LENGTH) = size;
   }
 
 } // namespace praas::common::message

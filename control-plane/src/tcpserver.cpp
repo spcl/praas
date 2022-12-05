@@ -127,6 +127,7 @@ namespace praas::control_plane::tcpserver {
               [this, connectionPtr](const common::message::ProcessConnectionParsed& msg
               ) mutable -> void { handle_connection(connectionPtr, msg); },
               [](const common::message::InvocationRequestParsed&) mutable -> void {},
+              [](const common::message::PutMessageParsed&) mutable -> void {},
               [](const common::message::ApplicationUpdateParsed&) mutable -> void {}},
           msg
       );

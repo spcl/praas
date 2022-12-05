@@ -10,6 +10,7 @@
 #include <praas/process/controller/messages.hpp>
 
 #include <memory>
+#include <spdlog/spdlog.h>
 #include <string>
 #include <variant>
 
@@ -74,7 +75,7 @@ namespace praas::process {
     void _process_internal_message(FunctionWorker & worker, const runtime::ipc::Message & msg, runtime::Buffer<char> &&);
 
     // Store the message data, and check if there is a pending invocation waiting for this result
-    void _process_put(const runtime::ipc::PutRequestParsed & msg, runtime::Buffer<char> &&);
+    void _process_put(const runtime::ipc::PutRequestParsed & req, runtime::Buffer<char> && payload);
 
     // Check if there is a message with this data. If yes, then respond immediately.
     // If not, then put in the structure for pending messages.
@@ -138,6 +139,7 @@ namespace praas::process {
 
     static constexpr std::string_view SELF_PROCESS = "SELF";
   };
+
 
   extern Controller* INSTANCE;
 
