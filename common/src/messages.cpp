@@ -86,6 +86,10 @@ namespace praas::common::message {
       return MessageVariants{ProcessClosureParsed(data + HEADER_OFFSET)};
     }
 
+    if (type == Type::APPLICATION_UPDATE) {
+      return MessageVariants{ApplicationUpdateParsed(data + HEADER_OFFSET)};
+    }
+
     throw common::NotImplementedError{};
   }
 
@@ -316,6 +320,70 @@ namespace praas::common::message {
   Message::Type ProcessClosureParsed::type()
   {
     return Message::Type::PROCESS_CLOSURE;
+  }
+
+  int32_t ApplicationUpdateParsed::status_change() const
+  {
+    // NOLINTNEXTLINE
+    return *reinterpret_cast<const int32_t*>(buf + Message::NAME_LENGTH + Message::ID_LENGTH);
+  }
+
+  int32_t ApplicationUpdateParsed::port() const
+  {
+    // NOLINTNEXTLINE
+    return *reinterpret_cast<const int32_t*>(buf + Message::NAME_LENGTH + Message::ID_LENGTH + sizeof(int32_t));
+  }
+
+  std::string_view ApplicationUpdateParsed::process_id() const
+  {
+    return std::string_view{// NOLINTNEXTLINE
+                            reinterpret_cast<const char*>(buf), id_len};
+  }
+
+  std::string_view ApplicationUpdateParsed::ip_address() const
+  {
+    return std::string_view{// NOLINTNEXTLINE
+                            reinterpret_cast<const char*>(buf + Message::NAME_LENGTH), ip_len};
+  }
+
+  void ApplicationUpdate::process_id(std::string_view id)
+  {
+    if (id.length() > Message::NAME_LENGTH) {
+      throw common::InvalidArgument{
+          fmt::format("Process ID too long: {} > {}", id.length(), Message::NAME_LENGTH)};
+    }
+
+    std::strncpy(
+        // NOLINTNEXTLINE
+        reinterpret_cast<char*>(data.data() + HEADER_OFFSET), id.data(), Message::NAME_LENGTH
+    );
+    id_len = id.length();
+  }
+
+  void ApplicationUpdate::ip_address(std::string_view id)
+  {
+    if (id.length() > Message::NAME_LENGTH) {
+      throw common::InvalidArgument{
+          fmt::format("Process ID too long: {} > {}", id.length(), Message::NAME_LENGTH)};
+    }
+
+    std::strncpy(
+        // NOLINTNEXTLINE
+        reinterpret_cast<char*>(data.data() + HEADER_OFFSET + Message::NAME_LENGTH), id.data(), Message::ID_LENGTH
+    );
+    ip_len = id.length();
+  }
+
+  void ApplicationUpdate::status_change(int32_t code)
+  {
+    // NOLINTNEXTLINE
+    *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + Message::NAME_LENGTH + Message::ID_LENGTH) = code;
+  }
+
+  void ApplicationUpdate::port(int32_t port)
+  {
+    // NOLINTNEXTLINE
+    *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + Message::NAME_LENGTH + Message::ID_LENGTH + sizeof(int32_t)) = port;
   }
 
 } // namespace praas::common::message

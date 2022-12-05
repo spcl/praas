@@ -22,6 +22,7 @@ namespace praas::common::message {
   struct InvocationResultParsed;
   struct DataPlaneMetricsParsed;
   struct ProcessClosureParsed;
+  struct ApplicationUpdateParsed;
 
   struct Message {
 
@@ -34,6 +35,7 @@ namespace praas::common::message {
       INVOCATION_RESULT,
       DATAPLANE_METRICS,
       PROCESS_CLOSURE,
+      APPLICATION_UPDATE,
       END_FLAG
     };
 
@@ -103,7 +105,7 @@ namespace praas::common::message {
 
     using MessageVariants = std::variant<
         ProcessConnectionParsed, SwapRequestParsed, SwapConfirmationParsed, InvocationRequestParsed,
-        InvocationResultParsed, DataPlaneMetricsParsed, ProcessClosureParsed>;
+        InvocationResultParsed, DataPlaneMetricsParsed, ProcessClosureParsed, ApplicationUpdateParsed>;
 
     MessageVariants parse();
     static MessageVariants parse_message(const int8_t* data);
@@ -316,6 +318,44 @@ namespace praas::common::message {
     ProcessClosure() : Message(Type::PROCESS_CLOSURE) {}
 
     using ProcessClosureParsed::type;
+  };
+
+  struct ApplicationUpdateParsed {
+    const int8_t* buf;
+    size_t id_len;
+    size_t ip_len;
+
+    ApplicationUpdateParsed(const int8_t* buf)
+        : buf(buf),
+          // NOLINTNEXTLINE
+          id_len(strnlen(reinterpret_cast<const char*>(buf), Message::NAME_LENGTH)),
+          ip_len(strnlen(reinterpret_cast<const char*>(buf + Message::NAME_LENGTH), Message::ID_LENGTH))
+    {
+    }
+
+    std::string_view process_id() const;
+    std::string_view ip_address() const;
+    int32_t status_change() const;
+    int32_t port() const;
+  };
+
+  struct ApplicationUpdate : Message, ApplicationUpdateParsed {
+
+    ApplicationUpdate()
+        : Message(Type::APPLICATION_UPDATE),
+          ApplicationUpdateParsed(this->data.data() + HEADER_OFFSET)
+    {
+    }
+
+    using ApplicationUpdateParsed::status_change;
+    using ApplicationUpdateParsed::process_id;
+    using ApplicationUpdateParsed::ip_address;
+    using ApplicationUpdateParsed::port;
+
+    void process_id(std::string_view id);
+    void ip_address(std::string_view id);
+    void status_change(int32_t code);
+    void port(int32_t code);
   };
 
 } // namespace praas::common::message
