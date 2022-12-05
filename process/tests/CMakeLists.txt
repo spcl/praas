@@ -20,6 +20,7 @@ set(TESTS integration/invocation.cpp
           integration/get_put.cpp
           integration/local_invocation.cpp
           integration/remote.cpp
+          integration/remote_multiple_proc.cpp
 )
 foreach(test ${TESTS})
 

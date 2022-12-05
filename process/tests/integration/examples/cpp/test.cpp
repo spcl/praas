@@ -132,3 +132,52 @@ extern "C" int power(praas::function::Invocation invocation, praas::function::Co
   return 0;
 }
 
+extern "C" int send_remote_message(praas::function::Invocation invoc, praas::function::Context& context)
+{
+  std::cerr << context.active_processes().size() << std::endl;
+  for(int i = 0; i < context.active_processes().size(); ++i)
+    std::cerr << context.active_processes()[i] << std::endl;
+  std::string other_process_id;
+  if(context.active_processes()[0] == context.process_id()) {
+    other_process_id = context.active_processes()[1];
+  } else {
+    other_process_id = context.active_processes()[0];
+  }
+
+  constexpr int MSG_SIZE = 1024;
+  praas::function::Buffer buf = context.get_buffer(MSG_SIZE);
+
+  InputMsgKey key;
+  invoc.args[0].deserialize(key);
+
+  Message msg;
+  msg.some_data = 42;
+  msg.message = "THIS IS A TEST MESSAGE";
+  buf.serialize(msg);
+
+  context.put(other_process_id, key.message_key, buf.ptr, buf.len);
+
+  return 0;
+}
+
+extern "C" int get_remote_message(praas::function::Invocation invoc, praas::function::Context& context)
+{
+  std::cerr << context.active_processes().size() << std::endl;
+  for(int i = 0; i < context.active_processes().size(); ++i)
+    std::cerr << context.active_processes()[i] << std::endl;
+
+  InputMsgKey key;
+  invoc.args[0].deserialize(key);
+
+  praas::function::Buffer buf = context.get(praas::function::Context::ANY, key.message_key);
+
+  Message msg;
+  buf.deserialize(msg);
+
+  if(msg.some_data != 42 || msg.message != "THIS IS A TEST MESSAGE") {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+

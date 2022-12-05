@@ -28,7 +28,7 @@ public:
   MockTCPServer() = default;
 
   MOCK_METHOD(void, poll, (), (override));
-  MOCK_METHOD(void, put_message, (), (override));
+  MOCK_METHOD(void, put_message, (std::string_view, std::string_view, runtime::Buffer<char> &&), (override));
   MOCK_METHOD(
       void, invocation_result,
       (remote::RemoteType, std::optional<std::string_view>, std::string_view, int, runtime::Buffer<char> &&),

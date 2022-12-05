@@ -26,7 +26,7 @@ public:
   MockTCPServer() = default;
 
   MOCK_METHOD(void, poll, (), (override));
-  MOCK_METHOD(void, put_message, (), (override));
+  MOCK_METHOD(void, put_message, (std::string_view, std::string_view, runtime::Buffer<char> &&), (override));
   MOCK_METHOD(
       void, invocation_result,
       (remote::RemoteType, std::optional<std::string_view>, std::string_view, int, runtime::Buffer<char> &&), (override)
@@ -105,7 +105,7 @@ public:
 
     EXPECT_CALL(server, invocation_result)
         .WillRepeatedly(
-            [&](auto source, auto _process, auto _id, int _return_code, auto && _payload) mutable {
+            [&](auto, auto _process, auto _id, int _return_code, auto && _payload) mutable {
 
               saved_results[idx].process = _process;
               saved_results[idx].id = _id;

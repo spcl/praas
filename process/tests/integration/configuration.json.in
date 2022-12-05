@@ -90,6 +90,16 @@
           "type": "direct",
           "nargs": 1
         }
+      },
+      "send_remote_message": {
+        "code": {
+          "module": "@PRAAS_SOURCE_DIRECTORY@/process/tests/integration/examples/python/test.py",
+          "function": "send_remote_message"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
       }
     },
     "cpp": {
@@ -177,6 +187,26 @@
         "code": {
           "module": "@PRAAS_DIRECTORY@/process/tests/examples/libexample_cpp.so",
           "function": "power"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
+      "send_remote_message": {
+        "code": {
+          "module": "@PRAAS_DIRECTORY@/process/tests/examples/libexample_cpp.so",
+          "function": "send_remote_message"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
+      "get_remote_message": {
+        "code": {
+          "module": "@PRAAS_DIRECTORY@/process/tests/examples/libexample_cpp.so",
+          "function": "get_remote_message"
         },
         "trigger": {
           "type": "direct",
