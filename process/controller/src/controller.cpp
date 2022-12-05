@@ -486,7 +486,7 @@ namespace praas::process {
 
           auto [complete, input] = worker.ipc_read().receive();
 
-          spdlog::error("Message complete? {}", complete);
+          spdlog::error("Message complete? {} payload size {}", complete, input.len);
           if(complete) {
             _process_internal_message(worker, worker.ipc_read().message(), std::move(input));
           }
@@ -546,6 +546,7 @@ namespace praas::process {
   // FIXME: this should be a single type
   void Controller::_process_put(const runtime::ipc::PutRequestParsed & req, runtime::Buffer<char> && payload)
   {
+    spdlog::info("Process put message, payload size {}", payload.len);
     // local message
     if(req.process_id() == SELF_PROCESS || req.process_id() == _process_id) {
 

@@ -85,11 +85,14 @@ namespace praas::process::remote {
   {
     auto conn = connectionPtr->getContext<Connection>();
 
+    spdlog::info("Received {} bytes {}", buffer->readableBytes(), conn != nullptr);
+
     // Registration of the connection
     if(!conn) {
 
-      if(buffer->readableBytes() < praas::common::message::Message::BUF_SIZE)
+      if(buffer->readableBytes() < praas::common::message::Message::BUF_SIZE) {
         return;
+      }
 
       auto msg = praas::common::message::Message::parse_message(buffer->peek());
 
@@ -263,7 +266,7 @@ namespace praas::process::remote {
     // We just started
     if(connection.bytes_to_read == 0) {
 
-      connection.bytes_to_read = msg.payload_size();
+      connection.bytes_to_read = msg.total_length();
       spdlog::info("Start receiving message of size {}", connection.bytes_to_read);
       // FIXME: avoid copy here - just store the actual variant
       common::message::PutMessage req;
@@ -274,17 +277,17 @@ namespace praas::process::remote {
     }
 
     // Check that we have the payload
-    if(buffer->readableBytes() >= msg.payload_size()) {
+    if(buffer->readableBytes() >= connection.bytes_to_read) {
 
-      auto buf = _buffers.retrieve_buffer(msg.payload_size());
-      std::copy_n(buffer->peek(), msg.payload_size(), buf.data());
-      buf.len = msg.payload_size();
-      buffer->retrieve(msg.payload_size());
+      auto buf = _buffers.retrieve_buffer(connection.bytes_to_read);
+      std::copy_n(buffer->peek(), connection.bytes_to_read, buf.data());
+      buf.len = connection.bytes_to_read;
+      buffer->retrieve(connection.bytes_to_read);
 
       spdlog::info(
           "Received complete put messsage of {}, with {} bytes of input",
           msg.name(),
-          msg.payload_size()
+          connection.bytes_to_read
       );
 
       _controller.remote_message(std::move(connection.cur_msg), std::move(buf), connection.id.value());
@@ -294,9 +297,7 @@ namespace praas::process::remote {
       return true;
     }
     // Not enough payload, not consumed
-    else {
-      return false;
-    }
+    return false;
   }
 
   bool TCPServer::_handle_connection(const trantor::TcpConnectionPtr& connectionPtr, const common::message::ProcessConnectionParsed& msg)
@@ -430,14 +431,16 @@ namespace praas::process::remote {
       auto put_req = std::make_unique<praas::common::message::PutMessage>();
       put_req->name(name);
       put_req->process_id(_controller.process_id());
-      put_req->payload_size(payload.len);
+      put_req->total_length(payload.len);
       conn->pending_msg = std::move(put_req);
       conn->pending_payload = std::move(payload);
+      spdlog::info("Store message of size {}", conn->pending_payload.len);
 
       _connect(conn, name);
 
     } else {
       spdlog::info("Communicate");
+      abort();
       // FIXME: send message
       conn->conn->send(payload.data(), payload.len);
     }
@@ -465,8 +468,8 @@ namespace praas::process::remote {
 
             if(connection->pending_msg) {
 
-              spdlog::info("Send message {}", connection->pending_payload.len);
               auto* msg = connection->pending_msg.get();
+              spdlog::info("Send message {} {}", connection->pending_payload.len, msg->total_length());
               conn->send(msg->bytes(), msg->BUF_SIZE);
               if(connection->pending_payload.len > 0) {
                 conn->send(connection->pending_payload.data(), connection->pending_payload.len);
