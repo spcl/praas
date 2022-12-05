@@ -218,7 +218,12 @@ namespace praas::process {
 
     for (int i = 0; i < cfg.function_workers; ++i) {
 
-      std::string ipc_name = fmt::format("/praas_queue_{}_{}", getpid(), _worker_counter++);
+      std::string ipc_name;
+      if(cfg.ipc_name_prefix.empty()) {
+         ipc_name = fmt::format("/praas_queue_{}_{}", getpid(), _worker_counter++);
+      } else {
+         ipc_name = fmt::format("/{}_praas_queue_{}_{}", cfg.ipc_name_prefix, getpid(), _worker_counter++);
+      }
 
       if (cfg.code.language == runtime::functions::Language::CPP) {
         _launch_cpp(cfg, ipc_name);

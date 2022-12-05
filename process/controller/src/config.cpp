@@ -56,6 +56,7 @@ namespace praas::process::config {
     process_id = "TEST_PROCESS_ID";
 
     deployment_location = "";
+    ipc_name_prefix = "";
 
     code.set_defaults();
   }

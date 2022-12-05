@@ -41,6 +41,7 @@ namespace praas::process::config {
     int function_workers;
     runtime::ipc::IPCMode ipc_mode;
     int ipc_message_size;
+    std::string ipc_name_prefix;
 
     std::string process_id;
 
