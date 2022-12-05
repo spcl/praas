@@ -220,7 +220,7 @@ namespace praas::process {
       std::lock_guard<std::mutex> lock(_app_lock);
       _app_updates.emplace_back(status, std::string{process});
     }
-    uint64_t tmp = 2;
+    uint64_t tmp = 1;
     common::util::assert_other(write(_event_fd, &tmp, sizeof(tmp)), -1);
   }
 
@@ -437,37 +437,43 @@ namespace praas::process {
           [[maybe_unused]] int read_size = read(_event_fd, &read_val, sizeof(read_val));
           assert(read_size != -1);
 
-          if(read_val == 1) {
+          {
             std::unique_lock<std::mutex> lock(_deque_lock);
 
             size_t queue_size = _external_queue.size();
-            msg.resize(_external_queue.size());
+            if(queue_size > 0) {
+              msg.resize(_external_queue.size());
 
-            for(size_t j = 0; j < queue_size; ++j) {
-              msg[j] = std::move(_external_queue.front());
-              _external_queue.pop_front();
+              for(size_t j = 0; j < queue_size; ++j) {
+                msg[j] = std::move(_external_queue.front());
+                _external_queue.pop_front();
+              }
+
+              lock.unlock();
+
+              for(size_t j = 0; j < msg.size(); ++j) {
+                _process_external_message(msg[j]);
+              }
+              msg.clear();
             }
-
-            lock.unlock();
-
-            for(size_t j = 0; j < msg.size(); ++j) {
-              _process_external_message(msg[j]);
-            }
-            msg.clear();
-          } else {
+          }
+          {
             std::unique_lock<std::mutex> lock(_app_lock);
             size_t queue_size = _app_updates.size();
-            updates.resize(queue_size);
 
-            for(size_t j = 0; j < queue_size; ++j) {
-              updates[j] = std::move(_app_updates.front());
-              _app_updates.pop_front();
+            if(queue_size > 0) {
+              updates.resize(queue_size);
+
+              for(size_t j = 0; j < queue_size; ++j) {
+                updates[j] = std::move(_app_updates.front());
+                _app_updates.pop_front();
+              }
+
+              lock.unlock();
+
+              _process_application_updates(updates);
+              msg.clear();
             }
-
-            lock.unlock();
-
-            _process_application_updates(updates);
-            msg.clear();
 
           }
         }
