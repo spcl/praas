@@ -1,9 +1,12 @@
+#include <praas/common/application.hpp>
 #include <praas/process/controller/controller.hpp>
 #include <praas/process/controller/remote.hpp>
 #include <praas/common/messages.hpp>
-#include <spdlog/spdlog.h>
+
 #include <variant>
-#include "praas/common/application.hpp"
+
+#include <spdlog/spdlog.h>
+#include <trantor/utils/MsgBuffer.h>
 
 namespace praas::process::remote {
 
@@ -178,7 +181,7 @@ namespace praas::process::remote {
             },
             [this, connectionPtr, buffer](common::message::ProcessConnectionParsed& msg) mutable -> bool {
               // Connection always consumed a message
-              _handle_connection(connectionPtr, msg);
+              spdlog::info("[TCPServer] Confirmation of registration {}", msg.process_name());
               buffer->retrieve(praas::common::message::Message::BUF_SIZE);
               return true;
             },
@@ -325,6 +328,7 @@ namespace praas::process::remote {
           _control_plane = conn;
         } else {
           conn = std::make_shared<Connection>(Connection::Status::CONNECTED, RemoteType::PROCESS, std::string{msg.process_name()}, connectionPtr);
+
         }
 
         spdlog::info("Registered new remote connection");
@@ -501,6 +505,13 @@ namespace praas::process::remote {
             spdlog::info("Process disconnected");
           }
       });
+
+    conn->client->setMessageCallback(
+      [this, connection = conn](const trantor::TcpConnectionPtr &conn, trantor::MsgBuffer* buffer) -> void {
+        spdlog::error("[TCPServer] Callback from the client connection! {}", buffer->readableBytes());
+        _handle_message(conn, buffer);
+      }
+    );
 
     conn->client->connect();
   }

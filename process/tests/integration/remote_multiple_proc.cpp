@@ -184,10 +184,33 @@ TEST_P(ProcessRemoteServers, DataPlaneInvocations)
   buf.len = generate_input("msg_key", buf);
 
   auto result = processes[0].invoke("send_remote_message", invocation_id[idx], buf.data(), buf.len);
+  // Wait to ensure that message is propagated.
+  std::this_thread::sleep_for(std::chrono::milliseconds(250));
   auto result_get = processes[1].invoke("get_remote_message", invocation_id[idx], buf.data(), buf.len);
 
-  EXPECT_EQ(result.return_code, 0);
-  EXPECT_EQ(result_get.return_code, 0);
+  ASSERT_EQ(result.return_code, 0);
+  ASSERT_EQ(result_get.return_code, 0);
+
+  spdlog::info("");
+  for(int i = 0; i < 4; ++i) {
+    spdlog::info("-----------------------------------------------");
+  }
+  spdlog::info("");
+
+  // Now reverse - we first put pending messages everywhere, then ensure that data is delivered later.
+  // Furthermore, we reverse the order of communication: from process 1 -> to 0.
+  std::thread nonblocking{
+    [&]() mutable {
+      result_get = processes[0].invoke("get_remote_message", invocation_id[idx], buf.data(), buf.len);
+    }
+  };
+  // Wait to ensure that message is propagated.
+  std::this_thread::sleep_for(std::chrono::milliseconds(250));
+  result = processes[1].invoke("send_remote_message", invocation_id[idx], buf.data(), buf.len);
+  nonblocking.join();
+
+  ASSERT_EQ(result.return_code, 0);
+  ASSERT_EQ(result_get.return_code, 0);
 
   for(int i = 0; i < PROC_COUNT; ++i) {
     processes[i].disconnect();
