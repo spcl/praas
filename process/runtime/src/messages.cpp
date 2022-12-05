@@ -37,6 +37,10 @@ namespace praas::process::runtime::ipc {
       return MessageVariants{InvocationResultParsed(data + HEADER_OFFSET)};
     }
 
+    if (type == Type::APPLICATION_UPDATE) {
+      return MessageVariants{ApplicationUpdateParsed(data + HEADER_OFFSET)};
+    }
+
     throw common::PraaSException{fmt::format("Unknown message with type number {}", type_val)};
   }
 
@@ -266,6 +270,38 @@ namespace praas::process::runtime::ipc {
   {
     // NOLINTNEXTLINE
     *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + Message::ID_LENGTH) = len;
+  }
+
+  int32_t ApplicationUpdateParsed::status_change() const
+  {
+    // NOLINTNEXTLINE
+    return *reinterpret_cast<const int32_t*>(buf + Message::NAME_LENGTH);
+  }
+
+  std::string_view ApplicationUpdateParsed::process_id() const
+  {
+    return std::string_view{// NOLINTNEXTLINE
+                            reinterpret_cast<const char*>(buf), id_len};
+  }
+
+  void ApplicationUpdate::process_id(std::string_view id)
+  {
+    if (id.length() > Message::NAME_LENGTH) {
+      throw common::InvalidArgument{
+          fmt::format("Process ID too long: {} > {}", id.length(), Message::NAME_LENGTH)};
+    }
+
+    std::strncpy(
+        // NOLINTNEXTLINE
+        reinterpret_cast<char*>(data.data() + HEADER_OFFSET), id.data(), Message::NAME_LENGTH
+    );
+    id_len = id.length();
+  }
+
+  void ApplicationUpdate::status_change(int32_t code)
+  {
+    // NOLINTNEXTLINE
+    *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + Message::NAME_LENGTH) = code;
   }
 
 } // namespace praas::process::runtime::ipc
