@@ -1,13 +1,13 @@
 #ifndef PRAAS_PROCESS_CONTROLLER_HPP
 #define PRAAS_PROCESS_CONTROLLER_HPP
 
+#include <praas/common/application.hpp>
+#include <praas/common/messages.hpp>
 #include <praas/process/controller/config.hpp>
 #include <praas/process/controller/remote.hpp>
 #include <praas/process/controller/workers.hpp>
 #include <praas/process/runtime/ipc/ipc.hpp>
 #include <praas/process/controller/messages.hpp>
-
-#include <praas/common/messages.hpp>
 
 #include <memory>
 #include <string>
@@ -60,14 +60,21 @@ namespace praas::process {
 
     void controlplane_message(praas::common::message::Message &&, runtime::Buffer<char> &&);
 
+    void update_application(common::Application::Status status, std::string_view process);
+
+    std::string_view process_id() const
+    {
+      return _process_id;
+    }
+
   private:
 
+    void _process_application_updates(const std::vector<common::ApplicationUpdate>& updates);
     void _process_external_message(ExternalMessage & msg);
     void _process_internal_message(FunctionWorker & worker, const runtime::ipc::Message & msg, runtime::Buffer<char> &&);
 
     // Store the message data, and check if there is a pending invocation waiting for this result
-    void _process_put(runtime::Buffer<char> &&);
-    void _process_put(const runtime::ipc::Message & msg, runtime::Buffer<char> &&);
+    void _process_put(const runtime::ipc::PutRequestParsed & msg, runtime::Buffer<char> &&);
 
     // Check if there is a message with this data. If yes, then respond immediately.
     // If not, then put in the structure for pending messages.
@@ -105,6 +112,11 @@ namespace praas::process {
     // No deque in tbb
     // https://community.intel.com/t5/Intel-oneAPI-Threading-Building/Is-there-a-concurrent-dequeue/m-p/873829
     //oneapi::tbb::concurrent_queue<ExternalMessage> _external_queue;
+
+    // Current world
+    std::mutex _app_lock;
+    common::Application _application;
+    std::deque<common::ApplicationUpdate> _app_updates;
 
     // Queue storing pending invocations
     WorkQueue _work_queue;

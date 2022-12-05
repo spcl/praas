@@ -45,7 +45,11 @@ namespace praas::process::remote {
         int return_code,
         runtime::Buffer<char> && payload
     ) = 0;
-    virtual void put_message() = 0;
+    virtual void put_message(
+        std::string_view process_id,
+        std::string_view name,
+        runtime::Buffer<char> && payload
+    ) = 0;
 
   };
 
@@ -57,6 +61,10 @@ namespace praas::process::remote {
 
     //std::weak_ptr<trantor::TcpConnection> conn;
     trantor::TcpConnectionPtr conn;
+
+    std::string ip_address{};
+
+    int port{};
 
     common::message::Message cur_msg;
 
@@ -83,7 +91,7 @@ namespace praas::process::remote {
         runtime::Buffer<char> && payload
     ) override;
 
-    void put_message() override;
+    void put_message(std::string_view process_id, std::string_view name, runtime::Buffer<char> && payload) override;
 
     void shutdown();
 
@@ -92,6 +100,8 @@ namespace praas::process::remote {
   private:
 
     bool _handle_connection(const trantor::TcpConnectionPtr& connectionPtr, const common::message::ProcessConnectionParsed& msg);
+
+    bool _handle_app_update(const trantor::TcpConnectionPtr& connectionPtr, const common::message::ApplicationUpdateParsed& msg);
 
     bool _handle_invocation(Connection& connection,
       const common::message::InvocationRequestParsed& msg, trantor::MsgBuffer* buffer);
@@ -112,7 +122,6 @@ namespace praas::process::remote {
     runtime::BufferQueue<char> _buffers;
 
     // lock
-    std::mutex _data_mock;
     std::unordered_map<std::string, std::shared_ptr<Connection>> _connection_data;
     std::shared_ptr<Connection> _data_plane;
     std::shared_ptr<Connection> _control_plane;

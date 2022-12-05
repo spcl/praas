@@ -214,6 +214,35 @@ namespace praas::process {
     common::util::assert_other(write(_event_fd, &tmp, sizeof(tmp)), -1);
   }
 
+  void Controller::update_application(common::Application::Status status, std::string_view process)
+  {
+    {
+      std::lock_guard<std::mutex> lock(_app_lock);
+      _app_updates.emplace_back(status, std::string{process});
+    }
+    uint64_t tmp = 2;
+    common::util::assert_other(write(_event_fd, &tmp, sizeof(tmp)), -1);
+  }
+
+  void Controller::_process_application_updates(const std::vector<common::ApplicationUpdate>& updates)
+  {
+    runtime::ipc::ApplicationUpdate msg;
+
+    for(const common::ApplicationUpdate & update : updates) {
+
+      msg.process_id(update.process_id);
+      msg.status_change(static_cast<int32_t>(update.status));
+
+      for(FunctionWorker& worker : _workers.workers()) {
+        worker.ipc_write().send(msg);
+      }
+    }
+
+    for(const common::ApplicationUpdate & update : updates) {
+      _application.update(update.status, update.process_id);
+    }
+  }
+
   void Controller::_process_external_message(ExternalMessage& msg)
   {
     auto parsed_msg = msg.msg.parse();
@@ -315,34 +344,7 @@ namespace praas::process {
 
             },
             [&, this](runtime::ipc::PutRequestParsed& req) mutable {
-
-              // FIXME: put remote message to the tcp server
-              if(req.process_id() == SELF_PROCESS || req.process_id() == _process_id) {
-
-                // Is there are pending message for this message?
-                const FunctionWorker* pending_worker = _pending_msgs.find_get(std::string{req.name()}, _process_id);
-                if(pending_worker) {
-
-                    spdlog::info("Replying message to {} with key {}, message len {}", _process_id, req.name(), payload.len);
-
-                    runtime::ipc::GetRequest return_req;
-                    return_req.process_id(_process_id);
-                    return_req.name(req.name());
-
-                    pending_worker->ipc_write().send(return_req, std::move(payload));
-
-                } else {
-
-                  int length = payload.len;
-                  bool success = _mailbox.put(std::string{req.name()}, _process_id, payload);
-                  if(!success) {
-                    spdlog::error("Could not store message to itself, with key {}", req.name());
-                  } else {
-                    spdlog::info("Stored a message to {}, with key {}, length {}", _process_id, req.name(), length);
-                  }
-
-                }
-              }
+              _process_put(req, std::move(payload));
             },
             [&, this](runtime::ipc::GetRequestParsed& req) mutable {
 
@@ -386,6 +388,7 @@ namespace praas::process {
     // FIXME: customize
     runtime::BufferQueue<char> buffers(10, 1024);
     std::vector<ExternalMessage> msg;
+    std::vector<common::ApplicationUpdate> updates;
 
     std::array<epoll_event, MAX_EPOLL_EVENTS> events;
     while (true) {
@@ -406,22 +409,39 @@ namespace praas::process {
           [[maybe_unused]] int read_size = read(_event_fd, &read_val, sizeof(read_val));
           assert(read_size != -1);
 
-          std::unique_lock<std::mutex> lock(_deque_lock);
+          if(read_val == 1) {
+            std::unique_lock<std::mutex> lock(_deque_lock);
 
-          size_t queue_size = _external_queue.size();
-          msg.resize(_external_queue.size());
+            size_t queue_size = _external_queue.size();
+            msg.resize(_external_queue.size());
 
-          for(size_t j = 0; j < queue_size; ++j) {
-            msg[j] = std::move(_external_queue.front());
-            _external_queue.pop_front();
+            for(size_t j = 0; j < queue_size; ++j) {
+              msg[j] = std::move(_external_queue.front());
+              _external_queue.pop_front();
+            }
+
+            lock.unlock();
+
+            for(size_t j = 0; j < msg.size(); ++j) {
+              _process_external_message(msg[j]);
+            }
+            msg.clear();
+          } else {
+            std::unique_lock<std::mutex> lock(_app_lock);
+            size_t queue_size = _app_updates.size();
+            updates.resize(queue_size);
+
+            for(size_t j = 0; j < queue_size; ++j) {
+              updates[j] = std::move(_app_updates.front());
+              _app_updates.pop_front();
+            }
+
+            lock.unlock();
+
+            _process_application_updates(updates);
+            msg.clear();
+
           }
-
-          lock.unlock();
-
-          for(size_t j = 0; j < msg.size(); ++j) {
-            _process_external_message(msg[j]);
-          }
-          msg.clear();
         }
         // Message
         else {
@@ -486,6 +506,41 @@ namespace praas::process {
     _ending = true;
 
     spdlog::info("Closing controller polling.");
+  }
+
+  void Controller::_process_put(const runtime::ipc::PutRequestParsed & req, runtime::Buffer<char> && payload)
+  {
+    // local message
+    if(req.process_id() == SELF_PROCESS || req.process_id() == _process_id) {
+
+      // Is there are pending message for this message?
+      const FunctionWorker* pending_worker = _pending_msgs.find_get(std::string{req.name()}, _process_id);
+      if(pending_worker) {
+
+          spdlog::info("Replying message to {} with key {}, message len {}", _process_id, req.name(), payload.len);
+
+          runtime::ipc::GetRequest return_req;
+          return_req.process_id(_process_id);
+          return_req.name(req.name());
+
+          pending_worker->ipc_write().send(return_req, std::move(payload));
+
+      } else {
+
+        int length = payload.len;
+        bool success = _mailbox.put(std::string{req.name()}, _process_id, payload);
+        if(!success) {
+          spdlog::error("Could not store message to itself, with key {}", req.name());
+        } else {
+          spdlog::info("Stored a message to {}, with key {}, length {}", _process_id, req.name(), length);
+        }
+
+      }
+    }
+    // remote message
+    else {
+      _server->put_message(req.process_id(), req.name(), std::move(payload));
+    }
   }
 
 } // namespace praas::process

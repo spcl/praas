@@ -3,6 +3,7 @@
 #include <praas/common/messages.hpp>
 #include <spdlog/spdlog.h>
 #include <variant>
+#include "praas/common/application.hpp"
 
 namespace praas::process::remote {
 
@@ -146,6 +147,7 @@ namespace praas::process::remote {
       // FIXME: process update (list of processes)
       // FIXME: put request
       // FIXME: swap request
+      std::cerr << "test " << std::holds_alternative<common::message::ApplicationUpdateParsed>(msg) << std::endl;
       consumed = std::visit(
           common::message::overloaded{
             [this, buffer, conn = conn.get()](
@@ -157,14 +159,19 @@ namespace praas::process::remote {
                   buffer
               );
             },
-            [buffer](const common::message::SwapRequestParsed&) mutable -> bool {
+            [buffer](common::message::SwapRequestParsed&) mutable -> bool {
               // FIXME: implement
               buffer->retrieve(praas::common::message::Message::BUF_SIZE);
               return true;
             },
-            [this, connectionPtr, buffer](const common::message::ProcessConnectionParsed& msg) mutable -> bool {
+            [this, connectionPtr, buffer](common::message::ProcessConnectionParsed& msg) mutable -> bool {
               // Connection always consumed a message
               _handle_connection(connectionPtr, msg);
+              buffer->retrieve(praas::common::message::Message::BUF_SIZE);
+              return true;
+            },
+            [this, connectionPtr, buffer](common::message::ApplicationUpdateParsed& msg) mutable -> bool {
+              _handle_app_update(connectionPtr, msg);
               buffer->retrieve(praas::common::message::Message::BUF_SIZE);
               return true;
             },
@@ -238,21 +245,38 @@ namespace praas::process::remote {
   {
     std::shared_ptr<Connection> conn;
 
-    if(msg.process_name() == DATAPLANE_ID) {
-      conn = std::make_shared<Connection>(RemoteType::DATA_PLANE, std::nullopt, connectionPtr);
-      _data_plane = conn;
-    } else if(msg.process_name() == CONTROLPLANE_ID) {
-      conn = std::make_shared<Connection>(RemoteType::CONTROL_PLANE, std::nullopt, connectionPtr);
-      _control_plane = conn;
+    auto find_iter = _connection_data.find(std::string{msg.process_name()});
+    if(find_iter != _connection_data.end()) {
+
+      // Update connection
+      (*find_iter).second->conn = connectionPtr;
+      if(msg.process_name() == DATAPLANE_ID) {
+        _data_plane = (*find_iter).second;
+      } else if(msg.process_name() == CONTROLPLANE_ID) {
+        _control_plane = (*find_iter).second;
+      }
+
+      connectionPtr->setContext((*find_iter).second);
+
     } else {
-      conn = std::make_shared<Connection>(RemoteType::PROCESS, std::string{msg.process_name()}, connectionPtr);
+
+      if(msg.process_name() == DATAPLANE_ID) {
+        conn = std::make_shared<Connection>(RemoteType::DATA_PLANE, std::nullopt, connectionPtr);
+        _data_plane = conn;
+      } else if(msg.process_name() == CONTROLPLANE_ID) {
+        conn = std::make_shared<Connection>(RemoteType::CONTROL_PLANE, std::nullopt, connectionPtr);
+        _control_plane = conn;
+      } else {
+        conn = std::make_shared<Connection>(RemoteType::PROCESS, std::string{msg.process_name()}, connectionPtr);
+      }
+
+      spdlog::info("Registered new remote connection");
+
+      auto [iter, inserted] = _connection_data.emplace(msg.process_name(), std::move(conn));
+      // FIXME: handle insertion failure
+      connectionPtr->setContext(iter->second);
+
     }
-
-    spdlog::info("Registered new remote connection");
-
-    auto [iter, inserted] = _connection_data.emplace(msg.process_name(), std::move(conn));
-    // FIXME: handle insertion failure
-    connectionPtr->setContext(iter->second);
 
     praas::common::message::ProcessConnection req;
     req.process_name("CORRECT");
@@ -298,10 +322,50 @@ namespace praas::process::remote {
     }
   }
 
-  void TCPServer::put_message()
+  bool TCPServer::_handle_app_update(
+      const trantor::TcpConnectionPtr& connectionPtr,
+      const common::message::ApplicationUpdateParsed& msg)
   {
-    // FIXME: implement
-    abort();
+    _controller.update_application(
+      static_cast<common::Application::Status>(msg.status_change()),
+      msg.process_id()
+    );
+
+    std::string process_id{msg.process_id()};
+    auto iter = _connection_data.find(process_id);
+    if(iter != _connection_data.end()) {
+      (*iter).second->ip_address = msg.ip_address();
+      (*iter).second->port = msg.port();
+    } else {
+
+      _connection_data.emplace(
+        process_id,
+        std::move(
+          std::make_shared<Connection>(
+            RemoteType::PROCESS, process_id, nullptr, std::string{msg.ip_address()}, msg.port()
+          )
+        )
+      );
+
+    }
+
+    return true;
+  }
+
+  void TCPServer::put_message(std::string_view process_id, std::string_view name, runtime::Buffer<char> && payload)
+  {
+    auto iter = _connection_data.find(std::string{process_id});
+    if(iter == _connection_data.end()) {
+      // FIXME: return error?
+      spdlog::error("Sending message to an unknown process {}!", process_id);
+    }
+
+
+    //if(iter->second->conn) {
+
+    //  iter->second->conn->send(
+
+    //}
   }
 
 }
