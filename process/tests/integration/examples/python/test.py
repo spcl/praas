@@ -56,7 +56,7 @@ def error_function(invocation, context):
 
 def large_payload(invocation, context):
 
-    input_data = np.frombuffer(invocation.args[0].view_readable(), dtype=np.int32)
+    input_data = np.frombuffer(invocation.args[0].view_readable(), dtype=np.int32).astype(dtype=np.int_)
     length = len(input_data) * 4
 
     out_buf = context.get_output_buffer(length)
