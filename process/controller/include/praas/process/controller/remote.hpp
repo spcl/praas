@@ -56,6 +56,14 @@ namespace praas::process::remote {
 
   struct Connection {
 
+    enum class Status {
+      DISCONNECTED,
+      CONNECTING,
+      CONNECTED
+    };
+
+    Status status = Status::DISCONNECTED;
+
     RemoteType type;
 
     std::optional<std::string> id;
@@ -73,10 +81,14 @@ namespace praas::process::remote {
 
     std::shared_ptr<trantor::TcpClient> client{};
 
-    runtime::Buffer<char> pending_payload{};
 
     // FIXME: optimize - we need one message type
-    std::unique_ptr<common::message::Message> pending_msg{};
+    std::vector<
+      std::tuple<
+        std::unique_ptr<common::message::Message>,
+        runtime::Buffer<char>
+      >
+    > pendings_msgs;
 
   };
 
@@ -135,6 +147,7 @@ namespace praas::process::remote {
     runtime::BufferQueue<char> _buffers;
 
     // lock
+    std::mutex _conn_mutex;
     std::unordered_map<std::string, std::shared_ptr<Connection>> _connection_data;
     std::shared_ptr<Connection> _data_plane;
     std::shared_ptr<Connection> _control_plane;

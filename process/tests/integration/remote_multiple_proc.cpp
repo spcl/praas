@@ -185,33 +185,9 @@ TEST_P(ProcessRemoteServers, DataPlaneInvocations)
 
   auto result = processes[0].invoke("send_remote_message", invocation_id[idx], buf.data(), buf.len);
   auto result_get = processes[1].invoke("get_remote_message", invocation_id[idx], buf.data(), buf.len);
-  //EXPECT_EQ(result_get.return_code, 0);
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-  //const int COUNT = 4;
-  //int BUF_LEN = 1024;
-  //std::string function_name = "add";
-  //std::array<std::string, COUNT> invocation_id = { "first_id", "second_id", "third_id", "another_id" };
-  //std::array<std::tuple<int, int>, COUNT> args = {
-  //  std::make_tuple(42, 4), std::make_tuple(-1, 35),
-  //  std::make_tuple(1000, 0), std::make_tuple(-33, 39)
-  //};
-  //std::array<int, COUNT> results = { 46, 34, 1000, 6 };
-  //runtime::BufferQueue<char> buffers(10, BUF_LEN);
-
-  //for(int idx = 0; idx < args.size(); ++idx) {
-
-  //  auto buf = buffers.retrieve_buffer(BUF_LEN);
-  //  buf.len = generate_input(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
-
-  //  auto result = process.invoke(function_name, invocation_id[idx], buf.data(), buf.len);
-
-  //  ASSERT_TRUE(result.payload_len > 0);
-  //  int res = get_output(result.payload.get(), result.payload_len);
-  //  EXPECT_EQ(res, results[idx]);
-
-  //}
+  EXPECT_EQ(result.return_code, 0);
+  EXPECT_EQ(result_get.return_code, 0);
 
   for(int i = 0; i < PROC_COUNT; ++i) {
     processes[i].disconnect();

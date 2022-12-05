@@ -267,13 +267,13 @@ namespace praas::process {
 
 
               // Is there are pending message for this message?
-              const FunctionWorker* pending_worker = _pending_msgs.find_get(std::string{req.name()}, _process_id);
+              const FunctionWorker* pending_worker = _pending_msgs.find_get(std::string{req.name()}, std::string{req.process_id()});
               if(pending_worker) {
 
                   spdlog::error("Replying message to {} with key {}, message len {}", _process_id, req.name(), msg.payload.len);
 
                   runtime::ipc::GetRequest return_req;
-                  return_req.process_id(_process_id);
+                  return_req.process_id(req.process_id());
                   return_req.name(req.name());
 
                   pending_worker->ipc_write().send(return_req, std::move(msg.payload));
@@ -281,11 +281,11 @@ namespace praas::process {
               } else {
 
                 int length = msg.payload.len;
-                bool success = _mailbox.put(std::string{req.name()}, _process_id, msg.payload);
+                bool success = _mailbox.put(std::string{req.name()}, std::string{req.process_id()}, msg.payload);
                 if(!success) {
                   spdlog::error("Could not store message to itself, with key {}", req.name());
                 } else {
-                  spdlog::error("Stored a message to {}, with key {}, length {}", _process_id, req.name(), length);
+                  spdlog::info("Stored a message from {}, with key {}, length {}", std::string{req.process_id()}, req.name(), length);
                 }
 
               }
@@ -546,7 +546,7 @@ namespace praas::process {
   // FIXME: this should be a single type
   void Controller::_process_put(const runtime::ipc::PutRequestParsed & req, runtime::Buffer<char> && payload)
   {
-    spdlog::info("Process put message, payload size {}", payload.len);
+    spdlog::info("Process put message with key {}, payload size {}", req.name(), payload.len);
     // local message
     if(req.process_id() == SELF_PROCESS || req.process_id() == _process_id) {
 

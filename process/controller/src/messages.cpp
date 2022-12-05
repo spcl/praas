@@ -31,7 +31,7 @@ namespace praas::process::message {
     // Find the first matching function to consume the message
     for (auto iter = begin; iter != end; ++iter) {
 
-      if ((*iter).second.source == ANY_PROCESS || (*iter).second.source == source ||
+      if (((*iter).second.source == ANY_PROCESS || (*iter).second.source == source) &&
           (*iter).second.type == PendingMessage::Type::GET) {
         auto* worker = (*iter).second.worker;
         _msgs.erase(iter);
