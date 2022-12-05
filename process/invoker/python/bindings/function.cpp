@@ -46,6 +46,8 @@
                                &praas::function::Context::invocation_id)
         .def_property_readonly("process_id",
                                &praas::function::Context::process_id)
+        .def_property_readonly("active_processes",
+                               &praas::function::Context::active_processes)
         .def_readonly_static("SELF", &praas::function::Context::SELF)
         .def_readonly_static("ANY", &praas::function::Context::ANY)
         .def("start_invocation", &praas::function::Context::start_invocation)

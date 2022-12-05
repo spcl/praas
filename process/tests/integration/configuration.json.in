@@ -90,6 +90,26 @@
           "type": "direct",
           "nargs": 1
         }
+      },
+      "send_remote_message": {
+        "code": {
+          "module": "@PRAAS_SOURCE_DIRECTORY@/process/tests/integration/examples/python/test.py",
+          "function": "send_remote_message"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
+      "get_remote_message": {
+        "code": {
+          "module": "@PRAAS_SOURCE_DIRECTORY@/process/tests/integration/examples/python/test.py",
+          "function": "get_remote_message"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
       }
     },
     "cpp": {

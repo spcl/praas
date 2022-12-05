@@ -134,9 +134,6 @@ extern "C" int power(praas::function::Invocation invocation, praas::function::Co
 
 extern "C" int send_remote_message(praas::function::Invocation invoc, praas::function::Context& context)
 {
-  std::cerr << context.active_processes().size() << std::endl;
-  for(int i = 0; i < context.active_processes().size(); ++i)
-    std::cerr << context.active_processes()[i] << std::endl;
   std::string other_process_id;
   if(context.active_processes()[0] == context.process_id()) {
     other_process_id = context.active_processes()[1];
