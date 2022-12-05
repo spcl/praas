@@ -399,14 +399,14 @@ namespace praas::common::message {
   std::string_view PutMessageParsed::process_id() const
   {
     return std::string_view{// NOLINTNEXTLINE
-                            reinterpret_cast<const char*>(buf + Message::NAME_LENGTH), name_len};
+                            reinterpret_cast<const char*>(buf + Message::NAME_LENGTH), id_len};
   }
 
-  int32_t PutMessageParsed::payload_size() const
-  {
-    // NOLINTNEXTLINE
-    return *reinterpret_cast<const int32_t*>(buf + 2*Message::NAME_LENGTH);
-  }
+  //int32_t PutMessageParsed::payload_size() const
+  //{
+  //  // NOLINTNEXTLINE
+  //  return *reinterpret_cast<const int32_t*>(buf + 2*Message::NAME_LENGTH);
+  //}
 
   void PutMessage::name(std::string_view name)
   {
@@ -436,10 +436,17 @@ namespace praas::common::message {
     id_len = name.length();
   }
 
-  void PutMessage::payload_size(int32_t size)
+  int32_t PutMessageParsed::total_length() const
   {
     // NOLINTNEXTLINE
-    *reinterpret_cast<int32_t*>(data.data() + 2*Message::NAME_LENGTH) = size;
+    // FIXME: this is an ugly hack
+    return *reinterpret_cast<const int32_t*>(buf - 4);
   }
+
+  //void PutMessage::payload_size(int32_t size)
+  //{
+  //  // NOLINTNEXTLINE
+  //  *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + 2*Message::NAME_LENGTH) = size;
+  //}
 
 } // namespace praas::common::message

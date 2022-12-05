@@ -376,3 +376,86 @@ TEST(Messages, ProcessClosureMsgParse)
       parsed
   ));
 }
+
+TEST(Messages, PutRequestMsg)
+{
+  {
+    std::string process_id{"invoc-id-42"};
+    std::string fname{"test-name"};
+    int32_t payload_size{32};
+
+    PutMessage req;
+    req.process_id(process_id);
+    req.name(fname);
+    req.total_length(payload_size);
+
+    EXPECT_EQ(req.process_id(), process_id);
+    EXPECT_EQ(req.total_length(), payload_size);
+    EXPECT_EQ(req.name(), fname);
+    EXPECT_EQ(req.type(), Message::Type::PUT_MESSAGE);
+  }
+
+  {
+    std::string process_id(ProcessConnection::NAME_LENGTH, 't');
+    std::string fname(ProcessConnection::NAME_LENGTH, 'a');
+    int32_t payload_size{0};
+
+    PutMessage req;
+    req.process_id(process_id);
+    req.name(fname);
+    req.total_length(payload_size);
+
+    EXPECT_EQ(req.process_id(), process_id);
+    EXPECT_EQ(req.total_length(), payload_size);
+    EXPECT_EQ(req.name(), fname);
+    EXPECT_EQ(req.type(), Message::Type::PUT_MESSAGE);
+  }
+}
+
+TEST(Messages, PutRequestMsgIncorrect)
+{
+  {
+    std::string proc_id(ProcessConnection::NAME_LENGTH + 1, 't');
+
+    PutMessage req;
+    EXPECT_THROW(req.process_id(proc_id), praas::common::InvalidArgument);
+  }
+
+  {
+    std::string fname(ProcessConnection::NAME_LENGTH + 1, 'c');
+
+    PutMessage req;
+    EXPECT_THROW(req.name(fname), praas::common::InvalidArgument);
+  }
+}
+
+TEST(Messages, PutRequestMsgParse)
+{
+  std::string process_id{"invoc-id-42"};
+  std::string fname{"test-name"};
+  int32_t payload_size{32};
+
+  PutMessage req;
+  req.process_id(process_id);
+  req.name(fname);
+  req.total_length(payload_size);
+
+  Message& msg = *static_cast<Message*>(&req);
+  auto parsed = msg.parse();
+
+  EXPECT_TRUE(std::holds_alternative<PutMessageParsed>(parsed));
+
+  EXPECT_TRUE(std::visit(
+      overloaded{
+          [=](PutMessageParsed& req) {
+
+            EXPECT_EQ(req.process_id(), process_id);
+            EXPECT_EQ(req.total_length(), payload_size);
+            EXPECT_EQ(req.name(), fname);
+            return true;
+
+          },
+          [](auto&) { return false; }},
+      parsed
+  ));
+}

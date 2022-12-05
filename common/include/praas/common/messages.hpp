@@ -85,7 +85,7 @@ namespace praas::common::message {
     static constexpr uint16_t HEADER_OFFSET = 6;
     static constexpr uint16_t NAME_LENGTH = 32;
     static constexpr uint16_t ID_LENGTH = 16;
-    static constexpr uint16_t BUF_SIZE = 64;
+    static constexpr uint16_t BUF_SIZE = 70;
     std::array<int8_t, BUF_SIZE> data{};
 
     Message(Type type = Type::GENERIC_HEADER)
@@ -370,13 +370,16 @@ namespace praas::common::message {
     PutMessageParsed(const int8_t* buf)
         : buf(buf),
           // NOLINTNEXTLINE
-          name_len(strnlen(reinterpret_cast<const char*>(buf), Message::NAME_LENGTH))
+          name_len(strnlen(reinterpret_cast<const char*>(buf), Message::NAME_LENGTH)),
+          id_len(strnlen(reinterpret_cast<const char*>(buf + Message::NAME_LENGTH), Message::NAME_LENGTH))
     {
     }
 
     std::string_view name() const;
     std::string_view process_id() const;
-    int32_t payload_size() const;
+    //int32_t payload_size() const;
+    // FIXME: common parent
+    int32_t total_length() const;
   };
 
   struct PutMessage : Message, PutMessageParsed {
@@ -388,12 +391,13 @@ namespace praas::common::message {
     }
 
     using PutMessageParsed::name;
-    using PutMessageParsed::payload_size;
+    //using PutMessageParsed::payload_size;
+    using Message::total_length;
     using PutMessageParsed::process_id;
 
     void name(std::string_view id);
     void process_id(std::string_view id);
-    void payload_size(int32_t);
+    //void payload_size(int32_t);
   };
 
 } // namespace praas::common::message
