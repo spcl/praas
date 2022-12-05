@@ -389,7 +389,11 @@ namespace praas::process {
                 worker.ipc_write().send(return_req, std::move(buf.value()));
               } else {
 
-                _pending_msgs.insert_get(std::string{req.name()}, std::string{req.process_id()}, worker);
+                _pending_msgs.insert_get(
+                    std::string{req.name()},
+                    req.process_id() == SELF_PROCESS ? _process_id : req.process_id(),
+                    worker
+                );
                 //if(!succ) {
                 //  spdlog::error("Could not store a pending get request, with key {} and source {}",
                 //      req.name(), req.process_id()

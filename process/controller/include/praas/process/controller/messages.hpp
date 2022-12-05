@@ -45,11 +45,11 @@ namespace praas::process::message {
    **/
   struct PendingMessages {
 
-    void insert_get(const std::string& key, const std::string& source, FunctionWorker& worker);
+    void insert_get(const std::string& key, std::string_view source, FunctionWorker& worker);
 
     void insert_invocation(std::string_view key, FunctionWorker& worker);
 
-    const FunctionWorker* find_get(const std::string& key, const std::string& source);
+    const FunctionWorker* find_get(const std::string& key, std::string_view source);
 
     // FIXME: inlined vector?
     void find_invocation(std::string_view key, std::vector<const FunctionWorker*> & output);
