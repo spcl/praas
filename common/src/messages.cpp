@@ -4,9 +4,8 @@
 
 #include <cstring>
 
-#include <fmt/format.h>
-
-#include <iostream>
+//#include <fmt/format.h>
+#include <spdlog/fmt/fmt.h>
 
 namespace praas::common::message {
 

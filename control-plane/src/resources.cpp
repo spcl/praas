@@ -7,7 +7,8 @@
 #include <praas/control-plane/deployment.hpp>
 #include <praas/control-plane/process.hpp>
 
-#include <fmt/format.h>
+//#include <fmt/format.h>
+#include <spdlog/fmt/fmt.h>
 
 namespace praas::control_plane {
 

@@ -7,7 +7,8 @@
 #include <cereal/external/rapidjson/document.h>
 #include <cereal/external/rapidjson/istreamwrapper.h>
 
-#include <fmt/format.h>
+//#include <fmt/format.h>
+#include <spdlog/fmt/fmt.h>
 #include <tuple>
 #include <utility>
 

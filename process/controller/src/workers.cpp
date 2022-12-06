@@ -214,7 +214,7 @@ namespace praas::process {
   Workers::Workers(config::Controller& cfg)
   {
 
-    common::util::assert_other(cfg.code.language, runtime::functions::Language::NONE);
+    common::util::assert_other(static_cast<int>(cfg.code.language), static_cast<int>(runtime::functions::Language::NONE));
 
     for (int i = 0; i < cfg.function_workers; ++i) {
 

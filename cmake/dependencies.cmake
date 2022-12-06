@@ -63,6 +63,7 @@ if(NOT spdlog_FOUND)
   )
   SET(SPDLOG_FMT_EXTERNAL OFF)
   FetchContent_MakeAvailable(spdlog)
+  set_property(TARGET spdlog PROPERTY POSITION_INDEPENDENT_CODE ON)
 else()
   add_custom_target(spdlog)
   message(STATUS "Found spdlog dependency")
@@ -81,6 +82,7 @@ if(NOT cereal_FOUND)
   set(SKIP_PORTABILITY_TEST ON)
   set(JUST_INSTALL_CEREAL ON)
   FetchContent_MakeAvailable(cereal)
+  add_library(cereal::cereal ALIAS cereal)
 else()
   message(STATUS "Found cereal dependency")
 endif()
@@ -100,13 +102,13 @@ endif()
 ###
 # threadpool
 ###
-#FetchContent_Declare(threadpool
-#  GIT_REPOSITORY https://github.com/bshoshany/thread-pool.git
-#  GIT_TAG master
-#  CONFIGURE_COMMAND ""
-#  BUILD_COMMAND ""
-#)
-#FetchContent_MakeAvailable(threadpool)
+FetchContent_Declare(threadpool
+  GIT_REPOSITORY https://github.com/bshoshany/thread-pool.git
+  GIT_TAG master
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND ""
+)
+FetchContent_MakeAvailable(threadpool)
 
 ###
 # TBB - static libraries are discouraged
@@ -125,7 +127,7 @@ endif()
 ###
 # drogon
 ###
-find_package(Drogon REQUIRED)
+find_package(Drogon QUIET)
 if(NOT Drogon_FOUND)
   message(STATUS "Downloading and building drogon dependency")
   FetchContent_Declare(Drogon
@@ -138,6 +140,7 @@ if(NOT Drogon_FOUND)
   set (BUILD_ORM OFF CACHE INTERNAL "Turn off tests")
   set (BUILD_BROTLI OFF CACHE INTERNAL "Turn off tests")
   FetchContent_MakeAvailable(Drogon)
+  add_library(Drogon::Drogon ALIAS drogon)
 else()
   message(STATUS "Found drogon dependency")
 endif()
