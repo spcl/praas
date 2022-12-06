@@ -120,6 +120,16 @@
           "type": "direct",
           "nargs": 1
         }
+      },
+      "remote_invocation": {
+        "code": {
+          "module": "@PRAAS_SOURCE_DIRECTORY@/process/tests/integration/examples/python/test.py",
+          "function": "remote_invocation"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
       }
     },
     "cpp": {

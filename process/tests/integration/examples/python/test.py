@@ -251,3 +251,36 @@ def put_get_remote_message(invocation, context):
 
     return 0
 
+def remote_invocation(invocation, context):
+
+    active_processes = context.active_processes
+    if active_processes[0] == context.process_id:
+        other_process_id = active_processes[1]
+    else:
+        other_process_id = active_processes[0]
+
+    input_str = invocation.args[0].str()
+    input_data = json.loads(input_str)
+
+    MSG_SIZE = 1024
+    buf = context.get_buffer(MSG_SIZE)
+    json.dump(input_data, pypraas.BufferStringWriter(buf), cls = EnhancedJSONEncoder)
+
+    invoc_result = context.invoke(
+        other_process_id,
+        "add",
+        "second_add",
+        buf
+    )
+
+    invoc_data = json.loads(invoc_result.payload.str())
+
+    result = Output(invoc_data['result'] * 2)
+
+    out_buf = context.get_output_buffer()
+
+    json.dump(result, pypraas.BufferStringWriter(out_buf), cls = EnhancedJSONEncoder)
+
+    context.set_output_buffer(out_buf)
+
+    return 0
