@@ -14,8 +14,6 @@
 #include <string>
 #include <variant>
 
-#include <oneapi/tbb/concurrent_queue.h>
-
 namespace praas::process::remote {
 
   struct Server;
