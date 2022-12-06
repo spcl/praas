@@ -271,30 +271,28 @@ namespace praas::process {
               );
             },
             [&, this](common::message::InvocationResultParsed& req) mutable {
-              _logger->info(
-                  "Received external invocation request of {}, key {}, inputs {}",
-                  req.function_name(),
-                  req.invocation_id(),
-                  req.payload_size()
-              );
-              _work_queue.add_payload(
-                  std::string{req.function_name()}, std::string{req.invocation_id()},
-                  std::move(msg.payload),
-                  (msg.source.has_value() ? InvocationSource::from_process(msg.source.value())
-                                          : InvocationSource::from_dataplane())
-              );
 
               // Is there are pending message for this message?
               std::vector<const FunctionWorker*> pending_workers;
               _pending_msgs.find_invocation(std::string{req.invocation_id()}, pending_workers);
 
               for(const FunctionWorker* worker : pending_workers) {
-                _process_invocation_result(
-                  worker,
-                  req.invocation_id(),
-                  req.return_code(),
-                  std::move(payload)
-                );
+
+                // FIXME: remove this copy, our message types are broken
+                runtime::ipc::InvocationResult result;
+                result.invocation_id(req.invocation_id());
+                result.return_code(req.return_code());
+                result.buffer_length(msg.payload.len);
+
+                for(const FunctionWorker* worker : pending_workers) {
+
+                  _logger->info("Sending external invocational result with key {}, message len {}",
+                    result.invocation_id(), msg.payload.len
+                  );
+
+                  worker->ipc_write().send(result, msg.payload);
+
+                }
               }
             },
             [&, this](common::message::PutMessageParsed& req) mutable {
