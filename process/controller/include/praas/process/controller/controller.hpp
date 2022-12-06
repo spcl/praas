@@ -84,8 +84,20 @@ namespace praas::process {
 
     // Put the invocation into a work queue.
     // Store the invocation on a list of pending invocations.
-    void _process_invocation(runtime::Buffer<char> &&);
-    void _process_invocation(const runtime::ipc::Message & msg, runtime::Buffer<char> &&);
+    //void _process_invocation(runtime::Buffer<char> &&);
+    void _process_invocation(
+      FunctionWorker & worker,
+      const runtime::ipc::InvocationRequestParsed & msg,
+      runtime::Buffer<char> &&
+    );
+
+    void _process_invocation_result(
+      FunctionWorker & worker,
+      std::string_view invocation_id,
+      int return_code,
+      runtime::Buffer<char> && payload
+    );
+
 
     // Retrieve the pending invocation object.
     // Forward the response to the owner.
@@ -95,6 +107,8 @@ namespace praas::process {
     int _epoll_fd;
 
     int _event_fd;
+
+    std::shared_ptr<spdlog::logger> _logger;
 
     static constexpr int DEFAULT_BUFFER_MESSAGES = 20;
     static constexpr int DEFAULT_BUFFER_SIZE = 512 * 1024 * 1024;

@@ -19,6 +19,8 @@
 #include <sys/eventfd.h>
 #include <sys/time.h>
 
+#include <spdlog/sinks/stdout_color_sinks.h>
+
 namespace praas::process {
 
   Controller* INSTANCE = nullptr;
@@ -131,8 +133,13 @@ namespace praas::process {
         _work_queue(_functions),
         _process_id(cfg.process_id)
   {
+
+    auto sink = std::make_shared<spdlog::sinks::stderr_color_sink_st>();
+    _logger = std::make_shared<spdlog::logger>("Controller", sink);
+    _logger->set_pattern("[%H:%M:%S:%f] [%n] [P %P] [T %t] [%l] %v ");
+
     auto path = std::filesystem::path{cfg.code.location} / cfg.code.config_location;
-    spdlog::debug("Loading function configurationf rom {}", path.c_str());
+    _logger->debug("Loading function configuration from {}", path.c_str());
     std::ifstream in_stream{path};
     if (!in_stream.is_open()) {
       throw praas::common::PraaSException{fmt::format("Could not find file {}", path.c_str())};
@@ -250,8 +257,8 @@ namespace praas::process {
     std::visit(
         runtime::ipc::overloaded{
             [&, this](common::message::InvocationRequestParsed& req) mutable {
-              spdlog::info(
-                  "Received invocation request of {}, key {}, inputs {}",
+              _logger->info(
+                  "Received external invocation request of {}, key {}, inputs {}",
                   req.function_name(),
                   req.invocation_id(),
                   req.payload_size()
@@ -263,6 +270,33 @@ namespace praas::process {
                                           : InvocationSource::from_dataplane())
               );
             },
+            [&, this](common::message::InvocationResultParsed& req) mutable {
+              _logger->info(
+                  "Received external invocation request of {}, key {}, inputs {}",
+                  req.function_name(),
+                  req.invocation_id(),
+                  req.payload_size()
+              );
+              _work_queue.add_payload(
+                  std::string{req.function_name()}, std::string{req.invocation_id()},
+                  std::move(msg.payload),
+                  (msg.source.has_value() ? InvocationSource::from_process(msg.source.value())
+                                          : InvocationSource::from_dataplane())
+              );
+
+              // Is there are pending message for this message?
+              std::vector<const FunctionWorker*> pending_workers;
+              _pending_msgs.find_invocation(std::string{req.invocation_id()}, pending_workers);
+
+              for(const FunctionWorker* worker : pending_workers) {
+                _process_invocation_result(
+                  worker,
+                  req.invocation_id(),
+                  req.return_code(),
+                  std::move(payload)
+                );
+              }
+            },
             [&, this](common::message::PutMessageParsed& req) mutable {
 
 
@@ -270,7 +304,7 @@ namespace praas::process {
               const FunctionWorker* pending_worker = _pending_msgs.find_get(std::string{req.name()}, std::string{req.process_id()});
               if(pending_worker) {
 
-                  spdlog::error("Replying message to {} with key {}, message len {}", _process_id, req.name(), msg.payload.len);
+                  _logger->error("Replying message to {} with key {}, message len {}", _process_id, req.name(), msg.payload.len);
 
                   runtime::ipc::GetRequest return_req;
                   return_req.process_id(req.process_id());
@@ -283,15 +317,15 @@ namespace praas::process {
                 int length = msg.payload.len;
                 bool success = _mailbox.put(std::string{req.name()}, std::string{req.process_id()}, msg.payload);
                 if(!success) {
-                  spdlog::error("Could not store message to itself, with key {}", req.name());
+                  _logger->error("Could not store message to itself, with key {}", req.name());
                 } else {
-                  spdlog::info("Stored a message from {}, with key {}, length {}", std::string{req.process_id()}, req.name(), length);
+                  _logger->info("Stored a message from {}, with key {}, length {}", std::string{req.process_id()}, req.name(), length);
                 }
 
               }
 
             },
-            [](auto&) { spdlog::error("Received unsupported message!"); }},
+            [this](auto&) { _logger->error("Received unsupported message!"); }},
         parsed_msg
     );
   }
@@ -306,70 +340,15 @@ namespace praas::process {
     std::visit(
         runtime::ipc::overloaded{
             [&, this](runtime::ipc::InvocationResultParsed& req) mutable {
-              spdlog::info(
-                  "Received invocation result of {}, status {}, output size {}",
-                  req.invocation_id(), req.return_code(), payload.len
+              _process_invocation_result(
+                worker,
+                req.invocation_id(),
+                req.return_code(),
+                std::move(payload)
               );
-
-              std::optional<Invocation> invoc =
-                  _work_queue.finish(std::string{req.invocation_id()});
-              if (invoc.has_value()) {
-
-                Invocation& invocation = invoc.value();
-
-                // FIXME: send to the tcp server
-                // FIXME: check work queue for the source
-                if (invocation.source.is_remote()) {
-
-                  _server->invocation_result(
-                    invocation.source.source,
-                    invocation.source.remote_process,
-                    req.invocation_id(),
-                    req.return_code(),
-                    std::move(payload)
-                  );
-
-                } else {
-
-                  std::vector<const FunctionWorker*> pending_workers;
-                  _pending_msgs.find_invocation(req.invocation_id(), pending_workers);
-
-                  // FIXME: remove this copy, our message types are broken
-                  runtime::ipc::InvocationResult result;
-                  result.invocation_id(req.invocation_id());
-                  result.return_code(req.return_code());
-                  result.buffer_length(req.buffer_length());
-
-                  for(const FunctionWorker* worker : pending_workers) {
-
-                    spdlog::info("Replying invocation locally with key {}, message len {}",
-                      result.invocation_id(), payload.len
-                    );
-
-                    worker->ipc_write().send(result, payload);
-
-                  }
-
-                }
-
-              } else {
-                spdlog::error("Could not find invocation for ID {}", req.invocation_id());
-              }
-              _workers.finish(worker);
             },
             [&, this](runtime::ipc::InvocationRequestParsed& req) mutable {
-              spdlog::info(
-                  "Received invocation request of {}, status {}, input size {}",
-                  req.function_name(), req.invocation_id(), payload.len
-              );
-
-              _work_queue.add_payload(
-                  std::string{req.function_name()}, std::string{req.invocation_id()},
-                  std::move(payload),
-                  InvocationSource::from_local()
-              );
-              _pending_msgs.insert_invocation(req.invocation_id(), worker);
-
+              _process_invocation(worker, req, std::move(payload));
             },
             [&, this](runtime::ipc::PutRequestParsed& req) mutable {
               _process_put(req, std::move(payload));
@@ -385,7 +364,7 @@ namespace praas::process {
                 return_req.process_id(req.process_id());
                 return_req.name(req.name());
 
-                spdlog::info("Returned message for key {}, source {}, length {}", req.name(), req.process_id(), buf.value().len);
+                _logger->info("Returned message for key {}, source {}, length {}", req.name(), req.process_id(), buf.value().len);
                 worker.ipc_write().send(return_req, std::move(buf.value()));
               } else {
 
@@ -395,7 +374,7 @@ namespace praas::process {
                     worker
                 );
                 //if(!succ) {
-                //  spdlog::error("Could not store a pending get request, with key {} and source {}",
+                //  _logger->error("Could not store a pending get request, with key {} and source {}",
                 //      req.name(), req.process_id()
                 //  );
 
@@ -406,11 +385,11 @@ namespace praas::process {
 
                 //  worker.ipc_write().send(req, runtime::BufferAccessor<char>{});
                 //} else {
-                  spdlog::info("Stored pending message for key {}, source {}", req.name(), req.process_id());
+                  _logger->info("Stored pending message for key {}, source {}", req.name(), req.process_id());
                 //}
               }
             },
-            [](auto&) { spdlog::error("Received unsupported message!"); }},
+            [this](auto&) { _logger->error("Received unsupported message!"); }},
         parsed_msg
     );
   }
@@ -484,19 +463,19 @@ namespace praas::process {
         // Message
         else {
 
-          spdlog::error("Message");
+          _logger->error("Message");
 
           FunctionWorker& worker = *static_cast<FunctionWorker*>(events[i].data.ptr);
 
           auto [complete, input] = worker.ipc_read().receive();
 
-          spdlog::error("Message complete? {} payload size {}", complete, input.len);
+          _logger->error("Message complete? {} payload size {}", complete, input.len);
           if(complete) {
             _process_internal_message(worker, worker.ipc_read().message(), std::move(input));
           }
         }
 
-        // spdlog::error(
+        // _logger->error(
         //     "{} {} ", events[i].events, static_cast<FunctionWorker*>(events[i].data.ptr)->pid()
         //);
 
@@ -526,7 +505,7 @@ namespace praas::process {
     _workers.shutdown();
     // swap
 
-    spdlog::info("Controller finished polling");
+    _logger->info("Controller finished polling");
   }
 
   void Controller::start()
@@ -543,14 +522,45 @@ namespace praas::process {
   {
     _ending = true;
 
-    spdlog::info("Closing controller polling.");
+    _logger->info("Closing controller polling.");
+  }
+
+  void Controller::_process_invocation(
+    FunctionWorker & worker,
+    const runtime::ipc::InvocationRequestParsed & req,
+    runtime::Buffer<char> && payload
+  )
+  {
+    _logger->info(
+        "Received internal invocation request of {}, status {}, input size {}",
+        req.function_name(), req.invocation_id(), payload.len
+    );
+
+    if(req.process_id() == SELF_PROCESS || req.process_id() == _process_id) {
+
+      _work_queue.add_payload(
+          std::string{req.function_name()}, std::string{req.invocation_id()},
+          std::move(payload),
+          InvocationSource::from_local()
+      );
+
+    } else {
+
+      _server->invocation_request(
+        req.process_id(), req.function_name(), req.invocation_id(), std::move(payload)
+      );
+
+    }
+
+    _pending_msgs.insert_invocation(req.invocation_id(), worker);
+
   }
 
   // Store the message data, and check if there is a pending invocation waiting for this result
   // FIXME: this should be a single type
   void Controller::_process_put(const runtime::ipc::PutRequestParsed & req, runtime::Buffer<char> && payload)
   {
-    spdlog::info("Process put message with key {}, payload size {}", req.name(), payload.len);
+    _logger->info("Process put message with key {}, payload size {}", req.name(), payload.len);
     // local message
     if(req.process_id() == SELF_PROCESS || req.process_id() == _process_id) {
 
@@ -558,7 +568,7 @@ namespace praas::process {
       const FunctionWorker* pending_worker = _pending_msgs.find_get(std::string{req.name()}, _process_id);
       if(pending_worker) {
 
-          spdlog::info("Replying message to {} with key {}, message len {}", _process_id, req.name(), payload.len);
+          _logger->info("Replying message to {} with key {}, message len {}", _process_id, req.name(), payload.len);
 
           runtime::ipc::GetRequest return_req;
           return_req.process_id(_process_id);
@@ -571,9 +581,9 @@ namespace praas::process {
         int length = payload.len;
         bool success = _mailbox.put(std::string{req.name()}, _process_id, payload);
         if(!success) {
-          spdlog::error("Could not store message to itself, with key {}", req.name());
+          _logger->error("Could not store message to itself, with key {}", req.name());
         } else {
-          spdlog::info("Stored a message to {}, with key {}, length {}", _process_id, req.name(), length);
+          _logger->info("Stored a message to {}, with key {}, length {}", _process_id, req.name(), length);
         }
 
       }
@@ -584,5 +594,64 @@ namespace praas::process {
     }
   }
 
+  void Controller::_process_invocation_result(
+    FunctionWorker & worker,
+    std::string_view invocation_id,
+    int return_code,
+    runtime::Buffer<char> && payload
+  )
+  {
+    _logger->info(
+        "Received invocation result of {}, status {}, output size {}",
+        invocation_id, return_code, payload.len
+    );
+
+    std::optional<Invocation> invoc =
+        _work_queue.finish(std::string{invocation_id});
+    if (invoc.has_value()) {
+
+      Invocation& invocation = invoc.value();
+
+      // FIXME: send to the tcp server
+      // FIXME: check work queue for the source
+      if (invocation.source.is_remote()) {
+
+        _server->invocation_result(
+          invocation.source.source,
+          invocation.source.remote_process,
+          invocation_id,
+          return_code,
+          std::move(payload)
+        );
+
+      } else {
+
+        std::vector<const FunctionWorker*> pending_workers;
+        _pending_msgs.find_invocation(invocation_id, pending_workers);
+
+        // FIXME: remove this copy, our message types are broken
+        runtime::ipc::InvocationResult result;
+        result.invocation_id(invocation_id);
+        result.return_code(return_code);
+        result.buffer_length(payload.len);
+
+        for(const FunctionWorker* worker : pending_workers) {
+
+          _logger->info("Replying invocation locally with key {}, message len {}",
+            result.invocation_id(), payload.len
+          );
+
+          worker->ipc_write().send(result, payload);
+
+        }
+
+      }
+
+    } else {
+      _logger->error("Could not find invocation for ID {}", invocation_id);
+    }
+    _workers.finish(worker);
+
+  }
 
 } // namespace praas::process

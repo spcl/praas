@@ -242,6 +242,16 @@
           "type": "direct",
           "nargs": 1
         }
+      },
+      "remote_invocation": {
+        "code": {
+          "module": "@PRAAS_DIRECTORY@/process/tests/examples/libexample_cpp.so",
+          "function": "remote_invocation"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
       }
     }
   }

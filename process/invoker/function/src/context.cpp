@@ -136,7 +136,7 @@ namespace praas::function {
     }
     // Buffer not found
     if(!submitted)
-      throw common::PraaSException{"Submitted vinoke request with a non-existing buffer!"};
+      throw common::PraaSException{"Submitted invoke request with a non-existing buffer!"};
 
     auto [result, data] = _invoker.get<process::runtime::ipc::InvocationResultParsed>();
 

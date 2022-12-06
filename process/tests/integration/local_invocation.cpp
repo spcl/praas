@@ -34,6 +34,11 @@ public:
       (remote::RemoteType, std::optional<std::string_view>, std::string_view, int, runtime::Buffer<char> &&),
       (override)
   );
+  MOCK_METHOD(
+      void, invocation_request,
+      (std::string_view, std::string_view, std::string_view, runtime::Buffer<char> &&),
+      (override)
+  );
 };
 
 size_t generate_input_binary(int arg1, int arg2, const runtime::Buffer<char> & buf)

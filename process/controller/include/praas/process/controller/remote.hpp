@@ -1,17 +1,18 @@
 #ifndef PRAAS_PROCESS_CONTROLLER_REMOTE_HPP
 #define PRAAS_PROCESS_CONTROLLER_REMOTE_HPP
 
+#include <praas/common/messages.hpp>
 #include <praas/process/controller/config.hpp>
 #include <praas/process/runtime/buffer.hpp>
 
 #include <optional>
 #include <string>
-#include <trantor/net/TcpClient.h>
 #include <unordered_map>
 
+#include <spdlog/logger.h>
 #include <trantor/net/EventLoopThread.h>
 #include <trantor/net/TcpServer.h>
-#include "praas/common/messages.hpp"
+#include <trantor/net/TcpClient.h>
 
 namespace praas::process {
   struct Controller;
@@ -50,6 +51,13 @@ namespace praas::process::remote {
         std::string_view process_id,
         std::string_view name,
         runtime::Buffer<char> && payload
+    ) = 0;
+
+    virtual void invocation_request(
+      std::string_view process_id,
+      std::string_view function_name,
+      std::string_view invocation_id,
+      runtime::Buffer<char> && payload
     ) = 0;
 
   };
@@ -113,13 +121,20 @@ namespace praas::process::remote {
 
     void put_message(std::string_view process_id, std::string_view name, runtime::Buffer<char> && payload) override;
 
+    void invocation_request(
+      std::string_view process_id,
+      std::string_view function_name,
+      std::string_view invocation_id,
+      runtime::Buffer<char> && payload
+    );
+
     void shutdown();
 
     void poll() override;
 
   private:
 
-    void _connect(Connection * conn, std::string_view name);
+    void _connect(Connection * conn);
 
     bool _handle_connection(const trantor::TcpConnectionPtr& connectionPtr, const common::message::ProcessConnectionParsed& msg);
 
@@ -128,12 +143,17 @@ namespace praas::process::remote {
     bool _handle_invocation(Connection& connection,
       const common::message::InvocationRequestParsed& msg, trantor::MsgBuffer* buffer);
 
+    bool _handle_invocation_result(Connection& connection,
+      const common::message::InvocationResultParsed& msg, trantor::MsgBuffer* buffer);
+
     bool _handle_put_message(Connection& connection, const common::message::PutMessageParsed& msg,
         trantor::MsgBuffer* buffer);
 
     void _handle_message(const trantor::TcpConnectionPtr& connectionPtr, trantor::MsgBuffer* buffer);
 
     std::atomic<bool> _is_running{};
+
+    std::shared_ptr<spdlog::logger> _logger;
 
     // Main controller object
     Controller& _controller;

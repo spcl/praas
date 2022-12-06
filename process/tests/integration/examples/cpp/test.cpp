@@ -227,3 +227,32 @@ extern "C" int put_get_remote_message(praas::function::Invocation invoc, praas::
   return 0;
 }
 
+extern "C" int remote_invocation(praas::function::Invocation invocation, praas::function::Context& context)
+{
+  std::string other_process_id;
+  if(context.active_processes()[0] == context.process_id()) {
+    other_process_id = context.active_processes()[1];
+  } else {
+    other_process_id = context.active_processes()[0];
+  }
+
+  Output out{};
+  Input input{};
+  invocation.args[0].deserialize(input);
+
+  auto buf = context.get_buffer(1024);
+  buf.serialize(input);
+  std::cerr << "Invoke add" << std::endl;
+  praas::function::InvocationResult invoc_result
+    = context.invoke(other_process_id, "add", "second_add" , buf);
+  invoc_result.payload.deserialize(out);
+
+  out.result *= 2;
+
+  // Serialize again just for validation
+  auto& output_buf = context.get_output_buffer();
+  output_buf.serialize(out);
+
+  return 0;
+}
+

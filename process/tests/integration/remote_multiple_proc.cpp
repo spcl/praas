@@ -26,7 +26,7 @@
 
 using namespace praas::process;
 
-size_t generate_input_binary(std::string key, const runtime::Buffer<char> & buf)
+size_t generate_input_key_binary(std::string key, const runtime::Buffer<char> & buf)
 {
   InputMsgKey input{key};
   boost::interprocess::bufferstream stream(buf.data(), buf.size);
@@ -37,7 +37,7 @@ size_t generate_input_binary(std::string key, const runtime::Buffer<char> & buf)
   return pos;
 }
 
-size_t generate_input_json(std::string key, const runtime::Buffer<char> & buf)
+size_t generate_input_key_json(std::string key, const runtime::Buffer<char> & buf)
 {
   InputMsgKey input{key};
   boost::interprocess::bufferstream stream(buf.data(), buf.size);
@@ -50,6 +50,50 @@ size_t generate_input_json(std::string key, const runtime::Buffer<char> & buf)
   return pos;
 }
 
+size_t generate_input_add_binary(int arg1, int arg2, const runtime::Buffer<char> & buf)
+{
+  Input input{arg1, arg2};
+  boost::interprocess::bufferstream stream(buf.data(), buf.size);
+  cereal::BinaryOutputArchive archive_out{stream};
+  archive_out(cereal::make_nvp("input", input));
+  assert(stream.good());
+  size_t pos = stream.tellp();
+  return pos;
+}
+
+size_t generate_input_add_json(int arg1, int arg2, const runtime::Buffer<char> & buf)
+{
+  Input input{arg1, arg2};
+  boost::interprocess::bufferstream stream(buf.data(), buf.size);
+  {
+    cereal::JSONOutputArchive archive_out{stream};
+    archive_out(cereal::make_nvp("input", input));
+    assert(stream.good());
+  }
+  size_t pos = stream.tellp();
+  return pos;
+}
+
+int get_output_add_binary(char * ptr, size_t len)
+{
+  Output out;
+  boost::iostreams::stream<boost::iostreams::array_source> stream(ptr, len);
+  cereal::BinaryInputArchive archive_in{stream};
+  out.load(archive_in);
+
+  return out.result;
+}
+
+int get_output_add_json(char * ptr, size_t len)
+{
+  Output out;
+  boost::iostreams::stream<boost::iostreams::array_source> stream(ptr, len);
+  cereal::JSONInputArchive archive_in{stream};
+  out.load(archive_in);
+
+  return out.result;
+}
+
 class ProcessRemoteServers : public testing::TestWithParam<std::tuple<std::string>> {
 public:
   void SetUp(int workers)
@@ -57,7 +101,7 @@ public:
     cfg.set_defaults();
     cfg.verbose = true;
 
-    spdlog::set_pattern("[%H:%M:%S:%f] [P %P] [T %t] [%l] %v ");
+    spdlog::set_pattern("[%H:%M:%S:%f] [%n] [P %P] [T %t] [%l] %v ");
 
     // Linux specific
     auto path = std::filesystem::canonical("/proc/self/exe").parent_path() / "integration";
@@ -89,14 +133,34 @@ public:
     }
   }
 
-  size_t generate_input(std::string key, const runtime::Buffer<char> & buf)
+  size_t generate_input_key(std::string key, const runtime::Buffer<char> & buf)
   {
     if(cfg.code.language == runtime::functions::Language::CPP) {
-      return generate_input_binary(key, buf);
+      return generate_input_key_binary(key, buf);
     } else if(cfg.code.language == runtime::functions::Language::PYTHON) {
-      return generate_input_json(key, buf);
+      return generate_input_key_json(key, buf);
     }
     return 0;
+  }
+
+  size_t generate_input_add(int arg1, int arg2, const runtime::Buffer<char> & buf)
+  {
+    if(cfg.code.language == runtime::functions::Language::CPP) {
+      return generate_input_add_binary(arg1, arg2, buf);
+    } else if(cfg.code.language == runtime::functions::Language::PYTHON) {
+      return generate_input_add_json(arg1, arg2, buf);
+    }
+    return 0;
+  }
+
+  int get_output_add(char * ptr, size_t len)
+  {
+    if(cfg.code.language == runtime::functions::Language::CPP) {
+      return get_output_add_binary(ptr, len);
+    } else if(cfg.code.language == runtime::functions::Language::PYTHON) {
+      return get_output_add_json(ptr, len);
+    }
+    return -1;
   }
 
   static constexpr int PROC_COUNT = 2;
@@ -144,7 +208,7 @@ public:
  * Invoke recursively on the other process.
  */
 
-TEST_P(ProcessRemoteServers, DataPlaneInvocations)
+TEST_P(ProcessRemoteServers, GetPutCommunication)
 {
   SetUp(1);
 
@@ -181,7 +245,7 @@ TEST_P(ProcessRemoteServers, DataPlaneInvocations)
   processes[1].connection().write_n(msg.bytes(), msg.BUF_SIZE);
 
   auto buf = buffers.retrieve_buffer(BUF_LEN);
-  buf.len = generate_input("msg_key", buf);
+  buf.len = generate_input_key("msg_key", buf);
 
   auto result = processes[0].invoke("send_remote_message", invocation_id[idx], buf.data(), buf.len);
   // Wait to ensure that message is propagated.
@@ -223,7 +287,7 @@ TEST_P(ProcessRemoteServers, DataPlaneInvocations)
 
 TEST_P(ProcessRemoteServers, SimultaenousMessaging)
 {
-  SetUp(1);
+  SetUp(2);
 
   const int BUF_LEN = 1024;
   runtime::BufferQueue<char> buffers(10, 1024);
@@ -258,7 +322,7 @@ TEST_P(ProcessRemoteServers, SimultaenousMessaging)
   processes[1].connection().write_n(msg.bytes(), msg.BUF_SIZE);
 
   auto buf = buffers.retrieve_buffer(BUF_LEN);
-  buf.len = generate_input("msg_key", buf);
+  buf.len = generate_input_key("msg_key", buf);
 
   praas::sdk::InvocationResult first, second;
 
@@ -283,6 +347,64 @@ TEST_P(ProcessRemoteServers, SimultaenousMessaging)
     spdlog::info("-----------------------------------------------");
   }
   spdlog::info("");
+
+  for(int i = 0; i < PROC_COUNT; ++i) {
+    processes[i].disconnect();
+  }
+
+  for(int i = 0; i < PROC_COUNT; ++i) {
+    servers[i]->shutdown();
+  }
+}
+
+TEST_P(ProcessRemoteServers, RemoteInvocations)
+{
+  SetUp(1);
+
+  const int BUF_LEN = 1024;
+  runtime::BufferQueue<char> buffers(10, 1024);
+
+  std::vector<std::unique_ptr<remote::TCPServer>> servers;
+  for(int i = 0; i < PROC_COUNT; ++i) {
+    cfg.port = 8080 + i;
+    servers.emplace_back(std::make_unique<remote::TCPServer>(*controllers[i].get(), cfg));
+    controllers[i]->set_remote(servers.back().get());
+    servers.back()->poll();
+  }
+
+  std::vector<praas::sdk::Process> processes;
+  for(int i = 0; i < PROC_COUNT; ++i) {
+    processes.emplace_back(std::string{"localhost"}, 8080 + i);
+    ASSERT_TRUE(processes.back().connect());
+  }
+
+  const int COUNT = 2;
+  std::array<std::tuple<int, int>, COUNT> args = { std::make_tuple(42, 4), std::make_tuple(-1, 35) };
+  std::array<int, COUNT> results = { 46*2, 34*2 };
+  std::array<std::string, COUNT> invocation_id = { "first_id", "second_id"};
+
+  praas::common::message::ApplicationUpdate msg;
+  msg.status_change(static_cast<int>(praas::common::Application::Status::ACTIVE));
+  msg.process_id(controllers[1]->process_id());
+  msg.ip_address("localhost");
+  msg.port(8080 + 1);
+  processes[0].connection().write_n(msg.bytes(), msg.BUF_SIZE);
+
+  msg.process_id(controllers[0]->process_id());
+  msg.ip_address("localhost");
+  msg.port(8080);
+  processes[1].connection().write_n(msg.bytes(), msg.BUF_SIZE);
+
+  int idx = 0;
+  auto buf = buffers.retrieve_buffer(BUF_LEN);
+  buf.len = generate_input_add(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
+
+  auto result = processes[0].invoke("remote_invocation", invocation_id[idx], buf.data(), buf.len);
+
+  ASSERT_EQ(result.return_code, 0);
+  ASSERT_TRUE(result.payload_len > 0);
+  int res = get_output_add(result.payload.get(), result.payload_len);
+  EXPECT_EQ(res, results[idx]);
 
   for(int i = 0; i < PROC_COUNT; ++i) {
     processes[i].disconnect();

@@ -266,7 +266,8 @@ namespace praas::process {
     invocation.confirm_payload();
 
     spdlog::info(
-        "Sending invocation of {}, with key {}", invocation.req.function_name(),
+        "Sending invocation of {}, with key {}",
+        invocation.req.function_name(),
         invocation.req.invocation_id()
     );
 
