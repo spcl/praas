@@ -14,6 +14,8 @@ if(NOT cxxopts_FOUND)
     CMAKE_ARGS -DCXXOPTS_BUILD_EXAMPLES=Off -DCXXOPTS_BUILD_TESTS=Off
   )
   FetchContent_MakeAvailable(cxxopts)
+else()
+  message(STATUS "Found cxxopts dependency")
 endif()
 
 ###
@@ -28,6 +30,8 @@ if(NOT sockpp_FOUND)
   set(SOCKPP_BUILD_SHARED OFF CACHE INTERNAL "Build SHARED libraries")
   set(SOCKPP_BUILD_STATIC ON CACHE INTERNAL "Build SHARED libraries")
   FetchContent_MakeAvailable(sockpp)
+else()
+  message(STATUS "Found sockpp dependency")
 endif()
 
 ###
@@ -42,6 +46,8 @@ if(NOT fmt_FOUND)
   )
   set(BUILD_SHARED_LIBS OFF)
   FetchContent_MakeAvailable(fmt)
+else()
+  message(STATUS "Found fmt dependency")
 endif()
 
 ###
@@ -59,6 +65,7 @@ if(NOT spdlog_FOUND)
   FetchContent_MakeAvailable(spdlog)
 else()
   add_custom_target(spdlog)
+  message(STATUS "Found spdlog dependency")
 endif()
 
 ###
@@ -70,10 +77,12 @@ if(NOT cereal_FOUND)
   FetchContent_Declare(cereal
     GIT_REPOSITORY https://github.com/USCiLab/cereal.git
   )
-  set(SKIP_PERFORMANCE_COMPARISON)
+  set(SKIP_PERFORMANCE_COMPARISON ON)
   set(SKIP_PORTABILITY_TEST ON)
   set(JUST_INSTALL_CEREAL ON)
   FetchContent_MakeAvailable(cereal)
+else()
+  message(STATUS "Found cereal dependency")
 endif()
 
 ###
@@ -91,13 +100,13 @@ endif()
 ###
 # threadpool
 ###
-FetchContent_Declare(threadpool
-  GIT_REPOSITORY https://github.com/bshoshany/thread-pool.git
-  GIT_TAG master
-  CONFIGURE_COMMAND ""
-  BUILD_COMMAND ""
-)
-FetchContent_MakeAvailable(threadpool)
+#FetchContent_Declare(threadpool
+#  GIT_REPOSITORY https://github.com/bshoshany/thread-pool.git
+#  GIT_TAG master
+#  CONFIGURE_COMMAND ""
+#  BUILD_COMMAND ""
+#)
+#FetchContent_MakeAvailable(threadpool)
 
 ###
 # TBB - static libraries are discouraged
@@ -116,10 +125,10 @@ endif()
 ###
 # drogon
 ###
-find_package(drogon QUIET)
-if(NOT DROGON_FOUND)
+find_package(Drogon REQUIRED)
+if(NOT Drogon_FOUND)
   message(STATUS "Downloading and building drogon dependency")
-  FetchContent_Declare(drogon
+  FetchContent_Declare(Drogon
     GIT_REPOSITORY https://github.com/drogonframework/drogon
   )
   set (BUILD_TESTING OFF CACHE INTERNAL "Turn off tests")
@@ -128,7 +137,9 @@ if(NOT DROGON_FOUND)
   set (BUILD_MYSQL OFF CACHE INTERNAL "Turn off tests")
   set (BUILD_ORM OFF CACHE INTERNAL "Turn off tests")
   set (BUILD_BROTLI OFF CACHE INTERNAL "Turn off tests")
-  FetchContent_MakeAvailable(drogon)
+  FetchContent_MakeAvailable(Drogon)
+else()
+  message(STATUS "Found drogon dependency")
 endif()
 
 if(PRAAS_WITH_TESTING)
