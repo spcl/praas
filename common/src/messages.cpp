@@ -74,10 +74,6 @@ namespace praas::common::message {
       return MessageVariants{InvocationResultParsed(data + HEADER_OFFSET)};
     }
 
-    if (type == Type::INVOCATION_RESULT) {
-      return MessageVariants{InvocationResultParsed(data + HEADER_OFFSET)};
-    }
-
     if (type == Type::DATAPLANE_METRICS) {
       return MessageVariants{DataPlaneMetricsParsed(data + HEADER_OFFSET)};
     }
@@ -437,6 +433,13 @@ namespace praas::common::message {
   }
 
   int32_t PutMessageParsed::total_length() const
+  {
+    // NOLINTNEXTLINE
+    // FIXME: this is an ugly hack
+    return *reinterpret_cast<const int32_t*>(buf - 4);
+  }
+
+  int32_t InvocationResultParsed::total_length() const
   {
     // NOLINTNEXTLINE
     // FIXME: this is an ugly hack

@@ -255,6 +255,8 @@ namespace praas::common::message {
 
     std::string_view invocation_id() const;
     int32_t return_code() const;
+    // FIXME: common parent
+    int32_t total_length() const;
     static Message::Type type();
   };
 
@@ -271,6 +273,7 @@ namespace praas::common::message {
     using InvocationResultParsed::invocation_id;
     using InvocationResultParsed::return_code;
     using InvocationResultParsed::type;
+    using Message::total_length;
 
     void invocation_id(std::string_view invocation_id);
     void return_code(int32_t);
