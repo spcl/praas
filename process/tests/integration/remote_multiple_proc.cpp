@@ -359,7 +359,7 @@ TEST_P(ProcessRemoteServers, SimultaenousMessaging)
 
 TEST_P(ProcessRemoteServers, RemoteInvocations)
 {
-  SetUp(1);
+  SetUp(2);
 
   const int BUF_LEN = 1024;
   runtime::BufferQueue<char> buffers(10, 1024);
@@ -381,6 +381,7 @@ TEST_P(ProcessRemoteServers, RemoteInvocations)
   const int COUNT = 2;
   std::array<std::tuple<int, int>, COUNT> args = { std::make_tuple(42, 4), std::make_tuple(-1, 35) };
   std::array<int, COUNT> results = { 46*2, 34*2 };
+  std::array<praas::sdk::InvocationResult, COUNT> invoc_results;
   std::array<std::string, COUNT> invocation_id = { "first_id", "second_id"};
 
   praas::common::message::ApplicationUpdate msg;
@@ -395,16 +396,30 @@ TEST_P(ProcessRemoteServers, RemoteInvocations)
   msg.port(8080);
   processes[1].connection().write_n(msg.bytes(), msg.BUF_SIZE);
 
-  int idx = 0;
-  auto buf = buffers.retrieve_buffer(BUF_LEN);
-  buf.len = generate_input_add(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
+  std::vector<std::thread> invoc_threads;
+  for(int idx = 0; idx < COUNT; ++idx) {
+    auto buf = buffers.retrieve_buffer(BUF_LEN);
+    buf.len = generate_input_add(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
 
-  auto result = processes[0].invoke("remote_invocation", invocation_id[idx], buf.data(), buf.len);
+    invoc_threads.emplace_back(
+      [&, idx, buf = std::move(buf)]() mutable {
+        invoc_results[idx] = processes[idx].invoke("remote_invocation", invocation_id[idx], buf.data(), buf.len);
+      }
+    );
+  }
 
-  ASSERT_EQ(result.return_code, 0);
-  ASSERT_TRUE(result.payload_len > 0);
-  int res = get_output_add(result.payload.get(), result.payload_len);
-  EXPECT_EQ(res, results[idx]);
+  for(int idx = 0; idx < COUNT; ++idx) {
+    invoc_threads[idx].join();
+  }
+
+  for(int idx = 0; idx < COUNT; ++idx) {
+
+    ASSERT_EQ(invoc_results[idx].return_code, 0);
+    ASSERT_TRUE(invoc_results[idx].payload_len > 0);
+    int res = get_output_add(invoc_results[idx].payload.get(), invoc_results[idx].payload_len);
+    EXPECT_EQ(res, results[idx]);
+
+  }
 
   for(int i = 0; i < PROC_COUNT; ++i) {
     processes[i].disconnect();
