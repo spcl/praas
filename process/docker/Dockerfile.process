@@ -1,0 +1,16 @@
+FROM spcleth/praas:process-deps AS deps
+FROM spcleth/praas:cpp-builder AS builder
+
+COPY --from=deps /opt /opt
+
+RUN apt-get update && apt-get install -y --no-install-recommends python3-pip && pip install pybind11 numpy
+
+WORKDIR /build/
+ADD . /source/
+RUN pybind11_DIR=/usr/local/lib/python3.10/dist-packages/pybind11 cmake -DCMAKE_MODULE_PATH="/opt/lib/cmake;/opt/lib/cmake/Drogon;/opt/lib/cmake/Trantor;/opt/lib/cmake/cereal" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DPRAAS_DEPLOYMENTS="aws" -DPRAAS_COMPONENTS="process;sdk" /source
+RUN cmake --build . -j4
+
+FROM ubuntu:20.04
+
+COPY --from=0 /opt /opt
+COPY --from=0 /build /praas
