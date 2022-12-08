@@ -1,6 +1,7 @@
 
 #include <praas/process/controller/controller.hpp>
 #include <praas/process/controller/config.hpp>
+#include <praas/process/controller/remote.hpp>
 
 #include <spdlog/spdlog.h>
 
@@ -19,6 +20,11 @@ int main(int argc, char** argv)
 
   praas::process::Controller controller{config};
   instance = &controller;
+
+  praas::process::remote::TCPServer server{controller, config};
+  controller.set_remote(&server);
+  server.poll();
+
   controller.start();
 
   spdlog::info("Process controller is closing down");
