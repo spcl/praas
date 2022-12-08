@@ -1,0 +1,16 @@
+{
+  "functions": {
+    "cpp": {
+      "no_op": {
+        "code": {
+          "module": "@PRAAS_DIRECTORY@/benchmarks/functions/libbenchmark_functions.so",
+          "function": "no_op"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      }
+    }
+  }
+}
