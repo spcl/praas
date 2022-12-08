@@ -12,7 +12,8 @@ RUN cmake --build . -j4
 
 FROM ubuntu:22.04
 
-COPY --from=builder /opt /opt
-COPY --from=builder /praas /praas
+COPY --from=0 /opt /opt
+COPY --from=0 /build /praas
 
 ENTRYPOINT ["/praas/process/bin/process_exe", "-c", "/praas/benchmarks/config.json"]
+
