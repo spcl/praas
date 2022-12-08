@@ -115,9 +115,15 @@ namespace praas::process {
       dup2(fd, 2);
       // int ret = execvp(args[0], const_cast<char**>(&args[0]));
 
-      int ret = execvpe(args[0], const_cast<char**>(&args[0]), envp);
+      int ret = 0;
+      if(envp) {
+        ret = execvpe(args[0], const_cast<char**>(&args[0]), envp);
+      } else {
+        ret = execvp(args[0], const_cast<char**>(&args[0]));
+      }
       if (ret == -1) {
         spdlog::error("Invoker process {} failed {}, reason {}", args[0], errno, strerror(errno));
+        spdlog::error(getenv("PATH"));
         close(fd);
         exit(1);
       }
@@ -152,8 +158,9 @@ namespace praas::process {
 
   void Workers::_launch_cpp(config::Controller& cfg, const std::string& ipc_name)
   {
+    // Linux specific
     std::string exec_path = cfg.deployment_location.empty()
-                                ? std::filesystem::path{"invoker"} / "cpp_invoker_exe"
+                                ? std::filesystem::canonical("/proc/self/exe").parent_path() / "invoker" / "cpp_invoker_exe"
                                 : std::filesystem::path{cfg.deployment_location} / "bin" /
                                       "invoker" / "cpp_invoker_exe";
 
@@ -169,7 +176,8 @@ namespace praas::process {
         cfg.code.location.c_str(),
         "--code-config-location",
         cfg.code.config_location.c_str(),
-        nullptr};
+        nullptr
+    };
 
     _workers.emplace_back(argv, cfg.ipc_mode, ipc_name, cfg.ipc_message_size);
   }
