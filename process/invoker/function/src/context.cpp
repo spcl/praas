@@ -38,10 +38,17 @@ namespace praas::function {
 
   process::runtime::BufferAccessor<char> Context::as_buffer() const
   {
-    auto acc = _output.accessor<char>();
-    // Keep track of length changes that were done by users.
-    acc.len = _output_buf_view.len;
-    return acc;
+    // Has the output buffer been overriden?
+    if(_output_buf_view.ptr != _output.ptr.get()) {
+      return process::runtime::BufferAccessor<char>{
+        reinterpret_cast<char*>(_output_buf_view.ptr), _output_buf_view.len
+      };
+    } else {
+      auto acc = _output.accessor<char>();
+      // Keep track of length changes that were done by users.
+      acc.len = _output_buf_view.len;
+      return acc;
+    }
   }
 
   void
