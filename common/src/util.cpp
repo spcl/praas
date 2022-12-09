@@ -1,5 +1,7 @@
 #include <praas/common/util.hpp>
 
+#include <spdlog/sinks/stdout_color_sinks.h>
+
 namespace praas::common::util {
 
   void traceback()
@@ -10,6 +12,14 @@ namespace praas::common::util {
     for (size_t i = 0; i < size; ++i)
       spdlog::warn("Traceback {}: {}", i, trace[i]);
     free(trace);
+  }
+
+  std::shared_ptr<spdlog::logger> create_logger(std::string_view name)
+  {
+    auto sink = std::make_shared<spdlog::sinks::stderr_color_sink_st>();
+    auto logger = std::make_shared<spdlog::logger>(std::string{name}, sink);
+    logger->set_pattern("[%H:%M:%S:%f] [%n] [P %P] [T %t] [%l] %v ");
+    return logger;
   }
 
   bool expect_true(bool val)

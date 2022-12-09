@@ -12,6 +12,8 @@ namespace praas::common::util {
 
   void traceback();
 
+  std::shared_ptr<spdlog::logger> create_logger(std::string_view name);
+
   bool expect_true(bool val);
   void assert_true(bool val);
 
