@@ -12,13 +12,14 @@
 
 namespace praas::control_plane {
 
-  HttpServer::HttpServer(
-      int port
-  ):
+  HttpServer::HttpServer(worker::Workers & workers, int port):
+    _workers(workers),
     _port(port)
   {
-
     _logger = common::util::create_logger("HttpServer");
+    std::cerr << _logger.get() << std::endl;
+    _logger->info("test");
+    std::cerr << this << std::endl;
     //_server.port(port).ssl_file(server_cert, server_key);
 
     // create application
@@ -149,8 +150,10 @@ namespace praas::control_plane {
   {
     //_server_thread = std::thread(&crow::App<>::run, &_server);
     // FIXME: number of threads - config file
+    drogon::app().registerController(shared_from_this());
     _server_thread = std::thread{
       [this]() {
+        std::cerr << this << std::endl;
         drogon::app().addListener("0.0.0.0", _port).run();
       }
     };
@@ -164,8 +167,43 @@ namespace praas::control_plane {
     spdlog::info("Stopped HTTP server");
   }
 
-  void HttpServer::invoke(const drogon::HttpRequestPtr&, std::function<void(const drogon::HttpResponsePtr&)>&& callback)
+  drogon::HttpResponsePtr failed_response(const std::string& reason)
   {
+      Json::Value json;
+      json["reason"] = reason;
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(json);
+      resp->setStatusCode(drogon::k500InternalServerError);
+      return resp;
+  }
+
+  void HttpServer::invoke(
+    const drogon::HttpRequestPtr& request,
+    std::function<void(const drogon::HttpResponsePtr&)>&& callback,
+    std::string app_id, std::string fname
+  )
+  {
+    Json::Value empty_val;
+    auto json = request->jsonObject();
+    if(!json) {
+      callback(failed_response("Couldn't parse JSON"));
+    }
+
+    auto func_name = request->getParameter("function");
+    auto invocation_id = request->getParameter("invocation_id");
+    //if(!func_name.isNull()) {
+    //  std::cerr << func_name << std::endl;
+    //} else {
+    //  std::cerr << "empty" << std::endl;
+    //}
+    std::cerr << func_name << " " << invocation_id << std::endl;
+
+    //std::cerr << request->getParameter("function") << std::endl;
+    //std::cerr << request->getBody() << std::endl;
+    //std::cerr << request->getJsonError() << std::endl;
+    //for(auto [key, value] : request->getHeaders())
+    //  std::cerr << key << " " << value << std::endl;
+
+    //std::cerr << _logger << std::endl;
     _logger->info("Received request");
     auto resp = drogon::HttpResponse::newHttpResponse();
     resp->setBody(
@@ -174,4 +212,4 @@ namespace praas::control_plane {
     callback(resp);
   }
 
-} // namespace praas::http
+} // namespace praas::control_plane

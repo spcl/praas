@@ -19,6 +19,13 @@ namespace praas::control_plane::worker {
       _pool.push_task(Workers::handle_message, process, message);
     }
 
+    void handle_invocation(
+      const process::ProcessPtr& ptr,
+      std::string_view function_name,
+      std::string_view invocation_id,
+      std::string payload_data
+    );
+
   private:
     // Looks up the associated invocation in a process and calls the callback.
     // Requires a read access to the list of invocations.

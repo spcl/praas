@@ -217,6 +217,13 @@ namespace praas::control_plane::tcpserver {
     }
   }
 
+  void TCPServer::handle_invocation_result(
+      const process::ProcessPtr& process_ptr,
+      const praas::common::message::InvocationResultParsed& result
+  )
+  {
+  }
+
   //  std::optional<sockpp::tcp_socket> TCPServer::accept_connection()
   //  {
   //    sockpp::tcp_socket conn = _listen.accept();

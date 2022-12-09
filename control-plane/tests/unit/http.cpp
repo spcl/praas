@@ -65,8 +65,8 @@ TEST_F(HttpServerTest, StartServer)
   int PORT = 10000;
 
   // FIXME: config structure for http
-  HttpServer server(PORT);
-  server.run();
+  auto server = std::make_shared<HttpServer>(workers, PORT);
+  server->run();
 
   trantor::EventLoopThread _loop;
   _loop.run();
@@ -74,12 +74,18 @@ TEST_F(HttpServerTest, StartServer)
   std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
   {
+    Json::Value value;
+    value["function"] = "no_op";
+    value["invocation_id"] = "invoc-test";
+    value["body"] = "datadatadatainvoc-test";
     auto client = drogon::HttpClient::newHttpClient("http://127.0.0.1:10000/", _loop.getLoop(), false, false);
-    auto req = drogon::HttpRequest::newHttpRequest();
+    auto req = drogon::HttpRequest::newHttpJsonRequest(value);
     req->setMethod(drogon::Post);
     req->setPath("/invoke");
     req->setParameter("data", "wx");
     req->setParameter("function", "wx");
+    req->setBody("{\"str\": \"ssssssss\"}");
+    req->setContentTypeCode(drogon::ContentType::CT_APPLICATION_JSON);
 
     std::promise<void> p;
     client->sendRequest(req,
@@ -95,6 +101,6 @@ TEST_F(HttpServerTest, StartServer)
   _loop.getLoop()->quit();
   _loop.wait();
 
-  server.shutdown();
+  server->shutdown();
 }
 
