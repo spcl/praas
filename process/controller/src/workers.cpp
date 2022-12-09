@@ -101,7 +101,7 @@ namespace praas::process {
   {
     int mypid = fork();
     if (mypid < 0) {
-      throw praas::common::PraaSException{fmt::format("Fork failed! {}", mypid)};
+      throw praas::common::PraaSException{fmt::format("Fork failed! {}, reason {} {}", mypid, errno, strerror(errno))};
     }
 
     if (mypid == 0) {
