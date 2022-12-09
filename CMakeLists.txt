@@ -49,6 +49,23 @@ endif()
 ###
 add_compile_options(-Wall -Wextra -pedantic)
 
+foreach(COMPONENT ${PRAAS_DEPLOYMENTS})
+
+  if(COMPONENT STREQUAL "aws")
+    message(STATUS "Building PraaS deployment to AWS cloud.")
+    set(PRAAS_WITH_DEPLOYMENT_AWS TRUE)
+    add_compile_definitions(WITH_AWS_DEPLOYMENT)
+    add_feature_info(deployments ON "aws")
+  else()
+    message(FATAL_ERROR "The deployment ${COMPONENT} does not exist")
+  endif()
+
+endforeach()
+
+foreach(COMPONENT ${PRAAS_BACKENDS})
+
+endforeach()
+
 ###
 # Generate dependencies
 ###
@@ -108,19 +125,6 @@ if(NOT PRAAS_DEPLOYMENTS)
 
 endif()
 
-foreach(COMPONENT ${PRAAS_DEPLOYMENTS})
-
-  if(COMPONENT STREQUAL "aws")
-    message(STATUS "Building PraaS deployment to AWS cloud.")
-    set(PRAAS_WITH_DEPLOYMENT_AWS TRUE)
-    add_compile_definitions(WITH_AWS_DEPLOYMENT)
-    add_feature_info(deployments ON "aws")
-  else()
-    message(FATAL_ERROR "The deployment ${COMPONENT} does not exist")
-  endif()
-
-endforeach()
-
 foreach(COMPONENT ${PRAAS_COMPONENTS})
 
   if(COMPONENT STREQUAL "control-plane")
@@ -135,6 +139,10 @@ foreach(COMPONENT ${PRAAS_COMPONENTS})
     message(STATUS "Building process component")
     add_subdirectory(process)
     add_feature_info(component_process ON "enabled")
+  elseif(COMPONENT STREQUAL "benchmarks")
+    message(STATUS "Building benchmarks component")
+    add_subdirectory(benchmarks)
+    add_feature_info(component_benchmarks ON "enabled")
   else()
     message(FATAL_ERROR "The component ${COMPONENT} does not exist")
   endif()
