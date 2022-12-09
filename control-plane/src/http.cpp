@@ -1,27 +1,24 @@
 
 #include <praas/control-plane/http.hpp>
 
+#include <praas/common/util.hpp>
 #include <praas/control-plane/worker.hpp>
 
+#include <drogon/HttpAppFramework.h>
 #include <future>
 #include <thread>
 
 #include <spdlog/spdlog.h>
 
-// using praas::control_plane::Worker;
-// using praas::control_plane::Workers;
-
-namespace praas::http {
+namespace praas::control_plane {
 
   HttpServer::HttpServer(
-      int port, std::string server_cert, std::string server_key, BS::thread_pool& pool, bool verbose
-  )
-      : _pool(pool)
+      int port
+  ):
+    _port(port)
   {
-    spdlog::info(
-        "Configuring HTTPS sever at port {}, server cert {}, server key {}", port, server_cert,
-        server_key
-    );
+
+    _logger = common::util::create_logger("HttpServer");
     //_server.port(port).ssl_file(server_cert, server_key);
 
     // create application
@@ -151,15 +148,30 @@ namespace praas::http {
   void HttpServer::run()
   {
     //_server_thread = std::thread(&crow::App<>::run, &_server);
+    // FIXME: number of threads - config file
+    _server_thread = std::thread{
+      [this]() {
+        drogon::app().addListener("0.0.0.0", _port).run();
+      }
+    };
   }
 
   void HttpServer::shutdown()
   {
     spdlog::info("Stopping HTTP server");
-    //_server.stop();
-    //if (_server_thread.joinable())
-    //  _server_thread.join();
+    drogon::app().getLoop()->queueInLoop([]() { drogon::app().quit(); });
+    _server_thread.join();
     spdlog::info("Stopped HTTP server");
+  }
+
+  void HttpServer::invoke(const drogon::HttpRequestPtr&, std::function<void(const drogon::HttpResponsePtr&)>&& callback)
+  {
+    _logger->info("Received request");
+    auto resp = drogon::HttpResponse::newHttpResponse();
+    resp->setBody(
+        "Hello, this is a generic hello message from the SayHello "
+        "controller");
+    callback(resp);
   }
 
 } // namespace praas::http

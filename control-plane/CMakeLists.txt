@@ -72,6 +72,7 @@ if(PRAAS_WITH_TESTING)
             tests/unit/tcpserver.cpp
             tests/unit/tcpserver_dataplane.cpp
             tests/unit/tcpserver_swap.cpp
+            tests/unit/http.cpp
   )
   foreach(test ${TESTS})
 
