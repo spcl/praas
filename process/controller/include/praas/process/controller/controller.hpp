@@ -109,7 +109,7 @@ namespace praas::process {
     std::shared_ptr<spdlog::logger> _logger;
 
     static constexpr int DEFAULT_BUFFER_MESSAGES = 20;
-    static constexpr int DEFAULT_BUFFER_SIZE = 512 * 1024 * 1024;
+    static constexpr int DEFAULT_BUFFER_SIZE = 5 * 1024 * 1024;
 
     runtime::BufferQueue<char> _buffers;
 
