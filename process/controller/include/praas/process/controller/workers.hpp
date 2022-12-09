@@ -187,6 +187,8 @@ namespace praas::process {
     int _worker_counter{};
 
     int _idle_workers{};
+
+    std::shared_ptr<spdlog::logger> _logger;
   };
 
 } // namespace praas::process

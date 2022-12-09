@@ -1,6 +1,8 @@
 #include <praas/process/invoker.hpp>
 
+#include <praas/common/application.hpp>
 #include <praas/common/exceptions.hpp>
+#include <praas/common/util.hpp>
 #include <praas/process/runtime/buffer.hpp>
 #include <praas/process/runtime/ipc/messages.hpp>
 
@@ -11,7 +13,6 @@
 #include <sys/signal.h>
 
 #include <spdlog/spdlog.h>
-#include "praas/common/application.hpp"
 
 namespace praas::process {
 
@@ -29,6 +30,8 @@ namespace praas::process {
 
     // Make sure we are killed if the parent controller forgets about us.
     prctl(PR_SET_PDEATHSIG, SIGHUP);
+
+    _logger = common::util::create_logger("Invoker");
 
     // FIXME: receive full status
     _app_status.active_processes.emplace_back(_process_id);
@@ -52,12 +55,11 @@ namespace praas::process {
 
         auto parsed_msg = _ipc_channel_read->message().parse();
 
-        spdlog::error("mesg");
-
         std::visit(
             runtime::ipc::overloaded{
                 [&](runtime::ipc::InvocationRequestParsed& req) mutable {
-                  spdlog::info(
+                  SPDLOG_DEBUG(
+                      _logger,
                       "Received invocation request of {}, key {}, inputs {}", req.function_name(),
                       req.invocation_id(), req.buffers()
                   );
@@ -87,7 +89,10 @@ namespace praas::process {
                   received_invocation = true;
                 },
                 [&](runtime::ipc::ApplicationUpdateParsed& req) mutable {
-                  spdlog::info("Received application update - process change for {}", req.process_id());
+                  SPDLOG_DEBUG(
+                      _logger,
+                      "Received application update - process change for {}", req.process_id()
+                  );
                   _app_status.update(
                     static_cast<common::Application::Status>(req.status_change()),
                     req.process_id()

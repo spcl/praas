@@ -123,7 +123,6 @@ namespace praas::process {
       }
       if (ret == -1) {
         spdlog::error("Invoker process {} failed {}, reason {}", args[0], errno, strerror(errno));
-        spdlog::error(getenv("PATH"));
         close(fd);
         exit(1);
       }
@@ -222,6 +221,8 @@ namespace praas::process {
   Workers::Workers(config::Controller& cfg)
   {
 
+    _logger = common::util::create_logger("Workers");
+
     common::util::assert_other(static_cast<int>(cfg.code.language), static_cast<int>(runtime::functions::Language::NONE));
 
     for (int i = 0; i < cfg.function_workers; ++i) {
@@ -273,7 +274,8 @@ namespace praas::process {
 
     invocation.confirm_payload();
 
-    spdlog::info(
+    SPDLOG_DEBUG(
+        _logger,
         "Sending invocation of {}, with key {}",
         invocation.req.function_name(),
         invocation.req.invocation_id()
@@ -311,15 +313,15 @@ namespace praas::process {
       kill(worker.pid(), SIGINT);
     }
 
-    int status;
+    int status{};
     for (FunctionWorker& worker : _workers) {
 
       waitpid(worker.pid(), &status, 0);
 
       if (WIFEXITED(status)) {
-        spdlog::info("Worker child {} exited with status {}", worker.pid(), WEXITSTATUS(status));
+        _logger->info("Worker child {} exited with status {}", worker.pid(), WEXITSTATUS(status));
       } else if (WIFSIGNALED(status)) {
-        spdlog::info("Worker child {} killed by signal {}", worker.pid(), WTERMSIG(status));
+        _logger->info("Worker child {} killed by signal {}", worker.pid(), WTERMSIG(status));
       }
     }
   }
