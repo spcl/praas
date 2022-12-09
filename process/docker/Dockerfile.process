@@ -7,10 +7,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3-pip && 
 
 WORKDIR /praas
 ADD . /source/
-RUN pybind11_DIR=/usr/local/lib/python3.10/dist-packages/pybind11 cmake -DCMAKE_MODULE_PATH="/opt/lib/cmake;/opt/lib/cmake/Drogon;/opt/lib/cmake/Trantor;/opt/lib/cmake/cereal" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DPRAAS_DEPLOYMENTS="aws" -DPRAAS_COMPONENTS="process;sdk" /source
+RUN pybind11_DIR=/usr/local/lib/python3.10/dist-packages/pybind11 cmake -DCMAKE_MODULE_PATH="/opt/lib/cmake;/opt/lib/cmake/Drogon;/opt/lib/cmake/Trantor;/opt/lib/cmake/cereal" -DCMAKE_BUILD_TYPE=Release -DPRAAS_DEPLOYMENTS="aws" -DPRAAS_COMPONENTS="process;sdk" /source
 RUN cmake --build . -j4
 
 FROM ubuntu:22.04
 
 COPY --from=builder /opt /opt
 COPY --from=builder /praas /praas
+
+ENTRYPOINT ["/praas/process/bin/process_exe", "-c", "/praas/benchmarks/config.json"]

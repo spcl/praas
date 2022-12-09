@@ -9,42 +9,42 @@ RUN apt-get update\
 
 RUN git clone https://github.com/jarro2783/cxxopts.git\
     && cd cxxopts\
-    && cmake -DCXXOPTS_BUILD_EXAMPLES=Off -DCXXOPTS_BUILD_TESTS=Off -DCMAKE_INSTALL_PREFIX=/opt\
+    && cmake -DCMAKE_BUILD_TYPE=Release -DCXXOPTS_BUILD_EXAMPLES=Off -DCXXOPTS_BUILD_TESTS=Off -DCMAKE_INSTALL_PREFIX=/opt\
     && make -j4 && make install && cd ..
 
 RUN git clone https://github.com/spcl/sockpp\
     && cd sockpp\
-    && cmake -DSOCKPP_BUILD_SHARED=OFF -DSOCKPP_BUILD_STATIC=ON -DCMAKE_INSTALL_PREFIX=/opt\
+    && cmake -DCMAKE_BUILD_TYPE=Release -DSOCKPP_BUILD_SHARED=OFF -DSOCKPP_BUILD_STATIC=ON -DCMAKE_INSTALL_PREFIX=/opt\
     && make -j4 && make install && cd ..
 
 RUN git clone https://github.com/mariusbancila/stduuid.git\
     && cd stduuid\
-    && cmake -DCMAKE_INSTALL_PREFIX=/opt\
+    && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt\
     && make -j4 && make install && cd ..
 
 RUN git clone https://github.com/fmtlib/fmt.git\
     && cd fmt\
-    && cmake -DBUILD_SHARED_LIBS=OFF -DFMT_TEST=OFF -DCMAKE_INSTALL_PREFIX=/opt\
+    && cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DFMT_TEST=OFF -DCMAKE_INSTALL_PREFIX=/opt\
     && make -j4 && make install && cd ..
 
 RUN git clone https://github.com/gabime/spdlog.git\
     && cd spdlog\
-    && cmake -DSPDLOG_FMT_EXTERNAL=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_INSTALL_PREFIX=/opt\
+    && cmake -DCMAKE_BUILD_TYPE=Release -DSPDLOG_FMT_EXTERNAL=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_INSTALL_PREFIX=/opt\
     && make -j4 && make install && cd ..
 
 RUN git clone https://github.com/USCiLab/cereal.git\
     && cd cereal\
-    && cmake -DSKIP_PERFORMANCE_COMPARISON=ON -DSKIP_PORTABILITY_TEST=ON -DJUST_INSTALL_CEREAL=ON -DCMAKE_INSTALL_PREFIX=/opt\
+    && cmake -DCMAKE_BUILD_TYPE=Release -DSKIP_PERFORMANCE_COMPARISON=ON -DSKIP_PORTABILITY_TEST=ON -DJUST_INSTALL_CEREAL=ON -DCMAKE_INSTALL_PREFIX=/opt\
     && make -j4 && make install && cd ..
 
 RUN git clone https://github.com/oneapi-src/oneTBB.git\
     && cd oneTBB\
-    && cmake -DTBB_TEST=OFF -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=/opt\
+    && cmake -DCMAKE_BUILD_TYPE=Release -DTBB_TEST=OFF -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=/opt\
     && make -j4 && make install && cd ..
 
 RUN git clone --recursive https://github.com/drogonframework/drogon\
     && cd drogon\
-    && cmake -DBUILD_CTL=OFF -DBUILD_EXAMPLES=OFF -DBUILD_TESTING=OFF -DBUILD_SQLITE=OFF -DBUILD_POSTGRESQL=OFF -DBUILD_MYSQL=OFF -DBUILD_ORM=OFF -DBUILD_BROTLI=OFF -DCMAKE_INSTALL_PREFIX=/opt\
+    && cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_CTL=OFF -DBUILD_EXAMPLES=OFF -DBUILD_TESTING=OFF -DBUILD_SQLITE=OFF -DBUILD_POSTGRESQL=OFF -DBUILD_MYSQL=OFF -DBUILD_ORM=OFF -DBUILD_BROTLI=OFF -DCMAKE_INSTALL_PREFIX=/opt\
     && make -j4 && make install && cd ..
 
 FROM ubuntu:22.04
