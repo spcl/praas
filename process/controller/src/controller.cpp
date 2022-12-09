@@ -276,23 +276,20 @@ namespace praas::process {
               std::vector<const FunctionWorker*> pending_workers;
               _pending_msgs.find_invocation(std::string{req.invocation_id()}, pending_workers);
 
+              // FIXME: remove this copy, our message types are broken
+              runtime::ipc::InvocationResult result;
+              result.invocation_id(req.invocation_id());
+              result.return_code(req.return_code());
+              result.buffer_length(msg.payload.len);
+
               for(const FunctionWorker* worker : pending_workers) {
 
-                // FIXME: remove this copy, our message types are broken
-                runtime::ipc::InvocationResult result;
-                result.invocation_id(req.invocation_id());
-                result.return_code(req.return_code());
-                result.buffer_length(msg.payload.len);
+                _logger->info("Sending external invocational result with key {}, message len {}",
+                  result.invocation_id(), msg.payload.len
+                );
 
-                for(const FunctionWorker* worker : pending_workers) {
+                worker->ipc_write().send(result, msg.payload);
 
-                  _logger->info("Sending external invocational result with key {}, message len {}",
-                    result.invocation_id(), msg.payload.len
-                  );
-
-                  worker->ipc_write().send(result, msg.payload);
-
-                }
               }
             },
             [&, this](common::message::PutMessageParsed& req) mutable {
