@@ -1,39 +1,105 @@
 #include <praas/sdk/process.hpp>
 
+#include <fstream>
+
+#include <cereal/archives/json.hpp>
+#include <cereal/types/vector.hpp>
+#include <cereal/details/helpers.hpp>
 #include <spdlog/spdlog.h>
+
+struct Config
+{
+  std::vector<int> sizes;
+  int repetitions;
+
+  std::string process_address;
+  int process_port;
+
+  std::string function_name;
+
+  std::string output_file;
+
+  template<typename Ar>
+  void serialize(Ar & ar)
+  {
+    ar(CEREAL_NVP(sizes));
+    ar(CEREAL_NVP(repetitions));
+
+    ar(CEREAL_NVP(process_address));
+    ar(CEREAL_NVP(process_port));
+    ar(CEREAL_NVP(function_name));
+
+    ar(CEREAL_NVP(output_file));
+  }
+
+};
 
 int main(int argc, char** argv)
 {
-  //auto config = praas::process::config::Controller::deserialize(argc, argv);
-  //if (config.verbose)
-  //  spdlog::set_level(spdlog::level::debug);
-  //else
-  //  spdlog::set_level(spdlog::level::info);
+  std::string config_file{argv[1]};
+  std::ifstream in_stream{config_file};
+  if (!in_stream.is_open()) {
+    spdlog::error("Could not open config file {}", config_file);
+    exit(1);
+  }
+
+  Config cfg;
+  cereal::JSONInputArchive archive_in(in_stream);
+  cfg.serialize(archive_in);
+
   spdlog::set_pattern("[%H:%M:%S:%f] [P %P] [T %t] [%l] %v ");
-  spdlog::info("Executing PraaS controller!");
+  spdlog::info("Executing PraaS benchmarker!");
 
-  std::string addr = "127.0.0.1";
-  int port = 8000;
+  praas::sdk::Process proc{cfg.process_address, cfg.process_port};
 
-  praas::sdk::Process process{addr, port};
-  if(!process.connect())  {
-    std::cerr << "Could not connect" << std::endl;
+  spdlog::error("Connecting to {}:{}", cfg.process_address, cfg.process_port);
+  if(!proc.connect())  {
+    spdlog::error("Could not connect to {}:{}", cfg.process_address, cfg.process_port);
     return 1;
   }
 
-  int BUF_LEN = 1024;
-  std::unique_ptr<char[]> buf{new char[BUF_LEN]};
-  for(int i = 0; i < BUF_LEN / 4; ++i)
-    ((int*)buf.get())[i] = i + 1;
+  std::vector< std::vector<long> > measurements;
 
-  auto result = process.invoke("no_op", "id", buf.get(), BUF_LEN);
+  for(int size : cfg.sizes) {
 
-  for(int i = (BUF_LEN/4) - 5; i < BUF_LEN / 4; ++i) {
-    std::cerr << i << " " << ((int*)buf.get())[i] << std::endl;
-    std::cerr << i << " " << ((int*)result.payload.get())[i] << std::endl;
+    spdlog::info("Begin size {}", size);
+
+    std::unique_ptr<char[]> buf{new char[size]};
+    for(int i = 0; i < size / 4; ++i)
+      ((int*)buf.get())[i] = i + 1;
+
+    measurements.emplace_back();
+    for(int i = 0; i  < cfg.repetitions; ++i) {
+
+      spdlog::info("Start");
+      auto begin = std::chrono::high_resolution_clock::now();
+      auto result = proc.invoke(cfg.function_name, "id", buf.get(), size);
+      auto end = std::chrono::high_resolution_clock::now();
+      spdlog::info("end");
+
+      std::cerr << begin.time_since_epoch().count() << std::endl;
+      std::cerr << end.time_since_epoch().count() << std::endl;
+
+      measurements.back().emplace_back(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count()
+      );
+
+    }
+
   }
-  process.disconnect();
 
-  spdlog::info("Process controller is closing down");
+  std::ofstream out_file{cfg.output_file, std::ios::out};
+  out_file << "size, repetition, time" << '\n';
+  for(int i = 0; i < measurements.size(); ++i) {
+
+    for(int j = 0; j < cfg.repetitions; ++j) {
+      out_file << cfg.sizes[i] << "," << j << "," << measurements[i][j] << '\n';
+    }
+
+  }
+  out_file.close();
+
+  proc.disconnect();
+
   return 0;
 }
