@@ -24,6 +24,7 @@ namespace praas::process::remote {
         [this](const trantor::TcpConnectionPtr& connectionPtr) {
           if(connectionPtr->connected()) {
             _logger->info("New connection from {}", connectionPtr->peerAddr().toIpPort());
+            connectionPtr->setTcpNoDelay(true);
           } else {
             _logger->info("Disconnected from {}", connectionPtr->peerAddr().toIpPort());
           }
@@ -603,6 +604,10 @@ namespace praas::process::remote {
             praas::common::message::ProcessConnection req;
             req.process_name(_controller.process_id());
             conn->send(req.bytes(), req.BUF_SIZE);
+
+
+            // FIXME: make it configurable
+            conn->setTcpNoDelay(true);
 
             connection->conn = conn;
 

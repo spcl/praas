@@ -12,7 +12,7 @@ namespace praas::sdk {
 
     Process() = default;
 
-    Process(const std::string& addr, int port);
+    Process(const std::string& addr, int port, bool disable_nagle = true);
 
     Process(const Process &) = delete;
     Process(Process &&) = default;
@@ -33,6 +33,8 @@ namespace praas::sdk {
     }
 
   private:
+
+    bool _disable_nagle = true;
 
     sockpp::inet_address _addr;
 

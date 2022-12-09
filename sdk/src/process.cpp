@@ -1,11 +1,14 @@
 #include <praas/sdk/process.hpp>
 
 #include <praas/common/messages.hpp>
+#include <praas/common/sockets.hpp>
+
 #include <variant>
 
 namespace praas::sdk {
 
-  Process::Process(const std::string& addr, int port):
+  Process::Process(const std::string& addr, int port, bool disable_nagle):
+    _disable_nagle(disable_nagle),
     _addr(addr, port)
   {}
 
@@ -24,6 +27,10 @@ namespace praas::sdk {
     bool status = _dataplane.connect(_addr);
     if(!status)
       return false;
+
+    if(_disable_nagle) {
+      common::sockets::disable_nagle(_dataplane.handle());
+    }
 
     praas::common::message::ProcessConnection req;
     req.process_name("DATAPLANE");
