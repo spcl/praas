@@ -141,5 +141,19 @@ foreach(COMPONENT ${PRAAS_COMPONENTS})
 
 endforeach()
 
+if(PRAAS_WITH_TESTING)
+
+  set(TESTS tests/integration/invocation.cpp)
+  foreach(test ${TESTS})
+
+    PraaS_AddTest("praas" test_name ${test})
+    target_link_libraries(${test_name} PRIVATE controller_lib)
+    target_link_libraries(${test_name} PRIVATE praas_sdk)
+    target_link_libraries(${test_name} PRIVATE control_plane_lib)
+
+  endforeach()
+
+endif()
+
 feature_summary(WHAT ALL)
 
