@@ -26,6 +26,7 @@ namespace praas::control_plane::config {
 
     int port;
     int threads;
+    int max_payload_size;
     bool enable_ssl;
     std::optional<std::string> ssl_server_cert;
     std::optional<std::string> ssl_server_key;

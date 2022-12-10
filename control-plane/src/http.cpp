@@ -20,6 +20,7 @@ namespace praas::control_plane {
     _workers(workers)
   {
     _logger = common::util::create_logger("HttpServer");
+    drogon::app().setClientMaxBodySize(cfg.max_payload_size);
   }
 
   void HttpServer::run()

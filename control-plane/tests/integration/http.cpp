@@ -69,6 +69,7 @@ TEST_F(HttpTCPIntegration, Invoke)
 {
   // FIXME: config structure for http
   config::HTTPServer cfg;
+  cfg.max_payload_size = 5 * 1024 * 1024;
   auto http_server = std::make_shared<HttpServer>(cfg, workers);
   http_server->run();
 
@@ -196,6 +197,56 @@ TEST_F(HttpTCPIntegration, Invoke)
     req->setPath(fmt::format("/invoke/{}/{}", "app_id", func_name));
     req->setBody(invocation_data);
     req->setContentTypeCode(drogon::ContentType::CT_APPLICATION_JSON);
+    client->sendRequest(req,
+      [&](drogon::ReqResult result, const drogon::HttpResponsePtr &response) {
+
+        EXPECT_EQ(result, drogon::ReqResult::Ok);
+        EXPECT_EQ(response.get()->getStatusCode(), drogon::k200OK);
+
+        auto json = response->getJsonObject();
+        ASSERT_TRUE(json);
+        EXPECT_EQ((*json)["function"], func_name);
+        EXPECT_EQ((*json)["return_code"], 0);
+        EXPECT_EQ((*json)["result"].asString(), func_response);
+
+        p.set_value();
+      }
+    );
+
+    // Receive invocation data
+    recv_msg = praas::common::message::Message{};
+    process_socket.read_n(recv_msg.data.data(), decltype(msg)::BUF_SIZE);
+
+    parsed_msg = recv_msg.parse();
+    ASSERT_TRUE(std::holds_alternative<praas::common::message::InvocationRequestParsed>(parsed_msg));
+    invoc_msg = std::get<praas::common::message::InvocationRequestParsed>(parsed_msg);
+    ASSERT_EQ(invocation_data.length(), invoc_msg.total_length());
+
+    buf.reset(new char[invoc_msg.total_length()]);
+    process_socket.read_n(buf.get(), invoc_msg.total_length());
+
+    // Reply with response
+    result.invocation_id(invoc_msg.invocation_id());
+    result.return_code(0);
+    result.total_length(func_response.length());
+    process_socket.write_n(result.bytes(), decltype(result)::BUF_SIZE);
+    process_socket.write_n(func_response.data(), func_response.length());
+
+    p.get_future().wait();
+
+    // Third invocation - should use the same process. Use large payload.
+
+    int length = 1024 * 1024 * 5;
+    invocation_data = std::string(length, 't');
+    func_response = std::string(length, 's');
+    spdlog::info("Invocation with payload length {}", invocation_data.length());
+    p = std::promise<void>{};
+
+    req = drogon::HttpRequest::newHttpRequest();
+    req->setMethod(drogon::Post);
+    req->setPath(fmt::format("/invoke/{}/{}", "app_id", func_name));
+    req->setBody(invocation_data);
+    req->setContentTypeCode(drogon::ContentType::CT_APPLICATION_OCTET_STREAM);
     client->sendRequest(req,
       [&](drogon::ReqResult result, const drogon::HttpResponsePtr &response) {
 

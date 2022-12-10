@@ -37,6 +37,8 @@ namespace praas::control_plane::config {
     threads = DEFAULT_THREADS_NUMBER;
     enable_ssl = false;
     port = DEFAULT_PORT;
+    // 1 MiB
+    max_payload_size = 1024 * 1024;
   }
 
   void Workers::load(cereal::JSONInputArchive& archive)
