@@ -44,6 +44,26 @@ namespace praas::process::config {
     archive(cereal::make_nvp("ipc-message-size", ipc_message_size));
 
     archive(CEREAL_NVP(code));
+
+    archive(CEREAL_NVP(process_id));
+    archive(CEREAL_NVP(control_plane_addr));
+  }
+
+  void Controller::load_env()
+  {
+    char* env_addr = getenv("CONTROLPLANE_ADDR");
+    if(env_addr) {
+      control_plane_addr = env_addr;
+    } else {
+      spdlog::warn("Couldn't find environment variable CONTROLPLANE_ADDR");
+    }
+
+    char* id_addr = getenv("PROCESS_ID");
+    if(id_addr) {
+      process_id = id_addr;
+    } else {
+      spdlog::warn("Couldn't find environment variable CONTROLPLANE_ADDR");
+    }
   }
 
   void Controller::set_defaults()

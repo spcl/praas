@@ -43,13 +43,15 @@ namespace praas::process::config {
     int ipc_message_size;
     std::string ipc_name_prefix;
 
-    std::string process_id;
-
     std::string deployment_location;
+
+    std::string process_id;
+    std::string control_plane_addr{};
 
     Code code;
 
     void load(cereal::JSONInputArchive& archive);
+    void load_env();
     void set_defaults();
 
     static Controller deserialize(int argc, char** argv);
