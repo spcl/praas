@@ -74,7 +74,9 @@ namespace praas::control_plane::tcpserver {
 
       process::ProcessPtr process;
 
-      common::message::Message::MessageVariants cur_msg;
+      // FIXME: improved message definitions
+      //common::message::Message::MessageVariants cur_msg;
+      common::message::Message cur_msg;
 
       std::size_t bytes_to_read{};
     };
@@ -86,7 +88,7 @@ namespace praas::control_plane::tcpserver {
     void handle_message(const trantor::TcpConnectionPtr &connectionPtr, trantor::MsgBuffer *buffer);
     bool handle_message(
       const trantor::TcpConnectionPtr& connectionPtr, trantor::MsgBuffer* buffer,
-      ConnectionData & data, praas::common::message::Message::MessageVariants & msg
+      ConnectionData & data, const praas::common::message::Message::MessageVariants & msg
     );
 
     // Looks up the associated invocation in a process and calls the callback.

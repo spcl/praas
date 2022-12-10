@@ -97,6 +97,7 @@ namespace praas::control_plane {
 
         int active_funcs = proc->active_invocations();
         if(active_funcs < max_funcs_per_process) {
+          spdlog::info("Select existing process for invocation {}", proc->name());
           return std::make_tuple(proc->read_lock(), proc.get());
         }
 
@@ -107,7 +108,7 @@ namespace praas::control_plane {
     std::string name = fmt::format("controlplane-{}", _controlplane_processes.size());
     process::ProcessPtr process = std::make_shared<process::Process>(name, this, std::move(resources));
 
-    spdlog::info("Allocating process {}", name);
+    spdlog::info("Allocating process for invocation {}", name);
     poller.add_process(process);
     backend.allocate_process(process, resources);
     spdlog::info("Allocated process {}", name);

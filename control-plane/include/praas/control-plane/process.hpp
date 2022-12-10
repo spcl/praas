@@ -164,10 +164,9 @@ namespace praas::control_plane::process {
 
     int active_invocations() const;
 
-    // Get all pending invocations - used to submit invocations once the process is connected.
-    std::vector<Invocation> & get_invocations();
-
     Invocation get_invocation();
+
+    void send_invocations();
 
     void finish_invocation(std::string invocation_id, int return_code, const char* buf, size_t len);
 
@@ -176,6 +175,9 @@ namespace praas::control_plane::process {
     void close_connection();
 
   private:
+
+    void _send_invocation(Invocation &);
+
     std::string _name;
 
     common::UUID _uuid_generator;

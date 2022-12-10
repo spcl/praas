@@ -125,16 +125,41 @@ namespace praas::control_plane::process {
     _invocations.emplace_back(request, std::move(callback), function_name, _uuid_generator.generate());
     // Count also pending invocations
     _active_invocations++;
+    if(_status == Status::ALLOCATED) {
+      _send_invocation(_invocations.back());
+    }
+  }
+
+  void Process::send_invocations()
+  {
+    for(auto & invoc : _invocations) {
+      _send_invocation(invoc);
+    }
+  }
+
+  void Process::_send_invocation(Invocation & invoc)
+  {
+
+    std::string_view payload = invoc.request->getBody();
+
+    praas::common::message::InvocationRequest req;
+    req.function_name(invoc.function_name);
+    // FIXME: we have 36 chars but we only need to send 16 bytes
+    req.invocation_id(common::UUID::str(invoc.invocation_id).substr(0, 16));
+    req.total_length(payload.length());
+
+    spdlog::info(
+      "Submitting invocation {} to {}",
+      req.invocation_id(), name()
+    );
+
+    _connection->send(req.bytes(), req.BUF_SIZE);
+    _connection->send(payload.data(), payload.length());
   }
 
   int Process::active_invocations() const
   {
     return _active_invocations;
-  }
-
-  std::vector<Invocation> & Process::get_invocations()
-  {
-    return _invocations;
   }
 
   void Process::finish_invocation(std::string invocation_id, int return_code, const char* buf, size_t len)
@@ -150,6 +175,8 @@ namespace praas::control_plane::process {
 
     // FIXME: hide details in the HTTP server
     if(iter != _invocations.end()) {
+
+      --_active_invocations;
 
       spdlog::error("Responding to client of invocation {}", invocation_id);
       Json::Value json;

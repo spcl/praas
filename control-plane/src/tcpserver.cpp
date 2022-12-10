@@ -100,15 +100,20 @@ namespace praas::control_plane::tcpserver {
     // Started, verify there is enough data
     if(data.bytes_to_read == 0) {
 
-      data.cur_msg = req;
       data.bytes_to_read = req.total_length();
+      common::message::InvocationResult result;
+      result.invocation_id(req.invocation_id());
+      // FIXME: avoid copy here - just store the actual variant
+      data.cur_msg = std::move(result);
       buffer->retrieve(praas::common::message::Message::BUF_SIZE);
 
     }
 
     if(buffer->readableBytes() >= data.bytes_to_read) {
 
-      auto & msg = std::get<common::message::InvocationResultParsed>(data.cur_msg);
+      // FIXME: improved message design
+      auto parsed_msg = data.cur_msg.parse();
+      auto & msg = std::get<common::message::InvocationResultParsed>(parsed_msg);
 
       {
         data.process->write_lock();
@@ -133,8 +138,6 @@ namespace praas::control_plane::tcpserver {
       const trantor::TcpConnectionPtr& connectionPtr, trantor::MsgBuffer* buffer
   )
   {
-    _logger->info("There are {} bytes to read", buffer->readableBytes());
-
     auto conn_data = connectionPtr->getContext<ConnectionData>();
     // FIXME: duplicate code from process - merge?
     if(!conn_data) {
@@ -160,16 +163,18 @@ namespace praas::control_plane::tcpserver {
 
     // Waiting for data
 
+    _logger->info("There are {} bytes to read, {} expected", buffer->readableBytes(), conn_data->bytes_to_read);
     if(conn_data->bytes_to_read > 0) {
-      consumed = handle_message(connectionPtr, buffer, *conn_data.get(), conn_data->cur_msg);
+      consumed = handle_message(connectionPtr, buffer, *conn_data.get(), conn_data->cur_msg.parse());
     }
     // Parsing message
     else {
 
-      if(buffer->readableBytes() < praas::common::message::Message::BUF_SIZE)
+      if(buffer->readableBytes() < praas::common::message::Message::BUF_SIZE) {
         return;
+      }
       auto msg = praas::common::message::Message::parse_message(buffer->peek());
-      consumed = handle_message(connectionPtr, buffer, *conn_data.get(), msg);
+      consumed = handle_message(connectionPtr, buffer, *conn_data, msg);
 
     }
 
@@ -181,17 +186,17 @@ namespace praas::control_plane::tcpserver {
 
   bool TCPServer::handle_message(
       const trantor::TcpConnectionPtr& connectionPtr, trantor::MsgBuffer* buffer,
-      ConnectionData & data, praas::common::message::Message::MessageVariants & msg
+      ConnectionData & data, const praas::common::message::Message::MessageVariants & msg
   )
   {
     return std::visit(
       common::message::overloaded{
-        [this, connectionPtr, buffer](common::message::ProcessClosureParsed&) mutable -> bool {
+        [this, connectionPtr, buffer](const common::message::ProcessClosureParsed&) mutable -> bool {
           handle_closure(connectionPtr);
           buffer->retrieve(praas::common::message::Message::BUF_SIZE);
           return true;
         },
-        [this, connectionPtr, buffer, data](common::message::DataPlaneMetricsParsed& metrics
+        [this, connectionPtr, buffer, data](const common::message::DataPlaneMetricsParsed& metrics
         ) mutable -> bool {
           if (connectionPtr->hasContext()) {
             handle_data_metrics(data.process, metrics);
@@ -204,10 +209,10 @@ namespace praas::control_plane::tcpserver {
           }
           return true;
         },
-        [this, &connectionPtr, &data, buffer](common::message::InvocationResultParsed& req) mutable -> bool {
+        [this, &data, buffer](const common::message::InvocationResultParsed& req) mutable -> bool {
           return handle_invocation_result(data, buffer, req);
         },
-        [this, connectionPtr, buffer, data](common::message::SwapConfirmationParsed&) mutable -> bool {
+        [this, connectionPtr, buffer, data](const common::message::SwapConfirmationParsed&) mutable -> bool {
           if (connectionPtr->hasContext()) {
             handle_swap(data.process);
           } else {
@@ -225,7 +230,7 @@ namespace praas::control_plane::tcpserver {
           buffer->retrieve(praas::common::message::Message::BUF_SIZE);
           return true;
         },
-        [this, buffer](auto&) mutable -> bool {
+        [this, buffer](const auto&) mutable -> bool {
           _logger->error("Ignore unknown message");
           buffer->retrieve(praas::common::message::Message::BUF_SIZE);
           return true;
@@ -262,27 +267,12 @@ namespace praas::control_plane::tcpserver {
         // and by the time we are finishing, the direct connection will be already up
         // and invocation can be submitted directly.
         // Thus, no invocation should be lost.
-        for(auto & invoc : process_ptr->get_invocations()) {
-
-          _logger->info("Submitting invocation to {}", process_ptr->name());
-
-          std::string_view payload = invoc.request->getBody();
-
-          praas::common::message::InvocationRequest req;
-          req.function_name(invoc.function_name);
-          // FIXME: we have 36 chars but we only need to send 16 bytes
-          req.invocation_id(common::UUID::str(invoc.invocation_id).substr(0, 16));
-          req.total_length(payload.length());
-
-          conn->send(req.bytes(), req.BUF_SIZE);
-          conn->send(payload.data(), payload.length());
-
-        }
+        process_ptr->send_invocations();
       }
 
       _num_registered_processes++;
 
-      _logger->debug("Registered process {}", msg.process_name());
+      _logger->info("Registered process {}", msg.process_name());
 
     } else {
       _logger->error("Received registration of an unknown process {}", msg.process_name());
