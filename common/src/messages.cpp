@@ -445,6 +445,13 @@ namespace praas::common::message {
     return *reinterpret_cast<const int32_t*>(buf - 4);
   }
 
+  int32_t InvocationRequestParsed::total_length() const
+  {
+    // NOLINTNEXTLINE
+    // FIXME: this is an ugly hack
+    return *reinterpret_cast<const int32_t*>(buf - 4);
+  }
+
   //void PutMessage::payload_size(int32_t size)
   //{
   //  // NOLINTNEXTLINE
