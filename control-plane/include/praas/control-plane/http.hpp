@@ -56,6 +56,11 @@ namespace praas::control_plane {
     );
     static drogon::HttpResponsePtr correct_response(const std::string& reason);
 
+    int port() const
+    {
+      return _port;
+    }
+
   private:
 
     int _port;

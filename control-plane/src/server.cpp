@@ -2,6 +2,7 @@
 #include <praas/control-plane/server.hpp>
 
 #include <praas/control-plane/http.hpp>
+#include <praas/control-plane/tcpserver.hpp>
 #include <praas/control-plane/worker.hpp>
 
 #include <chrono>
@@ -14,6 +15,26 @@
 extern void signal_handler(int);
 
 namespace praas::control_plane {
+
+  Server::Server(config::Config & cfg):
+    _backend(backend::Backend::construct(cfg)),
+    _workers(worker::Workers(cfg.workers, *_backend, _resources)),
+    _tcp_server(tcpserver::TCPServer(cfg.tcpserver, _workers)),
+    _http_server(std::make_shared<HttpServer>(cfg.http, _workers))
+  {
+    _logger = common::util::create_logger("Server");
+  }
+
+  void Server::run()
+  {
+    _http_server->run();
+  }
+
+  void Server::shutdown()
+  {
+    _http_server->shutdown();
+    _tcp_server.shutdown();
+  }
 
   // Server::Server(Options& options)
   //     : _pool(options.threads), _redis(options.redis_addr),

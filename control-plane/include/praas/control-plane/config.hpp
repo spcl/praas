@@ -84,9 +84,11 @@ namespace praas::control_plane::config {
     deployment::Type deployment_type;
 
     backend::Type backend_type;
-    std::unique_ptr<Backend> backend;
+    //std::unique_ptr<Backend> backend;
 
     bool verbose;
+
+    void set_defaults();
 
     void load(cereal::JSONInputArchive& archive);
 

@@ -83,6 +83,17 @@ namespace praas::control_plane::config {
     return cfg;
   }
 
+  void Config::set_defaults()
+  {
+    verbose = true;
+    backend_type = backend::Type::LOCAL;
+
+    http.set_defaults();
+    workers.set_defaults();
+    down_scaler.set_defaults();
+    tcpserver.set_defaults();
+  }
+
   void Config::load(cereal::JSONInputArchive& archive)
   {
     archive(CEREAL_NVP(verbose));
@@ -91,6 +102,10 @@ namespace praas::control_plane::config {
     common::util::cereal_load_optional(archive, "workers", this->workers);
     common::util::cereal_load_optional(archive, "downscaler", this->down_scaler);
     common::util::cereal_load_optional(archive, "tcpserver", this->tcpserver);
+
+    std::string mode;
+    archive(cereal::make_nvp("backend", mode));
+    backend_type = backend::deserialize(mode);
   }
 
 } // namespace praas::control_plane::config

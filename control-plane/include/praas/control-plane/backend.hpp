@@ -20,7 +20,13 @@ namespace praas::control_plane::process {
 
 namespace praas::control_plane::backend {
 
-  enum class Type { LOCAL = 0 };
+  enum class Type {
+    NONE = 0,
+    LOCAL,
+    AWS_FARGATE
+  };
+
+  Type deserialize(std::string mode);
 
   struct Backend {
 
@@ -63,6 +69,16 @@ namespace praas::control_plane::backend {
      * childrens.
      */
     static std::unique_ptr<Backend> construct(const config::Config&);
+  };
+
+  struct LocalBackend : Backend {
+
+    void allocate_process(process::ProcessPtr, const process::Resources& resources) override;
+
+    int max_memory() const override;
+
+    int max_vcpus() const override;
+
   };
 
 } // namespace praas::control_plane::backend
