@@ -2,16 +2,37 @@
 #define PRAAS_CONTROLL_PLANE_WORKER_HPP
 
 #include <praas/common/messages.hpp>
+#include <praas/common/util.hpp>
 #include <praas/control-plane/config.hpp>
+#include <praas/control-plane/http.hpp>
 #include <praas/control-plane/process.hpp>
 
 #include <BS_thread_pool.hpp>
+
+namespace praas::control_plane {
+  struct Resources;
+}
+
+namespace praas::control_plane::tcpserver {
+  struct TCPServer;
+}
 
 namespace praas::control_plane::worker {
 
   class Workers {
   public:
-    Workers(const config::Workers& config) : _pool(config.threads) {}
+    Workers(const config::Workers& config, backend::Backend& backend, Resources & resources) :
+      _pool(config.threads),
+      _resources(resources),
+      _backend(backend)
+    {
+      _logger = common::util::create_logger("Workers");
+    }
+
+    void attach_tcpserver(tcpserver::TCPServer & server)
+    {
+      _server = &server;
+    }
 
     void
     add_task(process::ProcessObserver* process, praas::common::message::Message&& message)
@@ -19,12 +40,24 @@ namespace praas::control_plane::worker {
       _pool.push_task(Workers::handle_message, process, message);
     }
 
+    template<typename F, typename... Args>
+    void add_task(F && f, Args &&... args)
+    {
+      _pool.push_task(
+        [this, f, ...args = std::forward<Args>(args)]() mutable {
+          std::invoke(f, *this, std::forward<Args>(args)...);
+        }
+      );
+    }
+
     void handle_invocation(
-      const process::ProcessPtr& ptr,
-      std::string_view function_name,
-      std::string_view invocation_id,
-      std::string payload_data
+      HttpServer::request_t request,
+      HttpServer::callback_t && callback,
+      const std::string& app_id,
+      std::string function_name
     );
+
+    bool create_application(std::string name);
 
   private:
     // Looks up the associated invocation in a process and calls the callback.
@@ -59,6 +92,14 @@ namespace praas::control_plane::worker {
     handle_message(process::ProcessObserver* process, praas::common::message::Message);
 
     BS::thread_pool _pool;
+
+    Resources& _resources;
+
+    backend::Backend& _backend;
+
+    tcpserver::TCPServer* _server;
+
+    std::shared_ptr<spdlog::logger> _logger;
   };
 
 } // namespace praas::control_plane::worker

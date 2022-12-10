@@ -73,6 +73,12 @@ namespace praas::control_plane {
     std::tuple<process::Process::read_lock_t, process::Process*> get_process(const std::string& name
     );
 
+    std::tuple<process::Process::read_lock_t, process::Process*> get_controlplane_process(
+      backend::Backend& backend, tcpserver::TCPServer& poller, process::Resources&& resources
+    );
+
+    void update_controlplane_process(const std::string& name);
+
     std::tuple<process::Process::read_lock_t, process::Process*>
     get_swapped_process(const std::string& name);
 
@@ -100,6 +106,9 @@ namespace praas::control_plane {
 
     lock_t _swapped_mutex;
     std::unordered_map<std::string, process::ProcessPtr> _swapped_processes;
+
+    lock_t _controlplane_mutex;
+    std::vector<process::ProcessPtr> _controlplane_processes;
   };
 
   class Resources {
@@ -117,6 +126,19 @@ namespace praas::control_plane {
       friend class Resources;
     };
 
+    class RWAccessor {
+    public:
+      Application* get() const;
+
+      bool empty() const;
+
+    private:
+      using rw_acc_t = ConcurrentTable<Application>::rw_acc_t;
+      rw_acc_t _accessor;
+
+      friend class Resources;
+    };
+
     /**
      * @brief Acquires a write-lock on the hash map to insert a new application.
      *
@@ -125,6 +147,7 @@ namespace praas::control_plane {
     void add_application(Application&& application);
 
     void get_application(std::string application_name, ROAccessor& acc);
+    void get_application(std::string application_name, RWAccessor& acc);
 
     /**
      * @brief Acquires a write-lock on the hash map to remove application, returning

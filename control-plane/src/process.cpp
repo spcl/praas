@@ -1,6 +1,11 @@
+#include <praas/control-plane/process.hpp>
+
 #include <praas/common/exceptions.hpp>
 #include <praas/common/messages.hpp>
-#include <praas/control-plane/process.hpp>
+#include <praas/common/uuid.hpp>
+
+#include <drogon/HttpTypes.h>
+#include <drogon/utils/FunctionTraits.h>
 #include <spdlog/spdlog.h>
 #include <trantor/utils/MsgBuffer.h>
 
@@ -108,6 +113,60 @@ namespace praas::control_plane::process {
     msg.path(swap_path);
 
     _connection->send(msg.bytes(), decltype(msg)::BUF_SIZE);
+  }
+
+  void Process::add_invocation(
+    HttpServer::request_t request,
+    HttpServer::callback_t && callback,
+    const std::string& function_name
+  )
+  {
+    // FIXME: send immediately if the process is already allocated
+    _invocations.emplace_back(request, std::move(callback), function_name, _uuid_generator.generate());
+    // Count also pending invocations
+    _active_invocations++;
+  }
+
+  int Process::active_invocations() const
+  {
+    return _active_invocations;
+  }
+
+  std::vector<Invocation> & Process::get_invocations()
+  {
+    return _invocations;
+  }
+
+  void Process::finish_invocation(std::string invocation_id, int return_code, const char* buf, size_t len)
+  {
+    // FIXME: we should be submitting the byte representation, not string - optimize comparison
+    auto iter = std::find_if(
+      _invocations.begin(), _invocations.end(),
+      [&](auto & obj) -> bool {
+        // FIXME: store and compare byte representation
+        return common::UUID::str(obj.invocation_id).substr(0, 16) == invocation_id;
+      }
+    );
+
+    // FIXME: hide details in the HTTP server
+    if(iter != _invocations.end()) {
+
+      spdlog::error("Responding to client of invocation {}", invocation_id);
+      Json::Value json;
+      json["function"] = (*iter).function_name;
+      json["invocation_id"] = invocation_id;
+      json["return_code"] = return_code;
+      json["result"] = std::string{buf, len};
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(json);
+      resp->setStatusCode(drogon::k200OK);
+
+      (*iter).callback(resp);
+
+      _invocations.erase(iter);
+
+    } else {
+      spdlog::error("Ignore non-existing invocation {}", invocation_id);
+    }
   }
 
 } // namespace praas::control_plane::process

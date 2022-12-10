@@ -20,7 +20,9 @@ namespace praas::control_plane::config {
   struct HTTPServer {
 
     static constexpr int DEFAULT_THREADS_NUMBER = 1;
-    static constexpr int DEFAULT_PORT = 80;
+    static constexpr int DEFAULT_PORT = 8080;
+
+    HTTPServer() { set_defaults(); }
 
     int port;
     int threads;
@@ -55,6 +57,8 @@ namespace praas::control_plane::config {
 
   struct TCPServer {
     static constexpr int DEFAULT_PORT = 0;
+
+    TCPServer() { set_defaults(); }
 
     int port;
     int io_threads;

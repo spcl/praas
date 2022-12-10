@@ -16,7 +16,8 @@ using namespace praas::control_plane;
 
 class MockWorkers : public worker::Workers {
 public:
-  MockWorkers() : worker::Workers(config::Workers{}) {}
+  MockWorkers(backend::Backend & backend) : worker::Workers(config::Workers{}, backend, resources) {}
+  Resources resources;
 };
 
 class MockTCPServer : public tcpserver::TCPServer {
@@ -57,8 +58,8 @@ protected:
 
   Application _app_create;
   MockBackend backend;
+  MockWorkers workers{backend};
   MockTCPServer poller;
-  MockWorkers workers;
   MockDeployment deployment;
 };
 

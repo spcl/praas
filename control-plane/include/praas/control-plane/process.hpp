@@ -1,17 +1,19 @@
 #ifndef PRAAS_CONTROLL_PLANE_PROCESS_HPP
 #define PRAAS_CONTROLL_PLANE_PROCESS_HPP
 
+#include <praas/common/uuid.hpp>
 #include <praas/control-plane/state.hpp>
+#include <praas/control-plane/http.hpp>
 
 #include <chrono>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <shared_mutex>
-#include <sockpp/tcp_socket.h>
 #include <string>
 #include <unordered_map>
 
+#include <sockpp/tcp_socket.h>
 #include <trantor/net/TcpConnection.h>
 #include <uuid.h>
 
@@ -66,9 +68,9 @@ namespace praas::control_plane::process {
   };
 
   struct Invocation {
-    // using callback_t = std::function<void (const HttpResponsePtr &)>;
-    using callback_t = std::function<void(const int&)>;
-    callback_t callback;
+    HttpServer::request_t request;
+    HttpServer::callback_t callback;
+    std::string function_name;
     uuids::uuid invocation_id;
   };
 
@@ -151,12 +153,23 @@ namespace praas::control_plane::process {
      */
     write_lock_t write_lock() const;
 
-    // Modify the map of invocations.
-    //void invoke(Invocation);
-
     void swap();
 
-    void finish_invocation(Invocation);
+    // Modify the map of invocations.
+    void add_invocation(
+      HttpServer::request_t request,
+      HttpServer::callback_t && callback,
+      const std::string& function_name
+    );
+
+    int active_invocations() const;
+
+    // Get all pending invocations - used to submit invocations once the process is connected.
+    std::vector<Invocation> & get_invocations();
+
+    Invocation get_invocation();
+
+    void finish_invocation(std::string invocation_id, int return_code, const char* buf, size_t len);
 
     void set_status(Status status);
 
@@ -164,6 +177,8 @@ namespace praas::control_plane::process {
 
   private:
     std::string _name;
+
+    common::UUID _uuid_generator;
 
     Status _status{};
 
@@ -176,10 +191,14 @@ namespace praas::control_plane::process {
     state::SessionState _state;
 
     // Application reference does not change throughout process lifetime.
-    //
+
     Application* _application;
 
     Handle _handle;
+
+    std::atomic<int> _active_invocations{};
+
+    std::vector<Invocation> _invocations;
 
     mutable lock_t _mutex;
 

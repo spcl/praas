@@ -10,9 +10,9 @@
 #include <praas/control-plane/tcpserver.hpp>
 #include <praas/control-plane/worker.hpp>
 
-#include <drogon/HttpTypes.h>
 #include <thread>
 
+#include <drogon/HttpTypes.h>
 #include <gmock/gmock-actions.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -25,7 +25,9 @@ using namespace praas::control_plane;
 
 class MockWorkers : public worker::Workers {
 public:
-  MockWorkers() : worker::Workers(config::Workers{}) {}
+  MockWorkers(Resources& resources, backend::Backend & backend):
+    worker::Workers(config::Workers{}, backend, resources)
+  {}
 };
 
 class MockDeployment : public deployment::Deployment {
@@ -45,62 +47,64 @@ class HttpServerTest : public ::testing::Test {
 protected:
   void SetUp() override
   {
-    _app_create = Application{"app"};
-
     //ON_CALL(backend, max_memory()).WillByDefault(testing::Return(4096));
     //ON_CALL(backend, max_vcpus()).WillByDefault(testing::Return(4));
 
-    spdlog::set_pattern("*** [%H:%M:%S %z] [thread %t] %v ***");
+    workers.attach_tcpserver(server);
+
     spdlog::set_level(spdlog::level::debug);
   }
 
-  Application _app_create;
+  Resources resources;
   MockBackend backend;
-  MockWorkers workers;
+  MockWorkers workers{resources, backend};
   MockDeployment deployment;
+
+  config::TCPServer config;
+  tcpserver::TCPServer server{config, workers};
 };
 
-TEST_F(HttpServerTest, StartServer)
+TEST_F(HttpServerTest, Create)
 {
-  int PORT = 10000;
-
   // FIXME: config structure for http
-  auto server = std::make_shared<HttpServer>(workers, PORT);
-  server->run();
+  config::HTTPServer cfg;
+  auto http_server = std::make_shared<HttpServer>(cfg, workers);
+  http_server->run();
 
   trantor::EventLoopThread _loop;
   _loop.run();
 
   std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
+  // Connect to the HTTP Server
+  auto client = drogon::HttpClient::newHttpClient(
+    fmt::format("http://127.0.0.1:{}/", cfg.port),
+    _loop.getLoop(), false, false
+  );
+
+  // Create the application.
   {
-    Json::Value value;
-    value["function"] = "no_op";
-    value["invocation_id"] = "invoc-test";
-    value["body"] = "datadatadatainvoc-test";
-    auto client = drogon::HttpClient::newHttpClient("http://127.0.0.1:10000/", _loop.getLoop(), false, false);
-    auto req = drogon::HttpRequest::newHttpJsonRequest(value);
+    auto req = drogon::HttpRequest::newHttpRequest();
     req->setMethod(drogon::Post);
-    req->setPath("/invoke");
-    req->setParameter("data", "wx");
-    req->setParameter("function", "wx");
-    req->setBody("{\"str\": \"ssssssss\"}");
-    req->setContentTypeCode(drogon::ContentType::CT_APPLICATION_JSON);
+    req->setPath("/create_app");
+    req->setParameter("name", "app_id");
 
     std::promise<void> p;
     client->sendRequest(req,
       [&p](drogon::ReqResult result, const drogon::HttpResponsePtr &response) {
-        std::cerr << "Invocation " << result << " " << response->body() << std::endl;
         EXPECT_EQ(result, drogon::ReqResult::Ok);
+        EXPECT_EQ(response.get()->getStatusCode(), drogon::k200OK);
         p.set_value();
       }
     );
     p.get_future().wait();
   }
 
+  client.reset();
+
   _loop.getLoop()->quit();
   _loop.wait();
 
-  server->shutdown();
+  http_server->shutdown();
 }
 

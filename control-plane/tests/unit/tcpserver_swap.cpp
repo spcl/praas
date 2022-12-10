@@ -23,7 +23,8 @@ using namespace praas::control_plane;
 
 class MockWorkers : public worker::Workers {
 public:
-  MockWorkers() : worker::Workers(config::Workers{}) {}
+  MockWorkers(backend::Backend & backend) : worker::Workers(config::Workers{}, backend, resources) {}
+  Resources resources;
 };
 
 //class MockDeployment : public deployment::Deployment {
@@ -54,7 +55,7 @@ protected:
 
   Application app;
   MockBackend backend;
-  MockWorkers workers;
+  MockWorkers workers{backend};
 };
 
 /**
