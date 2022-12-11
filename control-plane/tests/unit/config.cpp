@@ -1,6 +1,7 @@
 
 #include <praas/common/exceptions.hpp>
 #include <praas/control-plane/config.hpp>
+#include <praas/control-plane/backend.hpp>
 
 #include <sstream>
 
@@ -12,7 +13,9 @@ TEST(Config, BasicConfig)
 {
   std::string config = R"(
     {
-      "verbose": true
+      "verbose": true,
+      "backend-type": "local",
+      "ip-address": "127.0.0.1"
     }
   )";
 
@@ -20,6 +23,7 @@ TEST(Config, BasicConfig)
   Config cfg = Config::deserialize(stream);
 
   EXPECT_EQ(cfg.verbose, true);
+  EXPECT_EQ(cfg.backend_type, praas::control_plane::backend::Type::LOCAL);
 
   EXPECT_EQ(cfg.http.port, HTTPServer::DEFAULT_PORT);
   EXPECT_EQ(cfg.http.threads, HTTPServer::DEFAULT_THREADS_NUMBER);
@@ -40,6 +44,8 @@ TEST(Config, HTTPConfig)
     std::string config = R"(
       {
         "verbose": true,
+        "backend-type": "local",
+        "ip-address": "127.0.0.1",
         "http": {
           "threads": 2,
           "port": 1000,
@@ -60,6 +66,8 @@ TEST(Config, HTTPConfig)
     std::string config = R"(
       {
         "verbose": true,
+        "backend-type": "local",
+        "ip-address": "127.0.0.1",
         "http": {
           "threads": 2,
           "port": 1000,
@@ -86,6 +94,8 @@ TEST(Config, HTTPConfig)
     std::string config = R"(
       {
         "verbose": true,
+        "backend-type": "local",
+        "ip-address": "127.0.0.1",
         "http": {
           "threads": 2,
           "port": 1000,
@@ -105,6 +115,8 @@ TEST(Config, WorkersConfig)
     std::string config = R"(
       {
         "verbose": true,
+        "backend-type": "local",
+        "ip-address": "127.0.0.1",
         "workers": {
           "threads": 4
         }
@@ -121,6 +133,8 @@ TEST(Config, WorkersConfig)
     std::string config = R"(
       {
         "verbose": true,
+        "backend-type": "local",
+        "ip-address": "127.0.0.1",
         "workers": {
         }
       }
@@ -137,6 +151,8 @@ TEST(Config, DownScalerConfig)
     std::string config = R"(
       {
         "verbose": true,
+        "backend-type": "local",
+        "ip-address": "127.0.0.1",
         "downscaler": {
           "polling_interval": 30,
           "swapping_threshold": 60
@@ -155,6 +171,8 @@ TEST(Config, DownScalerConfig)
     std::string config = R"(
       {
         "verbose": true,
+        "backend-type": "local",
+        "ip-address": "127.0.0.1",
         "downscaler": {
           "polling_interval": 30
         }
@@ -172,6 +190,8 @@ TEST(Config, TCPServerConfig)
     std::string config = R"(
       {
         "verbose": true,
+        "backend-type": "local",
+        "ip-address": "127.0.0.1",
         "tcpserver": {
           "port": 2000,
           "io_threads": 5
@@ -190,6 +210,8 @@ TEST(Config, TCPServerConfig)
     std::string config = R"(
       {
         "verbose": true,
+        "backend-type": "local",
+        "ip-address": "127.0.0.1",
         "tcpserver": {
         }
       }

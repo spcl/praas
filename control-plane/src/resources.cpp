@@ -110,7 +110,15 @@ namespace praas::control_plane {
 
     spdlog::info("Allocating process for invocation {}", name);
     poller.add_process(process);
-    backend.allocate_process(process, resources);
+    auto backend_allocate = backend.allocate_process(process, resources);
+    if(!backend_allocate) {
+      // FIXME: error handling
+      // FIXME: remove from poller
+      spdlog::error("Failed to allocate process!");
+      abort();
+    }
+
+    process->set_handle(std::move(backend_allocate));
     spdlog::info("Allocated process {}", name);
 
     {

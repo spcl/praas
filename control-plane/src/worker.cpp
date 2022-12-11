@@ -49,6 +49,7 @@ namespace praas::control_plane::worker {
     {
       // Get a process or allocate one.
       // FIXME: allocation should be non-blocking (HTTP request?)
+      // FIXME: configure resources
       auto [lock, proc_ptr] = acc.get()->get_controlplane_process(
         _backend, *_server, process::Resources{1, 2048, ""}
       );

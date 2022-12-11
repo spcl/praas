@@ -21,6 +21,10 @@ namespace praas::control_plane {
 
   class Application;
 
+  namespace backend {
+    struct ProcessInstance;
+  }
+
 } // namespace praas::control_plane
 
 namespace praas::control_plane::process {
@@ -74,10 +78,10 @@ namespace praas::control_plane::process {
     uuids::uuid invocation_id;
   };
 
-  struct Handle {
-    std::optional<std::string> instance_id{};
-    std::optional<std::string> resource_id{};
-  };
+  //struct Handle {
+  //  std::optional<std::string> instance_id{};
+  //  std::optional<std::string> resource_id{};
+  //};
 
   class Process : public std::enable_shared_from_this<Process> {
   public:
@@ -129,9 +133,11 @@ namespace praas::control_plane::process {
 
     state::SessionState& state();
 
-    Handle& handle();
+    backend::ProcessInstance& handle();
 
-    const Handle& c_handle() const;
+    const backend::ProcessInstance& c_handle() const;
+
+    void set_handle(std::shared_ptr<backend::ProcessInstance> && handle);
 
     Application& application() const;
 
@@ -196,7 +202,7 @@ namespace praas::control_plane::process {
 
     Application* _application;
 
-    Handle _handle;
+    std::shared_ptr<backend::ProcessInstance> _handle;
 
     std::atomic<int> _active_invocations{};
 

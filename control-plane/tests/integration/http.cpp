@@ -37,9 +37,15 @@ public:
   MOCK_METHOD(void, delete_swap, (const state::SwapLocation&), (override));
 };
 
+class MockBackendInstance : public backend::ProcessInstance {
+public:
+  MOCK_METHOD(std::string, id, (), (const));
+};
+
 class MockBackend : public backend::Backend {
 public:
-  MOCK_METHOD(void, allocate_process, (process::ProcessPtr, const process::Resources&), ());
+  MOCK_METHOD(std::shared_ptr<backend::ProcessInstance>, allocate_process, (process::ProcessPtr, const process::Resources&), (override));
+  MOCK_METHOD(void, shutdown, (const std::shared_ptr<backend::ProcessInstance> &), ());
   MOCK_METHOD(int, max_memory, (), (const));
   MOCK_METHOD(int, max_vcpus, (), (const));
 };
@@ -48,8 +54,10 @@ class HttpTCPIntegration : public ::testing::Test {
 protected:
   void SetUp() override
   {
-    //ON_CALL(backend, max_memory()).WillByDefault(testing::Return(4096));
-    //ON_CALL(backend, max_vcpus()).WillByDefault(testing::Return(4));
+    ON_CALL(backend, max_memory()).WillByDefault(testing::Return(4096));
+    ON_CALL(backend, max_vcpus()).WillByDefault(testing::Return(4));
+
+    ON_CALL(backend, allocate_process(testing::_, testing::_)).WillByDefault(testing::Return(instance));
 
     workers.attach_tcpserver(server);
 
@@ -57,6 +65,7 @@ protected:
   }
 
   Resources resources;
+  std::shared_ptr<MockBackendInstance> instance = std::make_shared<MockBackendInstance>();
   MockBackend backend;
   MockWorkers workers{resources, backend};
   MockDeployment deployment;
@@ -115,13 +124,13 @@ TEST_F(HttpTCPIntegration, Invoke)
     std::promise<void> created_process;
     EXPECT_CALL(backend, allocate_process(testing::_, testing::_))
         .Times(testing::Exactly(1))
-        .WillOnce([&](process::ProcessPtr ptr, const process::Resources&) -> void {
-          ptr->handle().resource_id = resource_name;
-          ptr->handle().instance_id = "id";
+        .WillOnce([&](process::ProcessPtr ptr, const process::Resources&) {
 
           EXPECT_EQ(ptr->name(), process_name);
 
           created_process.set_value();
+
+          return nullptr;
         });
 
     std::string func_name{"func"};
@@ -284,11 +293,6 @@ TEST_F(HttpTCPIntegration, Invoke)
 
     p.get_future().wait();
   }
-
-  /**
-   * Third test - ensure that no new process is new created upon invocation.
-   * Reuse the existing one.
-   **/
 
   client.reset();
 

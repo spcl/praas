@@ -23,6 +23,9 @@ namespace praas::control_plane {
     _http_server(std::make_shared<HttpServer>(cfg.http, _workers))
   {
     _logger = common::util::create_logger("Server");
+
+    _workers.attach_tcpserver(_tcp_server);
+    _backend->configure_tcpserver(cfg.public_ip_address, _tcp_server.port());
   }
 
   void Server::run()

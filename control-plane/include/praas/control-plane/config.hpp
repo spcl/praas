@@ -68,9 +68,13 @@ namespace praas::control_plane::config {
     void set_defaults();
   };
 
-  struct Backend {};
+  struct Backend {
 
-  struct BackendLocal : Backend {};
+  };
+
+  struct BackendLocal : Backend {
+
+  };
 
   struct Deployment {};
 
@@ -84,7 +88,9 @@ namespace praas::control_plane::config {
     deployment::Type deployment_type;
 
     backend::Type backend_type;
-    //std::unique_ptr<Backend> backend;
+    std::unique_ptr<Backend> backend;
+
+    std::string public_ip_address;
 
     bool verbose;
 

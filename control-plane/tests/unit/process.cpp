@@ -36,7 +36,8 @@ public:
 
 class MockBackend : public backend::Backend {
 public:
-  MOCK_METHOD(void, allocate_process, (process::ProcessPtr, const process::Resources&), ());
+  MOCK_METHOD(std::shared_ptr<backend::ProcessInstance>, allocate_process, (process::ProcessPtr, const process::Resources&), ());
+  MOCK_METHOD(void, shutdown, (const std::shared_ptr<backend::ProcessInstance> &), ());
   MOCK_METHOD(int, max_memory, (), (const));
   MOCK_METHOD(int, max_vcpus, (), (const));
 };
@@ -70,11 +71,7 @@ TEST_F(CreateProcessTest, CreateProcess)
     process::Resources resources{1, 128, resource_name};
 
     EXPECT_CALL(backend, allocate_process(testing::_, testing::_))
-        .Times(testing::Exactly(1))
-        .WillOnce([&](process::ProcessPtr ptr, const process::Resources&) -> void {
-          ptr->handle().resource_id = resource_name;
-          ptr->handle().instance_id = "id";
-        });
+        .Times(testing::Exactly(1));
 
     EXPECT_CALL(poller, add_process(testing::_)).Times(1);
     EXPECT_CALL(poller, remove_process(testing::_)).Times(0);
@@ -88,8 +85,6 @@ TEST_F(CreateProcessTest, CreateProcess)
 
     EXPECT_EQ(proc->name(), proc_name);
     EXPECT_EQ(proc->status(), process::Status::ALLOCATING);
-    ASSERT_TRUE(proc->handle().resource_id.has_value());
-    EXPECT_EQ(proc->handle().resource_id.value(), resource_name);
   }
 
   // Duplicated name, no backend call

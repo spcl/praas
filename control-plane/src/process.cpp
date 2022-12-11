@@ -1,3 +1,4 @@
+#include <praas/control-plane/backend.hpp>
 #include <praas/control-plane/process.hpp>
 
 #include <praas/common/exceptions.hpp>
@@ -26,14 +27,19 @@ namespace praas::control_plane::process {
     return _name;
   }
 
-  const Handle& Process::c_handle() const
+  const backend::ProcessInstance& Process::c_handle() const
   {
-    return _handle;
+    return *_handle;
   }
 
-  Handle& Process::handle()
+  backend::ProcessInstance& Process::handle()
   {
-    return _handle;
+    return *_handle;
+  }
+
+  void Process::set_handle(std::shared_ptr<backend::ProcessInstance> && handle)
+  {
+    _handle = std::move(handle);
   }
 
   Application& Process::application() const
@@ -146,6 +152,7 @@ namespace praas::control_plane::process {
     req.function_name(invoc.function_name);
     // FIXME: we have 36 chars but we only need to send 16 bytes
     req.invocation_id(common::UUID::str(invoc.invocation_id).substr(0, 16));
+    req.payload_size(payload.length());
     req.total_length(payload.length());
 
     spdlog::info(

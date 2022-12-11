@@ -90,7 +90,6 @@ namespace praas::control_plane {
     }
 
     _logger->info("Push new invocation request of {}", fname);
-
     _workers.add_task(
       &worker::Workers::handle_invocation,
       request, std::move(callback), app_id, fname

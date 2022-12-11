@@ -30,7 +30,8 @@ public:
 
 class MockBackend : public backend::Backend {
 public:
-  MOCK_METHOD(void, allocate_process, (process::ProcessPtr, const process::Resources&), ());
+  MOCK_METHOD(std::shared_ptr<backend::ProcessInstance>, allocate_process, (process::ProcessPtr, const process::Resources&), ());
+  MOCK_METHOD(void, shutdown, (const std::shared_ptr<backend::ProcessInstance> &), ());
   MOCK_METHOD(int, max_memory, (), (const));
   MOCK_METHOD(int, max_vcpus, (), (const));
 };
