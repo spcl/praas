@@ -165,8 +165,8 @@ namespace praas::process {
                                 ? std::filesystem::canonical("/proc/self/exe").parent_path() / "invoker" / "cpp_invoker_exe"
                                 : std::filesystem::path{cfg.deployment_location} / "bin" /
                                       "invoker" / "cpp_invoker_exe";
-    // FIXME: enable this for further testing
-    exec_path = "/work/serverless/2022/praas/code/build_debug/process/bin/invoker/cpp_invoker_exe";
+    // FIXME: enable this for further testing - integration test
+    //exec_path = "/work/serverless/2022/praas/code/build_debug/process/bin/invoker/cpp_invoker_exe";
     const char* argv[] = {
         exec_path.c_str(),
         "--process-id",

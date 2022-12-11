@@ -62,10 +62,9 @@ namespace praas::control_plane::backend {
     std::string proc_name = ptr->name();
     std::string control_plane_addr = fmt::format("{}:{}", _tcp_ip, _tcp_port);
     // FIXME: full path
-    std::string code_location = "/work/serverless/2022/praas/code/build_debug/process/tests/integration/";
-    std::string config_location = "configuration.json";
-
-    std::cerr << mypid << std::endl;
+    // FIXME: enable again for further testing - make it configurable
+    //std::string code_location = "/work/serverless/2022/praas/code/build_debug/process/tests/integration/";
+    //std::string config_location = "configuration.json";
 
     if (mypid == 0) {
 
@@ -79,13 +78,14 @@ namespace praas::control_plane::backend {
       dup2(fd, 2);
 
       setenv("PROCESS_ID", proc_name.c_str(), 1);
-      setenv("CODE_LOCATION", code_location.c_str(), 1);
-      setenv("CONFIG_LOCATION", config_location.c_str(), 1);
+      //setenv("CODE_LOCATION", code_location.c_str(), 1);
+      //setenv("CONFIG_LOCATION", config_location.c_str(), 1);
       setenv("CONTROLPLANE_ADDR", control_plane_addr.c_str(), 1);
 
-      // FIXME: configure path!
+      // FIXME: configure path! now make it work for Docker
       const char* args[] = {
-        "/work/serverless/2022/praas/code/build_debug/process/bin/process_exe",
+        //"/work/serverless/2022/praas/code/build_debug/process/bin/process_exe",
+        "/praas/process/bin/process_exe",
         nullptr
       };
 
