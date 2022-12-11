@@ -6,6 +6,11 @@ target_link_libraries(invocations_benchmarker PUBLIC spdlog::spdlog)
 target_link_libraries(invocations_benchmarker PUBLIC cereal::cereal)
 target_link_libraries(invocations_benchmarker PRIVATE praas_sdk)
 
+add_executable(local_invocations_benchmarker local_invocations_benchmarker.cpp)
+target_link_libraries(local_invocations_benchmarker PUBLIC spdlog::spdlog)
+target_link_libraries(local_invocations_benchmarker PUBLIC cereal::cereal)
+target_link_libraries(local_invocations_benchmarker PRIVATE praas_sdk)
+
 add_library(benchmark_functions SHARED functions/cpp/functions.cpp)
 set_target_properties(benchmark_functions PROPERTIES LIBRARY_OUTPUT_DIRECTORY functions)
 target_link_libraries(benchmark_functions PRIVATE function_lib)

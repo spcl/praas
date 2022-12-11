@@ -10,6 +10,16 @@
           "type": "direct",
           "nargs": 1
         }
+      },
+      "no_op_local": {
+        "code": {
+          "module": "@PRAAS_DIRECTORY@/benchmarks/functions/libbenchmark_functions.so",
+          "function": "no_op_local"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
       }
     }
   }
