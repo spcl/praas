@@ -147,7 +147,7 @@ namespace praas::process {
     std::string _process_id;
 
     static constexpr int MAX_EPOLL_EVENTS = 32;
-    static constexpr int EPOLL_TIMEOUT = 100;
+    static constexpr int EPOLL_TIMEOUT = 1000;
 
     static constexpr std::string_view SELF_PROCESS = "SELF";
   };
