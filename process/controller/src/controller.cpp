@@ -598,12 +598,8 @@ namespace praas::process {
     runtime::Buffer<char> && payload
   )
   {
-    //SPDLOG_LOGGER_DEBUG(
-    //  _logger,
-    //  "Received invocation result of {}, status {}, output size {}",
-    //  invocation_id, return_code, payload.len
-    //);
-    _logger->info(
+    SPDLOG_LOGGER_DEBUG(
+      _logger,
       "Received invocation result of {}, status {}, output size {}",
       invocation_id, return_code, payload.len
     );

@@ -48,7 +48,7 @@ namespace praas::process {
         // FIXME: return error to the user
         spdlog::error("Failed to insert a new invocation {} for function {}", key, fname);
       } else {
-        SPDLOG_INFO("Inserted a new invocation {} for function {}", key, fname);
+        SPDLOG_DEBUG("Inserted a new invocation {} for function {}", key, fname);
       }
 
       it->second.payload.push_back(std::move(buffer));
