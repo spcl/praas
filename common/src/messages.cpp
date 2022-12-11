@@ -244,15 +244,15 @@ namespace praas::common::message {
 
   void InvocationResult::invocation_id(std::string_view invocation_id)
   {
-    if (invocation_id.length() > Message::NAME_LENGTH) {
+    if (invocation_id.length() > Message::ID_LENGTH) {
       throw common::InvalidArgument{fmt::format(
-          "Invocation ID too long: {} > {}", invocation_id.length(), Message::NAME_LENGTH
+          "Invocation ID too long: {} > {}", invocation_id.length(), Message::ID_LENGTH
       )};
     }
     std::strncpy(
         // NOLINTNEXTLINE
         reinterpret_cast<char*>(data.data() + HEADER_OFFSET), invocation_id.data(),
-        Message::NAME_LENGTH
+        Message::ID_LENGTH
     );
     invocation_id_len = invocation_id.length();
   }

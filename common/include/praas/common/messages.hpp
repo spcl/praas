@@ -252,7 +252,7 @@ namespace praas::common::message {
     InvocationResultParsed(const int8_t* buf)
         // NOLINTNEXTLINE
         : buf(buf),
-          invocation_id_len(strnlen(reinterpret_cast<const char*>(buf), Message::NAME_LENGTH))
+          invocation_id_len(strnlen(reinterpret_cast<const char*>(buf), Message::ID_LENGTH))
     {
     }
 
