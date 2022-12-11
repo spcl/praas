@@ -24,8 +24,9 @@ namespace praas::process {
   {
     auto it = _active_invocations.find(key);
 
-    // Extend an existing invocation
-    if (it != _active_invocations.end()) {
+    // Extend an existing pending invocation
+    // FIXME: bug when we schedule two functions with the same key?
+    if (it != _active_invocations.end() && !(*it).second.active) {
       it->second.payload.push_back(std::move(buffer));
     }
     // Create a new invocation
@@ -47,7 +48,7 @@ namespace praas::process {
         // FIXME: return error to the user
         spdlog::error("Failed to insert a new invocation {} for function {}", key, fname);
       } else {
-        spdlog::info("Inserted a new invocation {} for function {}", key, fname);
+        SPDLOG_INFO("Inserted a new invocation {} for function {}", key, fname);
       }
 
       it->second.payload.push_back(std::move(buffer));
@@ -60,6 +61,7 @@ namespace praas::process {
   Invocation* WorkQueue::next()
   {
     for (auto it = _pending_invocations.begin(); it != _pending_invocations.end(); ++it) {
+
 
       TriggerChecker visitor{*(*it), *this};
 
