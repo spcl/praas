@@ -17,7 +17,7 @@ namespace praas::process::message {
       const std::string& key, std::string_view source, FunctionWorker& worker
   )
   {
-    SPDLOG_DEBUG(_logger, "Inserting worker pending for a message with name {}, from {}", key, source);
+    SPDLOG_LOGGER_DEBUG(_logger, "Inserting worker pending for a message with name {}, from {}", key, source);
     _msgs.emplace(
         std::piecewise_construct,
         std::forward_as_tuple(key),
@@ -38,7 +38,7 @@ namespace praas::process::message {
   {
     auto [begin, end] = _msgs.equal_range(key);
 
-    SPDLOG_DEBUG(_logger, "Searching for pending message with name {}, from {}", key, source);
+    SPDLOG_LOGGER_DEBUG(_logger, "Searching for pending message with name {}, from {}", key, source);
     // Find the first matching function to consume the message
     for (auto iter = begin; iter != end; ++iter) {
 
@@ -49,7 +49,7 @@ namespace praas::process::message {
         return worker;
       }
     }
-    SPDLOG_DEBUG(_logger, "Did not find a worker waiting for message with name {}, from {}", key, source);
+    SPDLOG_LOGGER_DEBUG(_logger, "Did not find a worker waiting for message with name {}, from {}", key, source);
 
     return nullptr;
   }

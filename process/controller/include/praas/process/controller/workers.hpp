@@ -37,6 +37,11 @@ namespace praas::process {
       return {remote::RemoteType::CONTROL_PLANE, std::nullopt};
     }
 
+    static InvocationSource from_source(remote::RemoteType source)
+    {
+      return {source, std::nullopt};
+    }
+
     bool is_remote() const
     {
       return source == remote::RemoteType::DATA_PLANE || source == remote::RemoteType::PROCESS

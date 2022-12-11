@@ -10,7 +10,14 @@ praas::process::Controller* instance = nullptr;
 
 int main(int argc, char** argv)
 {
-  auto config = praas::process::config::Controller::deserialize(argc, argv);
+  praas::process::config::Controller config;
+  if(argc > 1) {
+    config = praas::process::config::Controller::deserialize(argc, argv);
+  } else {
+    config.set_defaults();
+  }
+  config.load_env();
+
   if (config.verbose)
     spdlog::set_level(spdlog::level::debug);
   else
@@ -23,7 +30,11 @@ int main(int argc, char** argv)
 
   praas::process::remote::TCPServer server{controller, config};
   controller.set_remote(&server);
-  server.poll();
+  if(config.control_plane_addr.has_value()) {
+    server.poll(config.control_plane_addr.value());
+  } else {
+    server.poll();
+  }
 
   controller.start();
 

@@ -31,6 +31,23 @@ namespace praas::process::config {
     language_runtime_path = "";
   }
 
+  void Code::load_env()
+  {
+    char* env_val = getenv("CODE_LOCATION");
+    if(env_val) {
+      location = env_val;
+    } else {
+      spdlog::warn("Couldn't find environment variable CODE_LOCATION");
+    }
+
+    env_val = getenv("CONFIG_LOCATION");
+    if(env_val) {
+      config_location = env_val;
+    } else {
+      spdlog::warn("Couldn't find environment variable CONFIG_LOCATION");
+    }
+  }
+
   void Controller::load(cereal::JSONInputArchive& archive)
   {
     archive(CEREAL_NVP(port));
@@ -46,7 +63,6 @@ namespace praas::process::config {
     archive(CEREAL_NVP(code));
 
     archive(CEREAL_NVP(process_id));
-    archive(CEREAL_NVP(control_plane_addr));
   }
 
   void Controller::load_env()
@@ -62,8 +78,10 @@ namespace praas::process::config {
     if(id_addr) {
       process_id = id_addr;
     } else {
-      spdlog::warn("Couldn't find environment variable CONTROLPLANE_ADDR");
+      spdlog::warn("Couldn't find environment variable PROCESS_ID");
     }
+
+    code.load_env();
   }
 
   void Controller::set_defaults()

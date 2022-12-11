@@ -58,7 +58,7 @@ namespace praas::process {
         std::visit(
             runtime::ipc::overloaded{
                 [&](runtime::ipc::InvocationRequestParsed& req) mutable {
-                  SPDLOG_DEBUG(
+                  SPDLOG_LOGGER_DEBUG(
                       _logger,
                       "Received invocation request of {}, key {}, inputs {}", req.function_name(),
                       req.invocation_id(), req.buffers()
@@ -89,7 +89,7 @@ namespace praas::process {
                   received_invocation = true;
                 },
                 [&](runtime::ipc::ApplicationUpdateParsed& req) mutable {
-                  SPDLOG_DEBUG(
+                  SPDLOG_LOGGER_DEBUG(
                       _logger,
                       "Received application update - process change for {}", req.process_id()
                   );

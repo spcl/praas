@@ -36,7 +36,7 @@ namespace praas::process::remote {
     Server& operator=(Server&&) = delete;
     virtual ~Server() = default;
 
-    virtual void poll() = 0;
+    virtual void poll(std::optional<std::string> control_plane_address = std::nullopt) = 0;
 
     // Receive messages to be sent by the process controller.
     // Includes results of invocations and put requests.
@@ -130,7 +130,7 @@ namespace praas::process::remote {
 
     void shutdown();
 
-    void poll() override;
+    void poll(std::optional<std::string> control_plane_address = std::nullopt);
 
   private:
 
@@ -171,6 +171,7 @@ namespace praas::process::remote {
     std::unordered_map<std::string, std::shared_ptr<Connection>> _connection_data;
     std::shared_ptr<Connection> _data_plane;
     std::shared_ptr<Connection> _control_plane;
+    std::shared_ptr<trantor::TcpClient> _control_plane_conn;
 
     static constexpr std::string_view DATAPLANE_ID = "DATA_PLANE";
     static constexpr std::string_view CONTROLPLANE_ID = "CONTROL_PLANE";

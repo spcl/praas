@@ -219,7 +219,7 @@ namespace praas::process::runtime::ipc {
     InvocationResultParsed(const int8_t* buf)
         : buf(buf),
           // NOLINTNEXTLINE
-          id_len(strnlen(reinterpret_cast<const char*>(buf), Message::NAME_LENGTH))
+          id_len(strnlen(reinterpret_cast<const char*>(buf), Message::ID_LENGTH))
     {
     }
 

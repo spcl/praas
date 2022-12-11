@@ -9,7 +9,6 @@ extern "C" int add(praas::function::Invocation invocation, praas::function::Cont
 {
   Input in{};
   Output out{};
-
   invocation.args[0].deserialize(in);
 
   out.result = in.arg1 + in.arg2;

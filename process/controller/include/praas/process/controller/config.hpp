@@ -17,6 +17,7 @@ namespace cereal {
 namespace praas::process::config {
 
   struct Code {
+    // FIXME: make it default - code location needs to have config.json file?
     static constexpr char DEFAULT_CODE_LOCATION[] = "/code";
     static constexpr char DEFAULT_CODE_CONFIG_LOCATION[] = "config.json";
 
@@ -28,6 +29,7 @@ namespace praas::process::config {
 
     void load(cereal::JSONInputArchive& archive);
     void set_defaults();
+    void load_env();
   };
 
   struct Controller {
@@ -46,7 +48,7 @@ namespace praas::process::config {
     std::string deployment_location;
 
     std::string process_id;
-    std::string control_plane_addr{};
+    std::optional<std::string> control_plane_addr{};
 
     Code code;
 
