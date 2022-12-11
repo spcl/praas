@@ -71,14 +71,9 @@ int main(int argc, char** argv)
     measurements.emplace_back();
     for(int i = 0; i  < cfg.repetitions; ++i) {
 
-      spdlog::info("Start");
       auto begin = std::chrono::high_resolution_clock::now();
       auto result = proc.invoke(cfg.function_name, "id", buf.get(), size);
       auto end = std::chrono::high_resolution_clock::now();
-      spdlog::info("end");
-
-      std::cerr << begin.time_since_epoch().count() << std::endl;
-      std::cerr << end.time_since_epoch().count() << std::endl;
 
       measurements.back().emplace_back(
         std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count()
