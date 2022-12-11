@@ -33,6 +33,11 @@ namespace praas::common {
       return uuids::to_string(uuids::uuid(begin, end));
     }
 
+    static std::string str(uuids::uuid uuid)
+    {
+      return str(uuid.as_bytes());
+    }
+
   private:
     std::random_device _rd;
     std::mt19937 _generator;

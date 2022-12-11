@@ -16,6 +16,16 @@ namespace praas::sdk {
     size_t payload_len;
   };
 
+  struct ControlPlaneInvocationResult {
+
+    std::string invocation_id;
+
+    int return_code;
+
+    std::string response;
+  };
+
+
 }
 
 #endif

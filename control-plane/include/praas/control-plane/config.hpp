@@ -20,10 +20,13 @@ namespace praas::control_plane::config {
   struct HTTPServer {
 
     static constexpr int DEFAULT_THREADS_NUMBER = 1;
-    static constexpr int DEFAULT_PORT = 80;
+    static constexpr int DEFAULT_PORT = 8080;
+
+    HTTPServer() { set_defaults(); }
 
     int port;
     int threads;
+    int max_payload_size;
     bool enable_ssl;
     std::optional<std::string> ssl_server_cert;
     std::optional<std::string> ssl_server_key;
@@ -56,6 +59,8 @@ namespace praas::control_plane::config {
   struct TCPServer {
     static constexpr int DEFAULT_PORT = 0;
 
+    TCPServer() { set_defaults(); }
+
     int port;
     int io_threads;
 
@@ -63,9 +68,13 @@ namespace praas::control_plane::config {
     void set_defaults();
   };
 
-  struct Backend {};
+  struct Backend {
 
-  struct BackendLocal : Backend {};
+  };
+
+  struct BackendLocal : Backend {
+
+  };
 
   struct Deployment {};
 
@@ -81,7 +90,11 @@ namespace praas::control_plane::config {
     backend::Type backend_type;
     std::unique_ptr<Backend> backend;
 
+    std::string public_ip_address;
+
     bool verbose;
+
+    void set_defaults();
 
     void load(cereal::JSONInputArchive& archive);
 

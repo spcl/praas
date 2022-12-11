@@ -65,14 +65,38 @@ namespace praas::control_plane::tcpserver {
     int num_registered_processes() const;
 
   protected:
+
+    struct ConnectionData
+    {
+      ConnectionData(process::ProcessPtr ptr):
+        process(ptr)
+      {}
+
+      process::ProcessPtr process;
+
+      // FIXME: improved message definitions
+      //common::message::Message::MessageVariants cur_msg;
+      common::message::Message cur_msg;
+
+      std::size_t bytes_to_read{};
+    };
+    std::unordered_map<std::string, std::shared_ptr<ConnectionData>> _processes;
+
+
     void handle_disconnection(const trantor::TcpConnectionPtr& connPtr);
 
     void handle_message(const trantor::TcpConnectionPtr &connectionPtr, trantor::MsgBuffer *buffer);
+    bool handle_message(
+      const trantor::TcpConnectionPtr& connectionPtr, trantor::MsgBuffer* buffer,
+      ConnectionData & data, const praas::common::message::Message::MessageVariants & msg
+    );
 
     // Looks up the associated invocation in a process and calls the callback.
     // Requires a read/write access to the list of invocations.
-    void
-    handle_invocation_result(const process::ProcessPtr& ptr, const praas::common::message::InvocationResultParsed&);
+    bool handle_invocation_result(
+      ConnectionData & data, trantor::MsgBuffer* buffer,
+      const praas::common::message::InvocationResultParsed& req
+    );
 
     // Calls to process to finish and swap.
     // Needs to call the application to handle the change of process state.
@@ -102,7 +126,6 @@ namespace praas::control_plane::tcpserver {
     //
     //    // Accept incoming connections
     //    sockpp::tcp_acceptor _listen;
-    //
 
     std::atomic<int> _num_registered_processes;
 
@@ -116,6 +139,8 @@ namespace praas::control_plane::tcpserver {
 
     // Thread pool
     worker::Workers& _workers;
+
+    std::shared_ptr<spdlog::logger> _logger;
 
     bool _is_running;
 
@@ -132,7 +157,6 @@ namespace praas::control_plane::tcpserver {
     // store connections *before* process is recognized.
     std::unordered_map<std::string, process::ProcessPtr> _pending_processes;
 
-    //
     //    // We use epoll to wait for either new connections from
     //    // subprocesses/sessions, or to read new messages from subprocesses.
     //    int _epoll_fd;

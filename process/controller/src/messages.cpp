@@ -1,15 +1,23 @@
 #include <praas/process/controller/messages.hpp>
+#include <praas/common/util.hpp>
+
 #include <compare>
 #include <iostream>
+
 #include <spdlog/spdlog.h>
 
 namespace praas::process::message {
+
+  PendingMessages::PendingMessages()
+  {
+    _logger = common::util::create_logger("PendingMessages");
+  }
 
   void PendingMessages::insert_get(
       const std::string& key, std::string_view source, FunctionWorker& worker
   )
   {
-    spdlog::info("[PendingMessages] Inserting worker pending for a message with name {}, from {}", key, source);
+    SPDLOG_LOGGER_DEBUG(_logger, "Inserting worker pending for a message with name {}, from {}", key, source);
     _msgs.emplace(
         std::piecewise_construct,
         std::forward_as_tuple(key),
@@ -30,7 +38,7 @@ namespace praas::process::message {
   {
     auto [begin, end] = _msgs.equal_range(key);
 
-    spdlog::info("[PendingMessages] Searching for pending message with name {}, from {}", key, source);
+    SPDLOG_LOGGER_DEBUG(_logger, "Searching for pending message with name {}, from {}", key, source);
     // Find the first matching function to consume the message
     for (auto iter = begin; iter != end; ++iter) {
 
@@ -41,7 +49,7 @@ namespace praas::process::message {
         return worker;
       }
     }
-    spdlog::info("[PendingMessages] Did not find a worker waiting for message with name {}, from {}", key, source);
+    SPDLOG_LOGGER_DEBUG(_logger, "Did not find a worker waiting for message with name {}, from {}", key, source);
 
     return nullptr;
   }

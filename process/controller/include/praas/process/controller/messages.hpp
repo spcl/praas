@@ -5,6 +5,7 @@
 #include <praas/process/runtime/ipc/messages.hpp>
 
 #include <optional>
+#include <spdlog/logger.h>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -45,6 +46,8 @@ namespace praas::process::message {
    **/
   struct PendingMessages {
 
+    PendingMessages();
+
     void insert_get(const std::string& key, std::string_view source, FunctionWorker& worker);
 
     void insert_invocation(std::string_view key, FunctionWorker& worker);
@@ -70,6 +73,8 @@ namespace praas::process::message {
     //
     // For invocations, we might have multiple senders waiting for a result (multi-source).
     std::unordered_multimap<std::string, PendingMessage> _msgs;
+
+    std::shared_ptr<spdlog::logger> _logger;
 
     static constexpr std::string_view ANY_PROCESS = "ANY";
   };

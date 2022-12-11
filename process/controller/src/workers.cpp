@@ -46,6 +46,8 @@ namespace praas::process {
       if (!inserted) {
         // FIXME: return error to the user
         spdlog::error("Failed to insert a new invocation {} for function {}", key, fname);
+      } else {
+        spdlog::info("Inserted a new invocation {} for function {}", key, fname);
       }
 
       it->second.payload.push_back(std::move(buffer));
@@ -78,6 +80,7 @@ namespace praas::process {
   {
     // Check if the function invocation exists and is not pending.
     auto it = _active_invocations.find(key);
+
     if (it == _active_invocations.end() || !(*it).second.active) {
       return std::nullopt;
     }
@@ -123,7 +126,6 @@ namespace praas::process {
       }
       if (ret == -1) {
         spdlog::error("Invoker process {} failed {}, reason {}", args[0], errno, strerror(errno));
-        spdlog::error(getenv("PATH"));
         close(fd);
         exit(1);
       }
@@ -163,7 +165,8 @@ namespace praas::process {
                                 ? std::filesystem::canonical("/proc/self/exe").parent_path() / "invoker" / "cpp_invoker_exe"
                                 : std::filesystem::path{cfg.deployment_location} / "bin" /
                                       "invoker" / "cpp_invoker_exe";
-
+    // FIXME: enable this for further testing - integration test
+    //exec_path = "/work/serverless/2022/praas/code/build_debug/process/bin/invoker/cpp_invoker_exe";
     const char* argv[] = {
         exec_path.c_str(),
         "--process-id",
@@ -222,6 +225,8 @@ namespace praas::process {
   Workers::Workers(config::Controller& cfg)
   {
 
+    _logger = common::util::create_logger("Workers");
+
     common::util::assert_other(static_cast<int>(cfg.code.language), static_cast<int>(runtime::functions::Language::NONE));
 
     for (int i = 0; i < cfg.function_workers; ++i) {
@@ -273,7 +278,8 @@ namespace praas::process {
 
     invocation.confirm_payload();
 
-    spdlog::info(
+    SPDLOG_LOGGER_DEBUG(
+        _logger,
         "Sending invocation of {}, with key {}",
         invocation.req.function_name(),
         invocation.req.invocation_id()
@@ -311,15 +317,15 @@ namespace praas::process {
       kill(worker.pid(), SIGINT);
     }
 
-    int status;
+    int status{};
     for (FunctionWorker& worker : _workers) {
 
       waitpid(worker.pid(), &status, 0);
 
       if (WIFEXITED(status)) {
-        spdlog::info("Worker child {} exited with status {}", worker.pid(), WEXITSTATUS(status));
+        _logger->info("Worker child {} exited with status {}", worker.pid(), WEXITSTATUS(status));
       } else if (WIFSIGNALED(status)) {
-        spdlog::info("Worker child {} killed by signal {}", worker.pid(), WTERMSIG(status));
+        _logger->info("Worker child {} killed by signal {}", worker.pid(), WTERMSIG(status));
       }
     }
   }

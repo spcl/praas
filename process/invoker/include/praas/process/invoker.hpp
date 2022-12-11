@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#include <spdlog/spdlog.h>
+
 namespace praas::process {
 
   struct Invoker {
@@ -69,6 +71,8 @@ namespace praas::process {
 
     std::unique_ptr<runtime::ipc::IPCChannel> _ipc_channel_read;
     std::unique_ptr<runtime::ipc::IPCChannel> _ipc_channel_write;
+
+    std::shared_ptr<spdlog::logger> _logger;
   };
 
 } // namespace praas::process

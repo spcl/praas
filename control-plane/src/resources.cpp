@@ -83,6 +83,52 @@ namespace praas::control_plane {
     }
   }
 
+  std::tuple<process::Process::read_lock_t, process::Process*> Application::get_controlplane_process(
+    backend::Backend& backend, tcpserver::TCPServer& poller, process::Resources&& resources
+  )
+  {
+    {
+      read_lock_t lock(_controlplane_mutex);
+
+      // FIXME: this needs to be a parameter - store it in the process
+      int max_funcs_per_process = 1;
+
+      for(auto & proc : _controlplane_processes) {
+
+        int active_funcs = proc->active_invocations();
+        if(active_funcs < max_funcs_per_process) {
+          spdlog::info("Select existing process for invocation {}", proc->name());
+          return std::make_tuple(proc->read_lock(), proc.get());
+        }
+
+      }
+    }
+
+    // No process? create
+    std::string name = fmt::format("controlplane-{}", _controlplane_processes.size());
+    process::ProcessPtr process = std::make_shared<process::Process>(name, this, std::move(resources));
+
+    spdlog::info("Allocating process for invocation {}", name);
+    poller.add_process(process);
+    auto backend_allocate = backend.allocate_process(process, resources);
+    if(!backend_allocate) {
+      // FIXME: error handling
+      // FIXME: remove from poller
+      spdlog::error("Failed to allocate process!");
+      abort();
+    }
+
+    process->set_handle(std::move(backend_allocate));
+    spdlog::info("Allocated process {}", name);
+
+    {
+      write_lock_t lock(_controlplane_mutex);
+      _controlplane_processes.emplace_back(process);
+    }
+
+    return std::make_tuple(process->read_lock(), process.get());
+  }
+
   std::tuple<process::Process::read_lock_t, process::Process*>
   Application::get_swapped_process(const std::string& name)
   {
@@ -168,7 +214,7 @@ namespace praas::control_plane {
 
     if(ptr->status() != process::Status::SWAPPED_OUT){
 
-      spdlog::error("Failure! Closing process {}, state {}", _name, ptr->status());
+      spdlog::error("Failure! Closing not-swapped process {}, state {}", _name, ptr->status());
 
       ptr->set_status(process::Status::FAILURE);
 
@@ -180,11 +226,12 @@ namespace praas::control_plane {
         _active_processes.erase(iter);
       } else {
 
+        // FIXME: check for processes allocated by the control plane
         auto iter = _swapped_processes.find(ptr->name());
         if (iter != _swapped_processes.end()) {
           _swapped_processes.erase(iter);
         } else {
-          spdlog::error("Unknown proces {}", ptr->name());
+          spdlog::error("Unknown process {}", ptr->name());
         }
 
       }
@@ -237,6 +284,11 @@ namespace praas::control_plane {
     _applications.find(acc._accessor, application_name);
   }
 
+  void Resources::get_application(std::string application_name, Resources::RWAccessor& acc)
+  {
+    bool found = _applications.find(acc._accessor, application_name);
+  }
+
   void Resources::delete_application(std::string application_name)
   {
     if (application_name.length() == 0) {
@@ -266,6 +318,17 @@ namespace praas::control_plane {
   {
     return _accessor.empty();
   }
+
+  Application* Resources::RWAccessor::get() const
+  {
+    return empty() ? nullptr : &_accessor->second;
+  }
+
+  bool Resources::RWAccessor::empty() const
+  {
+    return _accessor.empty();
+  }
+
 
   // Process& Resources::add_process(Process&& p)
   //{

@@ -1,5 +1,6 @@
 #include <praas/common/exceptions.hpp>
 #include <praas/common/util.hpp>
+#include <praas/control-plane/backend.hpp>
 #include <praas/control-plane/config.hpp>
 
 #include <optional>
@@ -37,6 +38,8 @@ namespace praas::control_plane::config {
     threads = DEFAULT_THREADS_NUMBER;
     enable_ssl = false;
     port = DEFAULT_PORT;
+    // 1 MiB
+    max_payload_size = 1024 * 1024;
   }
 
   void Workers::load(cereal::JSONInputArchive& archive)
@@ -81,14 +84,32 @@ namespace praas::control_plane::config {
     return cfg;
   }
 
+  void Config::set_defaults()
+  {
+    verbose = true;
+    backend_type = backend::Type::LOCAL;
+    public_ip_address = "127.0.0.1";
+
+    http.set_defaults();
+    workers.set_defaults();
+    down_scaler.set_defaults();
+    tcpserver.set_defaults();
+  }
+
   void Config::load(cereal::JSONInputArchive& archive)
   {
     archive(CEREAL_NVP(verbose));
+    std::string backend_type;
+    archive(cereal::make_nvp("backend-type", backend_type));
+    this->backend_type = backend::deserialize(backend_type);
+
+    archive(cereal::make_nvp("ip-address", public_ip_address));
 
     common::util::cereal_load_optional(archive, "http", this->http);
     common::util::cereal_load_optional(archive, "workers", this->workers);
     common::util::cereal_load_optional(archive, "downscaler", this->down_scaler);
     common::util::cereal_load_optional(archive, "tcpserver", this->tcpserver);
+
   }
 
 } // namespace praas::control_plane::config

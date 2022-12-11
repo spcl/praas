@@ -1,19 +1,19 @@
-#include <praas/common/application.hpp>
-#include <praas/process/controller/controller.hpp>
 #include <praas/process/controller/remote.hpp>
+
+#include <praas/common/application.hpp>
+#include <praas/common/util.hpp>
+#include <praas/process/controller/controller.hpp>
 #include <praas/common/messages.hpp>
 
 #include <variant>
 
 #include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
 #include <trantor/utils/MsgBuffer.h>
 
 namespace praas::process::remote {
 
   TCPServer::TCPServer(Controller& controller, const config::Controller& cfg):
     _is_running(true),
-    //_logger(spdlog::stdout_color_mt("TCPServer")),
     _controller(controller),
     _server(_loop_thread.getLoop(), trantor::InetAddress(cfg.port), "tcpserver")
   {
@@ -23,10 +23,10 @@ namespace praas::process::remote {
     _server.setConnectionCallback(
         [this](const trantor::TcpConnectionPtr& connectionPtr) {
           if(connectionPtr->connected()) {
-            _logger->info("New connection from {}", connectionPtr->peerAddr().toIpPort());
+            SPDLOG_LOGGER_DEBUG(_logger, "New connection from {}", connectionPtr->peerAddr().toIpPort());
             connectionPtr->setTcpNoDelay(true);
           } else {
-            _logger->info("Disconnected from {}", connectionPtr->peerAddr().toIpPort());
+            SPDLOG_LOGGER_DEBUG(_logger, "Disconnected from {}", connectionPtr->peerAddr().toIpPort());
           }
         }
     );
@@ -52,9 +52,7 @@ namespace praas::process::remote {
       }
     });
 
-    auto sink = std::make_shared<spdlog::sinks::stderr_color_sink_st>();
-    _logger = std::make_shared<spdlog::logger>("TCPServer", sink);
-    _logger->set_pattern("[%H:%M:%S:%f] [%n] [P %P] [T %t] [%l] %v ");
+    _logger = common::util::create_logger("TCPServer");
   }
 
   TCPServer::~TCPServer()
@@ -73,11 +71,77 @@ namespace praas::process::remote {
     _is_running = false;
   }
 
-  void TCPServer::poll()
+  void TCPServer::poll(std::optional<std::string> control_plane_address)
   {
     _logger->info("TCP server is starting!");
     _loop_thread.run();
     _server.start();
+
+    if(!control_plane_address.has_value()) {
+      return;
+    }
+
+    // FIXME: make a generic connection method
+    auto pos = control_plane_address.value().find(':');
+    std::string address = control_plane_address.value().substr(0, pos);
+    int port = std::stoi(control_plane_address.value().substr(pos + 1, std::string::npos));
+
+    auto conn = std::make_shared<Connection>(
+      Connection::Status::CONNECTING,
+      RemoteType::CONTROL_PLANE,
+      std::nullopt,
+      nullptr
+    );
+
+    _control_plane = conn;
+    auto [iter, inserted] = _connection_data.emplace("CONTROLPLANE", std::move(conn));
+    common::util::assert_true(inserted);
+
+    (*iter).second->client = std::make_shared<trantor::TcpClient>(
+      this->_server.getLoop(),
+      trantor::InetAddress{address, static_cast<uint16_t>(port)},
+      "client"
+    );
+
+    std::promise<void> connected;
+    (*iter).second->client->setConnectionCallback(
+      [this, iter, &connected](const trantor::TcpConnectionPtr& connectionPtr) -> void {
+
+        if (connectionPtr->connected()) {
+
+          // Send my name
+          _logger->info("Connected to control plane, sending my registration");
+          praas::common::message::ProcessConnection req;
+          req.process_name(_controller.process_id());
+          connectionPtr->send(req.bytes(), req.BUF_SIZE);
+
+          // FIXME: make it configurable
+          connectionPtr->setTcpNoDelay(true);
+
+          connectionPtr->setContext((*iter).second);
+
+          (*iter).second->conn = connectionPtr;
+
+          connected.set_value();
+
+        } else {
+          _logger->error("Terminated connection to control plane!");
+          _control_plane.reset();
+        }
+      });
+
+    (*iter).second->client->setMessageCallback(
+      [this](const trantor::TcpConnectionPtr &conn, trantor::MsgBuffer* buffer) -> void {
+        _logger->info("Control plane message");
+        _handle_message(conn, buffer);
+      }
+    );
+
+    _logger->info("Establishing connection to control plane at {}:{}", address, port);
+    (*iter).second->client->connect();
+    // FIXME: timed wait
+    connected.get_future().wait();
+    _logger->info("Finished setting up control plane connection {}:{}", address, port);
   }
 
   /**
@@ -95,7 +159,7 @@ namespace praas::process::remote {
   {
     auto conn = connectionPtr->getContext<Connection>();
 
-    _logger->info("Received {} bytes active connection? {}", buffer->readableBytes(), conn != nullptr);
+    SPDLOG_LOGGER_DEBUG(_logger, "Received {} bytes active connection? {}", buffer->readableBytes(), conn != nullptr);
 
     // Registration of the connection
     if(!conn) {
@@ -206,7 +270,7 @@ namespace praas::process::remote {
             },
             [this, connectionPtr, buffer](common::message::ProcessConnectionParsed& msg) mutable -> bool {
               // Connection always consumed a message
-              _logger->info("Confirmation of registration {}", msg.process_name());
+              SPDLOG_LOGGER_DEBUG(_logger, "Confirmation of registration {}", msg.process_name());
               buffer->retrieve(praas::common::message::Message::BUF_SIZE);
               return true;
             },
@@ -225,7 +289,7 @@ namespace praas::process::remote {
 
     }
 
-    _logger->error("Consumed message? {} There are {} bytes remaining", consumed, buffer->readableBytes());
+    SPDLOG_LOGGER_DEBUG(_logger, "Consumed message? {} There are {} bytes remaining", consumed, buffer->readableBytes());
     // Check if there is more data to be read
     if(consumed && buffer->readableBytes() > 0) {
       _handle_message(connectionPtr, buffer);
@@ -258,11 +322,12 @@ namespace praas::process::remote {
       buf.len = msg.payload_size();
       buffer->retrieve(msg.payload_size());
 
-      _logger->info(
+      SPDLOG_LOGGER_DEBUG(_logger,
           "Received complete invocation request of {}, with {} bytes of input",
           msg.function_name(),
           msg.payload_size()
       );
+
       if(connection.type == RemoteType::DATA_PLANE) {
         _controller.dataplane_message(std::move(connection.cur_msg), std::move(buf));
       } else if(connection.type == RemoteType::CONTROL_PLANE) {
@@ -305,7 +370,7 @@ namespace praas::process::remote {
       buf.len = connection.bytes_to_read;
       buffer->retrieve(connection.bytes_to_read);
 
-      _logger->info(
+      SPDLOG_LOGGER_DEBUG(_logger,
           "Received invocation result for id {}, with {} bytes of input",
           msg.invocation_id(),
           msg.total_length()
@@ -330,7 +395,6 @@ namespace praas::process::remote {
     if(connection.bytes_to_read == 0) {
 
       connection.bytes_to_read = msg.total_length();
-      _logger->info("Start receiving message of size {}", connection.bytes_to_read);
       // FIXME: avoid copy here - just store the actual variant
       common::message::PutMessage req;
       req.name(msg.name());
@@ -352,7 +416,8 @@ namespace praas::process::remote {
 
       connection.bytes_to_read = 0;
 
-      _logger->info(
+      SPDLOG_LOGGER_DEBUG(
+        _logger,
         "Finished processing PUT, {} remaining bytes",
         buffer->readableBytes()
       );
@@ -382,11 +447,12 @@ namespace praas::process::remote {
           _control_plane = (*find_iter).second;
         }
 
-        _logger->info("Registered new remote connection for an existing IP data");
+        SPDLOG_LOGGER_DEBUG(_logger, "Registered new remote connection for an existing IP data");
         connectionPtr->setContext((*find_iter).second);
 
       } else {
 
+        // FIXME: we no longer accept connect, we connect by ourselves
         if(msg.process_name() == DATAPLANE_ID) {
           conn = std::make_shared<Connection>(Connection::Status::CONNECTED, RemoteType::DATA_PLANE, std::nullopt, connectionPtr);
           _data_plane = conn;
@@ -398,7 +464,7 @@ namespace praas::process::remote {
 
         }
 
-        _logger->info("Registered new remote connection");
+        SPDLOG_LOGGER_DEBUG(_logger, "Registered new remote connection");
 
         auto [iter, inserted] = _connection_data.emplace(msg.process_name(), std::move(conn));
         // FIXME: handle insertion failure
@@ -444,6 +510,7 @@ namespace praas::process::remote {
       }
     }
 
+    _logger->info("Submit invocation result of {}", invocation_id);
     praas::common::message::InvocationResult req;
     req.invocation_id(invocation_id);
     // FIXME: eliminate that
@@ -509,14 +576,13 @@ namespace praas::process::remote {
       put_req->process_id(_controller.process_id());
       put_req->total_length(payload.len);
 
-      _logger->info("Store pending message of size {}", payload.len);
+      SPDLOG_LOGGER_DEBUG(_logger, "Store pending message of size {}", payload.len);
       conn->pendings_msgs.emplace_back(
         std::move(put_req),
         std::move(payload)
       );
 
       if(conn->status == Connection::Status::DISCONNECTED) {
-        _logger->info("Establish connection");
         _connect(conn);
       }
     } else {
@@ -525,7 +591,7 @@ namespace praas::process::remote {
       put_req.name(name);
       put_req.process_id(_controller.process_id());
       put_req.total_length(payload.len);
-      _logger->info("Send PUT message {} with payload len {}", name, payload.len);
+      SPDLOG_LOGGER_DEBUG(_logger, "Send PUT message {} with payload len {}", name, payload.len);
 
       conn->conn->send(put_req.bytes(), put_req.BUF_SIZE);
       conn->conn->send(payload.data(), payload.len);
@@ -543,8 +609,7 @@ namespace praas::process::remote {
 
     auto iter = _connection_data.find(std::string{process_id});
     if(iter == _connection_data.end()) {
-      // FIXME: return error?
-      _logger->error("Sending message to an unknown process {}!", process_id);
+      _logger->error("Attempting to send a message to an unknown process {}!", process_id);
       return;
     }
 
@@ -560,14 +625,13 @@ namespace praas::process::remote {
       req->payload_size(payload.len);
       req->total_length(payload.len);
 
-      _logger->info("Store pending invocation request of {} of size {}", function_name, payload.len);
+      SPDLOG_LOGGER_DEBUG(_logger, "Store pending invocation request of {} of size {}", function_name, payload.len);
       conn->pendings_msgs.emplace_back(
         std::move(req),
         std::move(payload)
       );
 
       if(conn->status == Connection::Status::DISCONNECTED) {
-        _logger->info("Establish connection to {}!", process_id);
         _connect(conn);
       }
 
@@ -578,7 +642,7 @@ namespace praas::process::remote {
       req.function_name(function_name);
       req.payload_size(payload.len);
       req.total_length(payload.len);
-      _logger->info("Send invocation request message with payload len {}", payload.len);
+      SPDLOG_LOGGER_DEBUG(_logger, "Send invocation request message with payload len {}", payload.len);
 
       conn->conn->send(req.bytes(), req.BUF_SIZE);
       conn->conn->send(payload.data(), payload.len);
@@ -605,7 +669,6 @@ namespace praas::process::remote {
             req.process_name(_controller.process_id());
             conn->send(req.bytes(), req.BUF_SIZE);
 
-
             // FIXME: make it configurable
             conn->setTcpNoDelay(true);
 
@@ -615,7 +678,6 @@ namespace praas::process::remote {
 
               auto & msg = std::get<0>(pending_msg);
               auto & buf = std::get<1>(pending_msg);
-              _logger->info("Send message with payload len {} {}", buf.len, msg->total_length());
               conn->send(msg->bytes(), msg->BUF_SIZE);
               if(buf.len > 0) {
                 conn->send(buf.data(), buf.len);
@@ -626,18 +688,18 @@ namespace praas::process::remote {
 
           } else {
             connection->status = Connection::Status::DISCONNECTED;
-            _logger->info("Process connection between {} and {} disconnected", conn->localAddr().toIpPort(), conn->peerAddr().toIpPort());
+            SPDLOG_LOGGER_DEBUG(_logger, "Process connection between {} and {} disconnected", conn->localAddr().toIpPort(), conn->peerAddr().toIpPort());
           }
       });
 
     conn->client->setMessageCallback(
       [this, connection = conn](const trantor::TcpConnectionPtr &conn, trantor::MsgBuffer* buffer) -> void {
-        _logger->error("Callback from the client connection! {}", buffer->readableBytes());
+        SPDLOG_LOGGER_DEBUG(_logger, "Callback from the client connection! {} bytes to read", buffer->readableBytes());
         _handle_message(conn, buffer);
       }
     );
 
-    _logger->info("Establishing connection to {}:{}", conn->ip_address, conn->port);
+    SPDLOG_LOGGER_DEBUG(_logger, "Establishing connection to {}:{}", conn->ip_address, conn->port);
     conn->client->connect();
   }
 

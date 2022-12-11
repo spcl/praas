@@ -68,7 +68,7 @@ namespace praas::process::runtime::ipc {
 
     _msg_buffer.reset(new int8_t[_msg_size]);
 
-    spdlog::info("Opened message queue {}", _name);
+    SPDLOG_DEBUG("Opened message queue {}", _name);
   }
 
   POSIXMQChannel::~POSIXMQChannel()
@@ -86,7 +86,7 @@ namespace praas::process::runtime::ipc {
       common::util::assert_other(mq_close(_queue), -1);
       common::util::assert_other(mq_unlink(_name.c_str()), -1);
 
-      spdlog::info("Closed message queue {}", _name);
+      SPDLOG_DEBUG("Closed message queue {}", _name);
     } else {
       common::util::assert_other(mq_close(_queue), -1);
     }
@@ -109,7 +109,7 @@ namespace praas::process::runtime::ipc {
 
   void POSIXMQChannel::send(Message& msg, BufferAccessor<char> buf)
   {
-    spdlog::info("Sending message, buffer length {}", buf.len);
+    SPDLOG_DEBUG("Sending message, buffer length {}", buf.len);
     msg.total_length(buf.len);
 
     _send(msg.bytes(), msg.BUF_SIZE);
@@ -119,7 +119,7 @@ namespace praas::process::runtime::ipc {
 
   void POSIXMQChannel::send(Message& msg, BufferAccessor<std::byte> buf)
   {
-    spdlog::info("Sending message, buffer length {}", buf.len);
+    SPDLOG_DEBUG("Sending message, buffer length {}", buf.len);
     msg.total_length(buf.len);
 
     _send(msg.bytes(), msg.BUF_SIZE);
@@ -158,7 +158,7 @@ namespace praas::process::runtime::ipc {
 
       auto size = (len - pos < _msg_size) ? len - pos : _msg_size;
       int ret = mq_send(_queue, data + pos, size, 1);
-      spdlog::info("Sending status {}, {} bytes, at pos {}, out of {} bytes to sent, errno {}", ret, size, pos, len, errno);
+      SPDLOG_DEBUG("Sending status {}, {} bytes, at pos {}, out of {} bytes to sent, errno {}", ret, size, pos, len, errno);
 
       if (ret == -1) {
 
@@ -182,7 +182,6 @@ namespace praas::process::runtime::ipc {
     if(read_data < Message::BUF_SIZE) {
       throw praas::common::NotImplementedError();
     }
-    spdlog::error("Read {}", read_data);
 
     // FIXME: avoid a copy here?
     std::copy_n(_msg_buffer.get(), Message::BUF_SIZE, _msg.data.data());
@@ -192,10 +191,9 @@ namespace praas::process::runtime::ipc {
       buf.resize(data_to_read);
     }
 
-    spdlog::error("Reading {}", data_to_read);
     read_data = _recv(buf.data(), data_to_read);
     buf.len = read_data;
-    spdlog::error("Read {}", read_data);
+    SPDLOG_DEBUG("Read {} bytes out of queue {}", read_data, _name);
     return read_data >= data_to_read;
   }
 

@@ -17,15 +17,17 @@ function(control_plane_dependencies tgt)
   add_dependencies(${tgt} TBB::tbb)
   add_dependencies(${tgt} cereal::cereal)
   add_dependencies(${tgt} fmt::fmt)
-  target_include_directories(${tgt} SYSTEM PRIVATE "include")
-  target_include_directories(${tgt} SYSTEM PRIVATE ${threadpool_SOURCE_DIR})
+  target_include_directories(${tgt} SYSTEM PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/include)
+  #target_include_directories(${tgt} SYSTEM PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+  #target_include_directories(${tgt} SYSTEM PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include2")
+  target_include_directories(${tgt} SYSTEM PUBLIC ${threadpool_SOURCE_DIR})
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:common_library,INTERFACE_INCLUDE_DIRECTORIES>)
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:sockpp-static,INTERFACE_INCLUDE_DIRECTORIES>)
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:stduuid,INTERFACE_INCLUDE_DIRECTORIES>)
-  target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:Drogon::Drogon,INTERFACE_INCLUDE_DIRECTORIES>)
-  target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:TBB::tbb,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_include_directories(${tgt} SYSTEM PUBLIC $<TARGET_PROPERTY:Drogon::Drogon,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_include_directories(${tgt} SYSTEM PUBLIC $<TARGET_PROPERTY:TBB::tbb,INTERFACE_INCLUDE_DIRECTORIES>)
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:cereal::cereal,INTERFACE_INCLUDE_DIRECTORIES>)
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:fmt::fmt,INTERFACE_INCLUDE_DIRECTORIES>)
 
@@ -72,6 +74,8 @@ if(PRAAS_WITH_TESTING)
             tests/unit/tcpserver.cpp
             tests/unit/tcpserver_dataplane.cpp
             tests/unit/tcpserver_swap.cpp
+            tests/unit/http.cpp
+            tests/integration/http.cpp
   )
   foreach(test ${TESTS})
 

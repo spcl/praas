@@ -23,18 +23,14 @@ using namespace praas::control_plane;
 
 class MockWorkers : public worker::Workers {
 public:
-  MockWorkers() : worker::Workers(config::Workers{}) {}
+  MockWorkers(backend::Backend & backend) : worker::Workers(config::Workers{}, backend, resources) {}
+  Resources resources;
 };
-
-//class MockDeployment : public deployment::Deployment {
-//public:
-//  MOCK_METHOD(std::unique_ptr<state::SwapLocation>, get_location, (std::string), (override));
-//  MOCK_METHOD(void, delete_swap, (const state::SwapLocation&), (override));
-//};
 
 class MockBackend : public backend::Backend {
 public:
-  MOCK_METHOD(void, allocate_process, (process::ProcessPtr, const process::Resources&), ());
+  MOCK_METHOD(std::shared_ptr<backend::ProcessInstance>, allocate_process, (process::ProcessPtr, const process::Resources&), ());
+  MOCK_METHOD(void, shutdown, (const std::shared_ptr<backend::ProcessInstance>&), ());
   MOCK_METHOD(int, max_memory, (), (const));
   MOCK_METHOD(int, max_vcpus, (), (const));
 };
@@ -54,7 +50,7 @@ protected:
 
   Application app;
   MockBackend backend;
-  MockWorkers workers;
+  MockWorkers workers{backend};
 };
 
 /**

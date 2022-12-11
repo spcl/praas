@@ -233,7 +233,7 @@ TEST(Messages, InvocationResultMsg)
   }
 
   {
-    std::string invoc_id(ProcessConnection::NAME_LENGTH, 't');
+    std::string invoc_id(ProcessConnection::ID_LENGTH, 't');
     int32_t payload_size{0};
 
     InvocationResult req;
@@ -250,7 +250,7 @@ TEST(Messages, InvocationResultMsg)
 TEST(Messages, InvocationResultMsgIncorrect)
 {
   {
-    std::string invoc_id(ProcessConnection::NAME_LENGTH + 1, 't');
+    std::string invoc_id(ProcessConnection::ID_LENGTH + 1, 't');
 
     InvocationResult req;
     EXPECT_THROW(req.invocation_id(invoc_id), praas::common::InvalidArgument);

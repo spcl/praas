@@ -106,6 +106,7 @@ namespace praas::common::message {
     }
 
     using MessageVariants = std::variant<
+        std::monostate,
         ProcessConnectionParsed, SwapRequestParsed, SwapConfirmationParsed, InvocationRequestParsed,
         InvocationResultParsed, DataPlaneMetricsParsed, ProcessClosureParsed, ApplicationUpdateParsed,
         PutMessageParsed
@@ -218,6 +219,7 @@ namespace praas::common::message {
     std::string_view invocation_id() const;
     std::string_view function_name() const;
     int32_t payload_size() const;
+    int32_t total_length() const;
 
     static Message::Type type();
   };
@@ -236,6 +238,7 @@ namespace praas::common::message {
     using InvocationRequestParsed::invocation_id;
     using InvocationRequestParsed::payload_size;
     using InvocationRequestParsed::type;
+    using Message::total_length;
 
     void invocation_id(std::string_view invocation_id);
     void function_name(std::string_view function_name);
@@ -249,7 +252,7 @@ namespace praas::common::message {
     InvocationResultParsed(const int8_t* buf)
         // NOLINTNEXTLINE
         : buf(buf),
-          invocation_id_len(strnlen(reinterpret_cast<const char*>(buf), Message::NAME_LENGTH))
+          invocation_id_len(strnlen(reinterpret_cast<const char*>(buf), Message::ID_LENGTH))
     {
     }
 
