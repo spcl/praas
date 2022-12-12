@@ -1,0 +1,17 @@
+FROM ubuntu:22.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update\
+  && apt-get install --reinstall -y --no-install-recommends apt-transport-https ca-certificates\
+  && apt-get install -y --no-install-recommends git cmake build-essential libboost-all-dev libcurl4-openssl-dev libssl-dev uuid-dev zlib1g-dev libhiredis-dev\
+  && update-ca-certificates
+
+WORKDIR /build/
+RUN mkdir /source && cd /source && git clone --recurse-submodules https://github.com/aws/aws-sdk-cpp
+RUN cd /build && cmake -B . -S /source/aws-sdk-cpp -DBUILD_ONLY="s3;ecs" -DENABLE_TESTING=OFF -DCMAKE_INSTALL_PREFIX=/opt/
+RUN cmake --build . --parallel 4
+RUN cmake --install .
+
+FROM ubuntu:22.04
+COPY --from=0 /opt /opt
