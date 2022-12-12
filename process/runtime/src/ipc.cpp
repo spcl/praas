@@ -22,7 +22,7 @@ namespace praas::process::runtime::ipc {
   IPCChannel::~IPCChannel() {}
 
   POSIXMQChannel::POSIXMQChannel(
-      std::string queue_name, IPCDirection direction, bool create, int message_size
+      std::string queue_name, IPCDirection direction, bool send, bool create, int message_size
   )
       : _created(create), _name(queue_name), _msg_size(message_size),
         _buffers(BUFFER_ELEMS, BUFFER_SIZE)
@@ -36,15 +36,30 @@ namespace praas::process::runtime::ipc {
       attributes.mq_maxmsg = MAX_MSGS;
       attributes.mq_msgsize = message_size;
 
-      _queue = mq_open(
-          queue_name.c_str(), O_CREAT | O_EXCL | O_NONBLOCK | mq_direction, S_IRUSR | S_IWUSR,
-          &attributes
-      );
+      if(send)
+        _queue = mq_open(
+            queue_name.c_str(), O_CREAT | O_EXCL | mq_direction, S_IRUSR | S_IWUSR,
+            &attributes
+        );
+      else
+        _queue = mq_open(
+            queue_name.c_str(), O_CREAT | O_EXCL | O_NONBLOCK | mq_direction, S_IRUSR | S_IWUSR,
+            &attributes
+        );
       if (_queue == -1 && errno == EEXIST) {
 
         // Attempt remove - unless it is used by another process
         mq_unlink(queue_name.c_str());
 
+        if(send)
+        common::util::assert_other(
+            _queue = mq_open(
+                queue_name.c_str(), O_CREAT | O_EXCL | mq_direction, S_IRUSR | S_IWUSR,
+                &attributes
+            ),
+            -1
+        );
+        else
         common::util::assert_other(
             _queue = mq_open(
                 queue_name.c_str(), O_CREAT | O_EXCL | O_NONBLOCK | mq_direction, S_IRUSR | S_IWUSR,
@@ -153,7 +168,6 @@ namespace praas::process::runtime::ipc {
 
   void POSIXMQChannel::_send(const char* data, int len) const
   {
-
     for (int pos = 0; pos < len;) {
 
       auto size = (len - pos < _msg_size) ? len - pos : _msg_size;
@@ -162,13 +176,13 @@ namespace praas::process::runtime::ipc {
 
       if (ret == -1) {
 
-        if (errno == EAGAIN) {
-          // FIXME: add to epoll as oneshot to be woken up as ready
-          std::this_thread::sleep_for(std::chrono::microseconds(1));
-        } else {
+        //if (errno == EAGAIN) {
+        //  // FIXME: add to epoll as oneshot to be woken up as ready
+        //  std::this_thread::sleep_for(std::chrono::microseconds(5));
+        //} else {
           throw praas::common::PraaSException{
               fmt::format("Failed sending with error {}, strerror {}", errno, strerror(errno))};
-        }
+        //}
       } else {
         pos += size;
       }

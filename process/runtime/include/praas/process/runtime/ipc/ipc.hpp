@@ -44,13 +44,13 @@ namespace praas::process::runtime::ipc {
   struct POSIXMQChannel : public IPCChannel {
 
     static constexpr int MAX_MSGS = 10;
-    static constexpr int MAX_MSG_SIZE = 8 * 1024;
+    static constexpr int MAX_MSG_SIZE = 4 * 1024;
 
     static constexpr int BUFFER_ELEMS = 5;
     static constexpr int BUFFER_SIZE = 1 * 1024 * 1024;
 
     POSIXMQChannel(
-        std::string queue_name, IPCDirection direction, bool create = false,
+        std::string queue_name, IPCDirection direction, bool send, bool create = false,
         int msg_size = MAX_MSG_SIZE
     );
     virtual ~POSIXMQChannel();

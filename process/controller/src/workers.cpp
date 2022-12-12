@@ -140,10 +140,10 @@ namespace praas::process {
 
     if (mode == runtime::ipc::IPCMode::POSIX_MQ) {
       _ipc_read = std::make_unique<runtime::ipc::POSIXMQChannel>(
-          ipc_name + "_read", runtime::ipc::IPCDirection::READ, true, ipc_msg_size
+          ipc_name + "_read", runtime::ipc::IPCDirection::READ, true, true, ipc_msg_size
       );
       _ipc_write = std::make_unique<runtime::ipc::POSIXMQChannel>(
-          ipc_name + "_write", runtime::ipc::IPCDirection::WRITE, true, ipc_msg_size
+          ipc_name + "_write", runtime::ipc::IPCDirection::WRITE, true, true, ipc_msg_size
       );
     }
 
