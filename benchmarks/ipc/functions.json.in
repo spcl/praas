@@ -1,0 +1,16 @@
+{
+  "functions": {
+    "cpp": {
+      "s3": {
+        "code": {
+          "module": "@PRAAS_DIRECTORY@/benchmarks/functions/libipc_functions.so",
+          "function": "s3_sender"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      }
+    }
+  }
+}
