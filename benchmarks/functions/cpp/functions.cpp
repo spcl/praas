@@ -15,7 +15,7 @@ extern "C" int no_op(praas::function::Invocation invocation, praas::function::Co
 
 extern "C" int no_op_local(praas::function::Invocation invocation, praas::function::Context& context)
 {
-  std::cerr << "Start benchmark" << std::endl;
+  std::cerr << "Start benchmark, input size " << invocation.args[0].len << std::endl;
   Invocations in;
   invocation.args[0].deserialize(in);
   std::cerr << "Benchmark " << in.repetitions << " " << in.sizes[0] << std::endl;
