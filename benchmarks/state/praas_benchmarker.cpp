@@ -25,6 +25,7 @@ struct Config
   int process_port;
 
   std::string function_name;
+  std::string redis_hostname;
 
   std::string output_file;
 
@@ -38,6 +39,7 @@ struct Config
     ar(CEREAL_NVP(process_address));
     ar(CEREAL_NVP(process_port));
     ar(CEREAL_NVP(function_name));
+    ar(CEREAL_NVP(redis_hostname));
 
     ar(CEREAL_NVP(output_file));
   }
@@ -78,7 +80,7 @@ int main(int argc, char** argv)
 
     Invocations in;
     in.bucket = "praas-communication";
-    in.redis_hostname = "";
+    in.redis_hostname = cfg.redis_hostname;
     in.data.resize(size);
     for(int i = 0; i < size; ++i)
       in.data[i] = i + 1;
@@ -95,10 +97,13 @@ int main(int argc, char** argv)
 
       measurements.emplace_back();
       for(int i = 0; i  < cfg.repetitions + 1; ++i) {
- 
+
         auto begin = std::chrono::high_resolution_clock::now();
         for(int j = 0; j < msg; ++j) {
           auto result = proc.invoke(cfg.function_name, "id", input_receiver.data(), input_receiver.length());
+          if(result.return_code != 0) {
+            abort();
+          }
         }
         auto end = std::chrono::high_resolution_clock::now();
         if(i > 0)

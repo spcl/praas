@@ -154,6 +154,47 @@ extern "C" int s3_sender(praas::function::Invocation invocation, praas::function
 
   return 0;
 }
+redisContext* r_context = nullptr;
+
+extern "C" int redis_sender(praas::function::Invocation invocation, praas::function::Context& context)
+{
+  Invocations in;
+  invocation.args[0].deserialize(in);
+  //std::cerr << "Start benchmark, input size " << invocation.args[0].len << " data size" << in.data.size() << std::endl;
+  if(!r_context) {
+    r_context = redisConnect(in.redis_hostname.c_str(), 6379);
+    if (r_context == nullptr || r_context->err) {
+      if (r_context) {
+        std::cerr << "Redis Error: " << r_context->errstr << '\n';
+      } else {
+        std::cerr << "Can't allocate redis context\n";
+      }
+      return 1;
+    }
+    result = new std::vector<long>();
+  }
+  if(result->size() != in.data.size()) {
+    result->resize(in.data.size());
+    memset(result->data(), 0, sizeof(long)*in.data.size());
+  }
+
+  // Now perform the accumulation
+  for(int i = 0; i < in.data.size(); ++i) {
+    (*result)[i] += in.data[i];
+  }
+
+  // Save the result in S3
+  std::string key = fmt::format("reduce_result_{}", result->size());
+  //s3_send(*client, in.bucket, key, result->size() * sizeof(long), reinterpret_cast<char*>(result->data()));
+  if(!redis_send(r_context, key, result->size() * sizeof(long), reinterpret_cast<char*>(result->data())))
+    return 1;
+
+  //Results res;
+  //auto& output_buf = context.get_output_buffer(in.repetitions * in.sizes.size() * sizeof(long) *2 + 64);
+  //output_buf.serialize(res);
+
+  return 0;
+}
 
 extern "C" int put_sender(praas::function::Invocation invocation, praas::function::Context& context)
 {
