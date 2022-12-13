@@ -357,38 +357,65 @@ namespace praas::process {
             },
             [&, this](runtime::ipc::GetRequestParsed& req) mutable {
 
-              auto buf = _mailbox.try_get(
-                  std::string{req.name()},
-                  req.process_id() == SELF_PROCESS ? _process_id : req.process_id()
-              );
-              if(buf.has_value()) {
-                runtime::ipc::GetRequest return_req;
-                return_req.process_id(req.process_id());
-                return_req.name(req.name());
+              if(req.state()) {
 
-                SPDLOG_LOGGER_DEBUG(_logger, "Returned message for key {}, source {}, length {}", req.name(), req.process_id(), buf.value().len);
-                worker.ipc_write().send(return_req, std::move(buf.value()));
-              } else {
-
-                _pending_msgs.insert_get(
-                    std::string{req.name()},
-                    req.process_id() == SELF_PROCESS ? _process_id : req.process_id(),
-                    worker
+                auto* buf = _mailbox.try_state(
+                    std::string{req.name()}
                 );
-                SPDLOG_LOGGER_DEBUG(_logger, "Stored pending message for key {}, source {}", req.name(), req.process_id());
-                //if(!succ) {
-                //  _logger->error("Could not store a pending get request, with key {} and source {}",
-                //      req.name(), req.process_id()
-                //  );
+                if(buf) {
 
-                //  runtime::ipc::GetRequest req;
-                //  req.process_id(req.process_id());
-                //  req.name(req.name());
-                //  req.data_len(-1);
+                  runtime::ipc::GetRequest return_req;
+                  return_req.name(req.name());
+                  return_req.state(true);
 
-                //  worker.ipc_write().send(req, runtime::BufferAccessor<char>{});
-                //} else {
-                //}
+                  // Send
+                  worker.ipc_write().send(return_req, buf->accessor<char>());
+
+                } else {
+
+                  runtime::ipc::GetRequest return_req;
+                  return_req.name(req.name());
+                  return_req.state(true);
+
+                  // Send
+                  worker.ipc_write().send(return_req);
+
+                }
+
+              } else {
+                auto buf = _mailbox.try_get(
+                    std::string{req.name()},
+                    req.process_id() == SELF_PROCESS ? _process_id : req.process_id()
+                );
+                if(buf.has_value()) {
+                  runtime::ipc::GetRequest return_req;
+                  return_req.process_id(req.process_id());
+                  return_req.name(req.name());
+
+                  SPDLOG_LOGGER_DEBUG(_logger, "Returned message for key {}, source {}, length {}", req.name(), req.process_id(), buf.value().len);
+                  worker.ipc_write().send(return_req, std::move(buf.value()));
+                } else {
+
+                  _pending_msgs.insert_get(
+                      std::string{req.name()},
+                      req.process_id() == SELF_PROCESS ? _process_id : req.process_id(),
+                      worker
+                  );
+                  SPDLOG_LOGGER_DEBUG(_logger, "Stored pending message for key {}, source {}", req.name(), req.process_id());
+                  //if(!succ) {
+                  //  _logger->error("Could not store a pending get request, with key {} and source {}",
+                  //      req.name(), req.process_id()
+                  //  );
+
+                  //  runtime::ipc::GetRequest req;
+                  //  req.process_id(req.process_id());
+                  //  req.name(req.name());
+                  //  req.data_len(-1);
+
+                  //  worker.ipc_write().send(req, runtime::BufferAccessor<char>{});
+                  //} else {
+                  //}
+                }
               }
             },
             [this](auto&) { _logger->error("Received unsupported message!"); }},
@@ -552,8 +579,21 @@ namespace praas::process {
       _logger,
       "Process put message with key {}, payload size {}", req.name(), payload.len
     );
-    // local message
-    if(req.process_id() == SELF_PROCESS || req.process_id() == _process_id) {
+    // local message or state message
+    if(req.state()) {
+
+      int length = payload.len;
+      bool success = _mailbox.state(std::string{req.name()}, payload);
+      if(!success) {
+        _logger->error("Could not store state message to itself, with key {}", req.name());
+      } else {
+        SPDLOG_LOGGER_DEBUG(
+          _logger,
+          "Stored a state message to {}, with key {}, length {}", _process_id, req.name(), length
+        );
+      }
+
+    } else if(req.process_id() == SELF_PROCESS || req.process_id() == _process_id) {
 
       // Is there are pending message for this message?
       const FunctionWorker* pending_worker = _pending_msgs.find_get(std::string{req.name()}, _process_id);

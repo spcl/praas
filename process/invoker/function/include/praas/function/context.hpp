@@ -28,6 +28,10 @@ namespace praas::function {
     // the location of the message.
     void put(std::string_view destination, std::string_view msg_key, Buffer buf);
 
+    void state(std::string_view msg_key, Buffer buf);
+
+    Buffer state(std::string_view msg_key);
+
     // Non-owning!
     Buffer get(std::string_view source, std::string_view msg_key);
 

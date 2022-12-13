@@ -74,6 +74,11 @@ namespace praas::process::runtime::ipc {
     return *reinterpret_cast<const int32_t*>(buf);
   }
 
+  bool GenericRequestParsed::state() const
+  {
+    return *reinterpret_cast<const bool*>(buf + Message::NAME_LENGTH*2 + 4);
+  }
+
   std::string_view GenericRequestParsed::process_id() const
   {
     return std::string_view{// NOLINTNEXTLINE
@@ -91,6 +96,11 @@ namespace praas::process::runtime::ipc {
   {
     // NOLINTNEXTLINE
     *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET) = len;
+  }
+
+  void GenericRequest::state(bool val)
+  {
+    *reinterpret_cast<bool*>(data.data() + HEADER_OFFSET + Message::NAME_LENGTH*2 + 4) = val;
   }
 
   void GenericRequest::process_id(std::string_view process_id)

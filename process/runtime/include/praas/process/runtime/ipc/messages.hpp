@@ -89,6 +89,7 @@ namespace praas::process::runtime::ipc {
     int32_t data_len() const;
     std::string_view process_id() const;
     std::string_view name() const;
+    bool state() const;
   };
 
   struct GenericRequest : Message, GenericRequestParsed {
@@ -96,11 +97,14 @@ namespace praas::process::runtime::ipc {
     GenericRequest(Type msg_type)
         : Message(msg_type), GenericRequestParsed(this->data.data() + HEADER_OFFSET)
     {
+      // FIXME: - default options
+      state(false);
     }
 
     void data_len(int32_t);
     void process_id(std::string_view);
     void name(std::string_view);
+    void state(bool);
   };
 
   struct GetRequestParsed : GenericRequestParsed {
@@ -115,9 +119,11 @@ namespace praas::process::runtime::ipc {
     using GenericRequest::data_len;
     using GenericRequest::name;
     using GenericRequest::process_id;
+    using GenericRequest::state;
     using GenericRequestParsed::data_len;
     using GenericRequestParsed::name;
     using GenericRequestParsed::process_id;
+    using GenericRequestParsed::state;
 
     static constexpr Type TYPE = Type::GET_REQUEST;
   };

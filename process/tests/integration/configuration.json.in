@@ -262,6 +262,26 @@
           "type": "direct",
           "nargs": 1
         }
+      },
+      "state": {
+        "code": {
+          "module": "@PRAAS_DIRECTORY@/process/tests/examples/libexample_cpp.so",
+          "function": "state"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
+      "state_get": {
+        "code": {
+          "module": "@PRAAS_DIRECTORY@/process/tests/examples/libexample_cpp.so",
+          "function": "state_get"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
       }
     }
   }
