@@ -51,6 +51,55 @@ namespace praas::function {
     }
   }
 
+  void Context::state(std::string_view msg_key, Buffer buf)
+  {
+    process::runtime::ipc::PutRequest req;
+    req.name(msg_key);
+    req.data_len(buf.len);
+    req.state(true);
+
+    // find the buffer
+    for (auto& user_buf : _user_buffers) {
+      if (user_buf.data() == buf.ptr) {
+        user_buf.len = buf.len;
+        _invoker.put(req, user_buf);
+        return;
+      }
+    }
+    // Buffer not found
+    throw common::PraaSException{"Submitted put request with a non-existing buffer!"};
+  }
+
+  Buffer Context::state(std::string_view msg_key)
+  {
+    process::runtime::ipc::GetRequest req;
+    req.name(msg_key);
+    req.state(true);
+
+    auto [request, data] = _invoker.get(req);
+
+    if(req.data_len() < 0) {
+      throw common::FunctionGetFailure(fmt::format(
+          "Get failed!"
+      ));
+    }
+
+    if (req.name() != request.name()) {
+      throw common::FunctionGetFailure(
+          fmt::format("Received incorrect get result - incorrect name id {}", request.name())
+      );
+    }
+
+    if(data.len != 0) {
+      _user_buffers.push_back(std::move(data));
+      auto& buf = _user_buffers.back();
+      return Buffer{buf.ptr.get(), buf.len, buf.size};
+    } else {
+      return Buffer{};
+    }
+
+  }
+
   void
   Context::put(std::string_view destination, std::string_view msg_key, std::byte* ptr, size_t size)
   {

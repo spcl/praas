@@ -76,6 +76,12 @@ namespace praas::process::message {
     return success;
   }
 
+  bool MessageStore::state(const std::string& key, runtime::Buffer<char> & payload)
+  {
+    auto [it, success] = _msgs.try_emplace(key, "", std::move(payload));
+    return success;
+  }
+
   std::optional<runtime::Buffer<char>>
   MessageStore::try_get(const std::string& key, std::string_view source)
   {
@@ -91,6 +97,17 @@ namespace praas::process::message {
     auto buf = std::move((*it).second.data);
     _msgs.erase(it);
     return buf;
+  }
+
+  runtime::Buffer<char>* MessageStore::try_state(const std::string& key)
+  {
+    auto it = _msgs.find(key);
+    if (it == _msgs.end()) {
+      return nullptr;
+    }
+
+    // Copy, do not move
+    return &(*it).second.data;
   }
 
 } // namespace praas::process::message

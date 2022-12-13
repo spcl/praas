@@ -91,7 +91,11 @@ namespace praas::process::message {
 
     bool put(const std::string& key, const std::string& source, runtime::Buffer<char> & payload);
 
+    bool state(const std::string& key, runtime::Buffer<char> & payload);
+
     std::optional<runtime::Buffer<char>> try_get(const std::string& key, std::string_view source);
+
+    runtime::Buffer<char>* try_state(const std::string& key);
 
   private:
     std::unordered_map<std::string, Message> _msgs;

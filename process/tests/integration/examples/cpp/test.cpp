@@ -103,6 +103,65 @@ extern "C" int get_message(praas::function::Invocation invoc, praas::function::C
   return get_message(invoc, context.process_id(), context);
 }
 
+extern "C" int state(praas::function::Invocation invoc, praas::function::Context& context)
+{
+  InputMsgKey key;
+  invoc.args[0].deserialize(key);
+
+  praas::function::Buffer buf = context.state(key.message_key);
+  std::cerr << buf.ptr << " " << buf.len << std::endl;
+  if(buf.len != 0) {
+    return 1;
+  }
+
+  auto send_buf = context.get_buffer(1024);
+  ((int*)send_buf.ptr)[0] = 42;
+  ((int*)send_buf.ptr)[1] = 33;
+  send_buf.len = sizeof(int)*2;
+
+  context.state(key.message_key, send_buf);
+
+  // Now get
+  auto rcv_buf = context.state(key.message_key);
+  std::cerr << rcv_buf.ptr << " " << rcv_buf.len << std::endl;
+  if(!rcv_buf.ptr || rcv_buf.len != sizeof(int)*2) {
+    return 1;
+  }
+  auto ptr = ((int*)rcv_buf.ptr);
+  if(ptr[0] != 42 || ptr[1] != 33)
+    return 1;
+
+  // Now get once more
+  auto rcv_buf2 = context.state(key.message_key);
+  std::cerr << rcv_buf2.ptr << " " << rcv_buf2.len << std::endl;
+  if(!rcv_buf2.ptr || rcv_buf2.len != sizeof(int)*2) {
+    return 1;
+  }
+  ptr = ((int*)rcv_buf2.ptr);
+  if(ptr[0] != 42 || ptr[1] != 33)
+    return 1;
+
+  return 0;
+}
+
+extern "C" int state_get(praas::function::Invocation invoc, praas::function::Context& context)
+{
+  InputMsgKey key;
+  invoc.args[0].deserialize(key);
+
+  // Now get
+  auto rcv_buf = context.state(key.message_key);
+  std::cerr << rcv_buf.ptr << " " << rcv_buf.len << std::endl;
+  if(!rcv_buf.ptr || rcv_buf.len != sizeof(int)*2) {
+    return 1;
+  }
+  auto ptr = ((int*)rcv_buf.ptr);
+  if(ptr[0] != 42 || ptr[1] != 33)
+    return 1;
+
+  return 0;
+}
+
 // Computes arg1 ** arg2
 extern "C" int power(praas::function::Invocation invocation, praas::function::Context& context)
 {
