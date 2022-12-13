@@ -57,7 +57,9 @@ namespace praas::sdk {
     msg.payload_size(len);
 
     _dataplane.write_n(msg.bytes(), msg.BUF_SIZE);
-    _dataplane.write_n(ptr, len);
+    if(len > 0) {
+      _dataplane.write_n(ptr, len);
+    }
 
     // FIXME: fix message parsing
     praas::common::message::Message response;
