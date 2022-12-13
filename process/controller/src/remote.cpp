@@ -510,7 +510,7 @@ namespace praas::process::remote {
       }
     }
 
-    _logger->info("Submit invocation result of {}", invocation_id);
+    //_logger->info("Submit invocation result of {}", invocation_id);
     praas::common::message::InvocationResult req;
     req.invocation_id(invocation_id);
     // FIXME: eliminate that
