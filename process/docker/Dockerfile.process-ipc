@@ -17,7 +17,7 @@ FROM ubuntu:22.04
 COPY --from=builder /opt /opt
 COPY --from=builder /praas /praas
 
-RUN apt-get update && apt-get install -y --no-install-recommends libcurl4  ca-certificates
+RUN apt-get update && apt-get install -y --no-install-recommends libcurl4 ca-certificates hiredis0.14
 
 ENTRYPOINT ["/praas/process/bin/process_exe", "-c", "/praas/benchmarks/ipc/config.json"]
 
