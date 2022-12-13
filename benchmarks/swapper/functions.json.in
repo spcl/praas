@@ -1,0 +1,36 @@
+{
+  "functions": {
+    "cpp": {
+      "aws_sdk_init": {
+        "code": {
+          "module": "@PRAAS_DIRECTORY@/benchmarks/functions/libswapper_functions.so",
+          "function": "aws_sdk_init"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
+      "s3_swapper": {
+        "code": {
+          "module": "@PRAAS_DIRECTORY@/benchmarks/functions/libswapper_functions.so",
+          "function": "s3_swapper"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
+      "s3_sync_swapper": {
+        "code": {
+          "module": "@PRAAS_DIRECTORY@/benchmarks/functions/libswapper_functions.so",
+          "function": "s3_sync_swapper"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      }
+    }
+  }
+}
