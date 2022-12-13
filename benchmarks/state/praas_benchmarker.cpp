@@ -95,11 +95,12 @@ int main(int argc, char** argv)
 
       measurements.emplace_back();
       for(int i = 0; i  < cfg.repetitions + 1; ++i) {
-
+ 
         auto begin = std::chrono::high_resolution_clock::now();
-        auto result = proc.invoke(cfg.function_name, "id", input_receiver.data(), input_receiver.length());
+        for(int j = 0; j < msg; ++j) {
+          auto result = proc.invoke(cfg.function_name, "id", input_receiver.data(), input_receiver.length());
+        }
         auto end = std::chrono::high_resolution_clock::now();
-
         if(i > 0)
           measurements.back().emplace_back(
             std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count()
