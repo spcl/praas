@@ -1,4 +1,5 @@
 
+#include <praas/function/buffer.hpp>
 #include <praas/function/invocation.hpp>
 #include <praas/function/context.hpp>
 
@@ -114,6 +115,7 @@ long s3_receive(Aws::S3::S3Client& client, Aws::String const &bucket, Aws::Strin
 
 std::vector<long>* result;
 Aws::S3::S3Client* client;
+praas::function::Buffer buffer{};
 
 extern "C" int aws_sdk_init(praas::function::Invocation invocation, praas::function::Context& context)
 {
@@ -130,7 +132,7 @@ extern "C" int s3_sender(praas::function::Invocation invocation, praas::function
 {
   Invocations in;
   invocation.args[0].deserialize(in);
-  std::cerr << "Start benchmark, input size " << invocation.args[0].len << " data size" << in.data.size() << std::endl;
+  //std::cerr << "Start benchmark, input size " << invocation.args[0].len << " data size" << in.data.size() << std::endl;
 
   if(result->size() != in.data.size()) {
     result->resize(in.data.size());
@@ -145,6 +147,34 @@ extern "C" int s3_sender(praas::function::Invocation invocation, praas::function
   // Save the result in S3
   Aws::String key = fmt::format("reduce_result_{}", result->size());
   s3_send(*client, in.bucket, key, result->size() * sizeof(long), reinterpret_cast<char*>(result->data()));
+
+  //Results res;
+  //auto& output_buf = context.get_output_buffer(in.repetitions * in.sizes.size() * sizeof(long) *2 + 64);
+  //output_buf.serialize(res);
+
+  return 0;
+}
+
+extern "C" int put_sender(praas::function::Invocation invocation, praas::function::Context& context)
+{
+  Invocations in;
+  invocation.args[0].deserialize(in);
+  std::cerr << "Start benchmark, input size " << invocation.args[0].len << " data size" << in.data.size() << std::endl;
+
+  if(buffer.len != in.data.size()) {
+    buffer = context.get_buffer(sizeof(long)*in.data.size());
+    memset((char*)buffer.ptr, 0, sizeof(long)*in.data.size());
+    buffer.len = sizeof(long)*in.data.size();
+  }
+
+  // Now perform the accumulation
+  for(int i = 0; i < in.data.size(); ++i) {
+    ((long*)buffer.ptr)[i] += in.data[i];
+  }
+
+  // Save the result in S3
+  std::string key = fmt::format("reduce_result_{}", buffer.len);
+  context.state(key, buffer);
 
   //Results res;
   //auto& output_buf = context.get_output_buffer(in.repetitions * in.sizes.size() * sizeof(long) *2 + 64);

@@ -1,6 +1,6 @@
 {
-  "sizes": [2048],
-  "messages": [5],
+  "sizes": [10, 100],
+  "messages": [1, 5, 10, 25, 26],
   "repetitions": 10,
   "process_address": "127.0.0.1",
   "process_port": 8000,

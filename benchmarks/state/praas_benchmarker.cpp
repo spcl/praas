@@ -69,7 +69,8 @@ int main(int argc, char** argv)
   }
 
   std::vector< std::vector<long> > measurements;
-  auto result = proc.invoke("aws_sdk_init", "id", nullptr, 0);
+  if(cfg.function_name == "s3_sender")
+    auto result = proc.invoke("aws_sdk_init", "id", nullptr, 0);
 
   for(int size : cfg.sizes) {
 

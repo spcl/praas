@@ -20,6 +20,16 @@
           "type": "direct",
           "nargs": 1
         }
+      },
+      "put_sender": {
+        "code": {
+          "module": "@PRAAS_DIRECTORY@/benchmarks/functions/libstate_functions.so",
+          "function": "put_sender"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
       }
     }
   }
