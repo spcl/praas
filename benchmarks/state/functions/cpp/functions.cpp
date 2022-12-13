@@ -132,7 +132,7 @@ extern "C" int s3_sender(praas::function::Invocation invocation, praas::function
   invocation.args[0].deserialize(in);
   std::cerr << "Start benchmark, input size " << invocation.args[0].len << " data size" << in.data.size() << std::endl;
 
-  if(result->size() == 0) {
+  if(result->size() != in.data.size()) {
     result->resize(in.data.size());
     memset(result->data(), 0, sizeof(long)*in.data.size());
   }
