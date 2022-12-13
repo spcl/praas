@@ -44,3 +44,8 @@ add_executable(comm_praas_benchmarker ipc/praas_benchmarker.cpp)
 target_link_libraries(comm_praas_benchmarker PUBLIC spdlog::spdlog)
 target_link_libraries(comm_praas_benchmarker PUBLIC cereal::cereal)
 target_link_libraries(comm_praas_benchmarker PRIVATE praas_sdk)
+
+add_executable(redis_praas_benchmarker ipc/redis_benchmarker.cpp)
+target_link_libraries(redis_praas_benchmarker PUBLIC spdlog::spdlog)
+target_link_libraries(redis_praas_benchmarker PUBLIC cereal::cereal)
+target_link_libraries(redis_praas_benchmarker PRIVATE praas_sdk)
