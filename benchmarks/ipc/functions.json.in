@@ -10,6 +10,16 @@
           "type": "direct",
           "nargs": 1
         }
+      },
+      "put_get": {
+        "code": {
+          "module": "@PRAAS_DIRECTORY@/benchmarks/functions/libipc_functions.so",
+          "function": "put_get"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
       }
     }
   }

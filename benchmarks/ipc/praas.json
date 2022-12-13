@@ -1,0 +1,10 @@
+{
+  "sizes": [2048],
+  "repetitions": 100,
+  "process_address_sender": "127.0.0.1",
+  "process_port_sender": 8000,
+  "process_address_receiver": "127.0.0.1",
+  "process_port_receiver": 8001,
+  "function_name": "put_get",
+  "output_file": "put_get_fargate.csv"
+}

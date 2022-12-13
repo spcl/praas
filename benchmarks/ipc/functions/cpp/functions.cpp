@@ -135,3 +135,66 @@ extern "C" int s3_sender(praas::function::Invocation invocation, praas::function
   return 0;
 }
 
+extern "C" int put_get(praas::function::Invocation invoc, praas::function::Context& context)
+{
+  std::string other_process_id;
+  if(context.active_processes()[0] == context.process_id()) {
+    other_process_id = context.active_processes()[1];
+  } else {
+    other_process_id = context.active_processes()[0];
+  }
+
+  Invocations in;
+  invoc.args[0].deserialize(in);
+  std::cerr << "Start benchmark, input size " << invoc.args[0].len << " my id "
+    << context.process_id() << " other id " << other_process_id << std::endl;
+
+  praas::function::Buffer buf = context.get_buffer(in.sizes.back());
+  Results res;
+
+  for(int size : in.sizes) {
+
+    buf.len = size;
+
+    res.measurements.emplace_back();
+    auto my_id = context.process_id();
+    for(int i = 0; i  < in.repetitions + 1; ++i) {
+
+      std::string msg_key = fmt::format("send_{}_{}", size, i);
+      std::string second_key = fmt::format("recv_{}_{}", size, i);
+
+      int retries = 0;
+      auto begin = std::chrono::high_resolution_clock::now();
+      if(in.sender) {
+        context.put(other_process_id, msg_key, buf.ptr, buf.len);
+        praas::function::Buffer get_buf = context.get(praas::function::Context::ANY, second_key);
+        if(get_buf.len <= 0)
+          return 1;
+      } else {
+        praas::function::Buffer get_buf = context.get(praas::function::Context::ANY, msg_key);
+        if(get_buf.len <= 0)
+          return 1;
+        context.put(other_process_id, second_key, buf.ptr, buf.len);
+      }
+      auto end = std::chrono::high_resolution_clock::now();
+
+      if(i > 0)
+        res.measurements.back().emplace_back(
+          std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count(),
+          0
+        );
+
+      if(i % 10 == 0) {
+       std::cerr << i << std::endl;
+      }
+
+    }
+
+  }
+
+  auto& output_buf = context.get_output_buffer(in.repetitions * in.sizes.size() * sizeof(long) *2 + 64);
+  output_buf.serialize(res);
+
+  return 0;
+}
+

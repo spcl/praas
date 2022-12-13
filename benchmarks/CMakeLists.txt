@@ -39,3 +39,8 @@ target_link_libraries(comm_benchmarker PUBLIC cereal::cereal)
 target_link_libraries(comm_benchmarker PRIVATE praas_sdk)
 configure_file(ipc/config.json.in ipc/config.json @ONLY)
 configure_file(ipc/functions.json.in ipc/functions.json @ONLY)
+
+add_executable(comm_praas_benchmarker ipc/praas_benchmarker.cpp)
+target_link_libraries(comm_praas_benchmarker PUBLIC spdlog::spdlog)
+target_link_libraries(comm_praas_benchmarker PUBLIC cereal::cereal)
+target_link_libraries(comm_praas_benchmarker PRIVATE praas_sdk)
