@@ -1,0 +1,26 @@
+{
+  "functions": {
+    "cpp": {
+      "aws_sdk_init": {
+        "code": {
+          "module": "@PRAAS_DIRECTORY@/benchmarks/functions/libstate_functions.so",
+          "function": "aws_sdk_init"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
+      "s3_sender": {
+        "code": {
+          "module": "@PRAAS_DIRECTORY@/benchmarks/functions/libstate_functions.so",
+          "function": "s3_sender"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      }
+    }
+  }
+}

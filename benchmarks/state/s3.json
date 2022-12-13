@@ -1,0 +1,9 @@
+{
+  "sizes": [2048],
+  "messages": [5],
+  "repetitions": 10,
+  "process_address": "127.0.0.1",
+  "process_port": 8000,
+  "function_name": "s3_sender",
+  "output_file": "state_s3_fargate.csv"
+}
