@@ -1,0 +1,11 @@
+{
+  "sizes": [2048],
+  "repetitions": 100,
+  "process_address_sender": "127.0.0.1",
+  "process_port_sender": 8000,
+  "process_address_receiver": "127.0.0.1",
+  "process_port_receiver": 8001,
+  "redis_hostname": "127.0.0.1",
+  "function_name": "redis_sender",
+  "output_file": "redis_fargate.csv"
+}

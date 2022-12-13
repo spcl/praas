@@ -10,9 +10,57 @@
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/PutObjectRequest.h>
 #include <aws/s3/model/GetObjectRequest.h>
+#include <hiredis/hiredis.h>
 #include <spdlog/fmt/bundled/core.h>
 
 #include "types.hpp"
+
+bool redis_send(redisContext* context, std::string const &key, int size, char* pBuf)
+{
+
+  std::string comm = "SET " + key + " %b";
+
+  redisReply* reply = (redisReply*) redisCommand(context, comm.c_str(), pBuf, size);
+
+  if (reply->type == REDIS_REPLY_NIL || reply->type == REDIS_REPLY_ERROR) {
+    std::cerr << "Failed to write in Redis!" << std::endl;
+    return false;
+  }
+  freeReplyObject(reply);
+  return true;
+}
+
+long redis_receive(redisContext* context, std::string const &key, int &required_retries, bool with_backoff)
+{
+  std::string comm = "GET " + key;
+  int retries = 0;
+  const int MAX_RETRIES = 50000;
+
+  auto begin = std::chrono::high_resolution_clock::now();
+  while (retries < MAX_RETRIES) {
+
+    redisReply* reply = (redisReply*) redisCommand(context, comm.c_str());
+
+    if (reply->type == REDIS_REPLY_NIL || reply->type == REDIS_REPLY_ERROR) {
+
+      retries += 1;
+      if(with_backoff) {
+        int sleep_time = retries;
+        //if (retries > 100) {
+        //    sleep_time = retries * 2;
+        //}
+        std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
+      }
+
+    } else {
+      auto end = std::chrono::high_resolution_clock::now();
+      freeReplyObject(reply);
+      return std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count();
+    }
+    freeReplyObject(reply);
+  }
+  return 0;
+}
 
 bool s3_send(Aws::S3::S3Client& client, Aws::String const &bucket, Aws::String const &key, int size, char* pBuf)
 {
@@ -131,6 +179,78 @@ extern "C" int s3_sender(praas::function::Invocation invocation, praas::function
   }
   Aws::ShutdownAPI(options);
 
+
+  return 0;
+}
+
+extern "C" int redis_sender(praas::function::Invocation invocation, praas::function::Context& context)
+{
+  Invocations in;
+  invocation.args[0].deserialize(in);
+  std::cerr << "Start benchmark, input size " << invocation.args[0].len << " bucket " << in.bucket << std::endl;
+
+  redisContext* r_context = redisConnect(in.redis_hostname.c_str(), 6379);
+  if (r_context == nullptr || r_context->err) {
+    if (r_context) {
+      std::cerr << "Redis Error: " << r_context->errstr << '\n';
+    } else {
+      std::cerr << "Can't allocate redis context\n";
+    }
+    return 1;
+  }
+
+  Results res;
+
+  std::cerr << "Max size " << in.sizes.back() << std::endl;
+  std::unique_ptr<char[]> ptr{new char[in.sizes.back()]};
+
+  long poll_time = 0;
+  for(int size : in.sizes) {
+
+    res.measurements.emplace_back();
+    auto my_id = context.process_id();
+    for(int i = 0; i  < in.repetitions + 1; ++i) {
+
+      std::string first_key = fmt::format("send_{}_{}", size, i);
+      std::string second_key = fmt::format("recv_{}_{}", size, i);
+
+      int retries = 0;
+      auto begin = std::chrono::high_resolution_clock::now();
+      if(in.sender) {
+        if(!redis_send(r_context, first_key, size, ptr.get())) {
+          return 1;
+        }
+        poll_time = redis_receive(r_context, second_key, retries, true);
+        if(poll_time <= 0) {
+          return 1;
+        }
+      } else {
+        poll_time = redis_receive(r_context, first_key, retries, true);
+        if(poll_time <= 0) {
+          return 1;
+        }
+        if(!redis_send(r_context, second_key, size, ptr.get())) {
+          return 1;
+        }
+      }
+      auto end = std::chrono::high_resolution_clock::now();
+
+      if(i > 0)
+        res.measurements.back().emplace_back(
+          std::chrono::duration_cast<std::chrono::nanoseconds>(end-begin).count(),
+          poll_time
+        );
+
+      if(i % 10 == 0) {
+       std::cerr << i << std::endl;
+      }
+
+    }
+
+  }
+
+  auto& output_buf = context.get_output_buffer(in.repetitions * in.sizes.size() * sizeof(long) *2 + 64);
+  output_buf.serialize(res);
 
   return 0;
 }

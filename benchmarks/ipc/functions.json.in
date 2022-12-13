@@ -20,6 +20,16 @@
           "type": "direct",
           "nargs": 1
         }
+      },
+      "redis_sender": {
+        "code": {
+          "module": "@PRAAS_DIRECTORY@/benchmarks/functions/libipc_functions.so",
+          "function": "redis_sender"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
       }
     }
   }

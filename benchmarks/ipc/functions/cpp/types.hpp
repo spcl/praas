@@ -10,6 +10,7 @@ struct Invocations
   std::string bucket;
   int repetitions;
   std::vector<int> sizes;
+  std::string redis_hostname;
 
   template<typename Ar>
   void load(Ar & archive)
@@ -18,6 +19,7 @@ struct Invocations
     archive(CEREAL_NVP(sizes));
     archive(CEREAL_NVP(sender));
     archive(CEREAL_NVP(bucket));
+    archive(CEREAL_NVP(redis_hostname));
   }
 
   template<typename Ar>
@@ -27,6 +29,7 @@ struct Invocations
     archive(CEREAL_NVP(sizes));
     archive(CEREAL_NVP(sender));
     archive(CEREAL_NVP(bucket));
+    archive(CEREAL_NVP(redis_hostname));
   }
 };
 
