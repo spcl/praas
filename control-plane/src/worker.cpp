@@ -68,6 +68,16 @@ namespace praas::control_plane::worker {
     return true;
   }
 
+  bool Workers::create_process(std::string app_name)
+  {
+    try {
+      _resources.add_application(Application{app_name});
+    } catch (common::PraaSException &) {
+     return false;
+    }
+    return true;
+  }
+
   void
   Workers::handle_invocation_result(const process::ProcessPtr& ptr, const praas::common::message::InvocationResultParsed&)
   {

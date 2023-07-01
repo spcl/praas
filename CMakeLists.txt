@@ -104,11 +104,13 @@ target_include_directories(common_library SYSTEM PRIVATE $<TARGET_PROPERTY:fmt::
 target_include_directories(common_library SYSTEM PRIVATE $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
 target_include_directories(common_library SYSTEM INTERFACE $<TARGET_PROPERTY:stduuid,INTERFACE_INCLUDE_DIRECTORIES>)
 target_include_directories(common_library SYSTEM PUBLIC $<TARGET_PROPERTY:cereal::cereal,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(common_library SYSTEM PUBLIC $<TARGET_PROPERTY:Drogon::Drogon,INTERFACE_INCLUDE_DIRECTORIES>)
 set_target_properties(common_library PROPERTIES RUNTIME_OUTPUT_DIRECTORY lib)
 target_link_libraries(common_library PRIVATE fmt::fmt)
 target_link_libraries(common_library PRIVATE cereal::cereal)
 target_link_libraries(common_library PRIVATE spdlog::spdlog)
 target_link_libraries(common_library PRIVATE stduuid)
+target_link_libraries(common_library PRIVATE Drogon::Drogon)
 
 if(PRAAS_WITH_TESTING)
 

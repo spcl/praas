@@ -50,6 +50,12 @@ namespace praas::control_plane::worker {
       );
     }
 
+    template<typename F>
+    void add_task(F && f)
+    {
+      _pool.push_task(std::forward<F>(f));
+    }
+
     void handle_invocation(
       HttpServer::request_t request,
       HttpServer::callback_t && callback,
@@ -58,6 +64,8 @@ namespace praas::control_plane::worker {
     );
 
     bool create_application(std::string name);
+
+    bool create_process(std::string name);
 
   private:
     // Looks up the associated invocation in a process and calls the callback.

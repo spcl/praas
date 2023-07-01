@@ -63,20 +63,51 @@ namespace praas::control_plane {
   }
 
   void HttpServer::create_app(
-    const drogon::HttpRequestPtr& req,
-    std::function<void(const drogon::HttpResponsePtr&)>&& callback
+    const drogon::HttpRequestPtr& request,
+    std::function<void(const drogon::HttpResponsePtr&)>&& callback,
+    std::string app_name
   )
   {
-    std::string app_name = req->getParameter("name");
-    if(app_name.empty()) {
+    // FIXME: store
+    std::string container_name = request->getParameter("container_name");
+    if(container_name.empty()) {
       callback(failed_response("Missing arguments!"));
     }
 
-    if(_workers.create_application(app_name)) {
-      callback(correct_response("Created"));
-    } else {
-      callback(correct_response("Failed to create"));
-    }
+    _logger->info("Create new application {}", app_name);
+    _workers.add_task(
+      [callback=std::move(callback), app_name, this]() {
+        if(_workers.create_application(app_name)) {
+          callback(correct_response("Created"));
+        } else {
+          callback(correct_response("Failed to create"));
+        }
+      }
+    );
+  }
+
+  void HttpServer::create_process(
+    const drogon::HttpRequestPtr&,
+    std::function<void(const drogon::HttpResponsePtr&)>&& callback,
+    std::string app_id,
+    std::string process_id
+  )
+  {
+    //std::string proc_name = req->getParameter("name");
+    //if(proc_name.empty()) {
+    //  callback(failed_response("Missing arguments!"));
+    //}
+
+    //_logger->info("Create new process {}", proc_name);
+    //_workers.add_task(
+    //  &worker::Workers::create_process,
+    //  request, std::move(callback), proc_name
+    //);
+    //if(_workers.create_application(app_name)) {
+    //  callback(correct_response("Created"));
+    //} else {
+    //  callback(correct_response("Failed to create"));
+    //}
   }
 
   void HttpServer::invoke(
@@ -94,6 +125,43 @@ namespace praas::control_plane {
       &worker::Workers::handle_invocation,
       request, std::move(callback), app_id, fname
     );
+  }
+
+  void HttpServer::delete_process(
+    const drogon::HttpRequestPtr&,
+    std::function<void(const drogon::HttpResponsePtr&)>&& callback,
+    std::string app_id,
+    std::string process_id
+  )
+  {
+
+  }
+
+  void HttpServer::swap_process(
+    const drogon::HttpRequestPtr&,
+    std::function<void(const drogon::HttpResponsePtr&)>&& callback,
+    std::string app_id,
+    std::string process_id
+  )
+  {
+
+  }
+
+  void HttpServer::list_processes(
+    const drogon::HttpRequestPtr&,
+    std::function<void(const drogon::HttpResponsePtr&)>&& callback,
+    std::string app_id
+  )
+  {
+
+  }
+
+  void HttpServer::list_apps(
+    const drogon::HttpRequestPtr&,
+    std::function<void(const drogon::HttpResponsePtr&)>&& callback
+  )
+  {
+
   }
 
 } // namespace praas::control_plane
