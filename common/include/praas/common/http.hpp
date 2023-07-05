@@ -13,7 +13,7 @@ namespace praas::common::http {
 
   struct HTTPClient {
 
-    typedef std::initializer_list<std::pair<std::string&&, std::string&&>> parameters_t;
+    using parameters_t = std::initializer_list<std::pair<std::string, std::string>>;
 
     HTTPClient(const std::string& address, trantor::EventLoop* loop);
 
@@ -22,6 +22,28 @@ namespace praas::common::http {
     {
       auto req = drogon::HttpRequest::newHttpRequest();
       req->setMethod(drogon::Put);
+      req->setPath(path);
+      request(req, std::forward<parameters_t>(params), std::forward<F>(callback));
+
+      return req;
+    }
+
+    template <typename F>
+    drogon::HttpRequestPtr post(const std::string& path, parameters_t&& params, F&& callback)
+    {
+      auto req = drogon::HttpRequest::newHttpRequest();
+      req->setMethod(drogon::Post);
+      req->setPath(path);
+      request(req, std::forward<parameters_t>(params), std::forward<F>(callback));
+
+      return req;
+    }
+
+    template <typename F>
+    drogon::HttpRequestPtr get(const std::string& path, parameters_t&& params, F&& callback)
+    {
+      auto req = drogon::HttpRequest::newHttpRequest();
+      req->setMethod(drogon::Get);
       req->setPath(path);
       request(req, std::forward<parameters_t>(params), std::forward<F>(callback));
 
