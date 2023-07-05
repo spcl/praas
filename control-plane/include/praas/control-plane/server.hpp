@@ -13,7 +13,7 @@ namespace praas::control_plane {
 
   struct Server {
 
-    Server(config::Config & cfg);
+    Server(config::Config& cfg);
 
     void run();
 
@@ -30,14 +30,12 @@ namespace praas::control_plane {
     }
 
   private:
-
     std::shared_ptr<spdlog::logger> _logger;
 
     Resources _resources;
 
     std::unique_ptr<backend::Backend> _backend;
 
-    // FIXME: template parameter
     std::unique_ptr<deployment::Deployment> _deployment;
 
     worker::Workers _workers;

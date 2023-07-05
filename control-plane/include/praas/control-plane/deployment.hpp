@@ -10,6 +10,12 @@
 
 #include <filesystem>
 
+namespace praas::control_plane::config {
+
+  struct Config;
+
+} // namespace praas::control_plane::config
+
 namespace praas::control_plane::state {
 
   struct DiskSwapLocation : public SwapLocation {
@@ -39,16 +45,21 @@ namespace praas::control_plane::deployment {
   class Deployment {
   public:
     virtual std::unique_ptr<state::SwapLocation> get_location(std::string process_name) = 0;
-    virtual void delete_swap(const state::SwapLocation &) = 0;
+    virtual void delete_swap(const state::SwapLocation&) = 0;
+
+    static std::unique_ptr<Deployment> construct(const config::Config& cfg);
   };
 
   class Local : public Deployment {
   public:
+    Local() = default;
+
+    // FIXME remove the fs path; we no longer need
     Local(std::string fs_path) : _path(fs_path) {}
 
     std::unique_ptr<state::SwapLocation> get_location(std::string process_name) override;
 
-    void delete_swap(const state::SwapLocation &) override;
+    void delete_swap(const state::SwapLocation&) override;
 
   private:
     std::filesystem::path _path;

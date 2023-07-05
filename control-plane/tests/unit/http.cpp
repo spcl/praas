@@ -24,13 +24,6 @@
 
 using namespace praas::control_plane;
 
-// class MockWorkers : public worker::Workers {
-// public:
-//   MockWorkers(Resources& resources, backend::Backend & backend):
-//     worker::Workers(config::Workers{}, backend, resources)
-//   {}
-// };
-
 class MockDeployment : public deployment::Deployment {
 public:
   MOCK_METHOD(std::unique_ptr<state::SwapLocation>, get_location, (std::string), (override));
@@ -57,6 +50,9 @@ protected:
     spdlog::set_level(spdlog::level::debug);
 
     praas::common::http::HTTPClientFactory::initialize(1);
+
+    ON_CALL(backend, max_memory()).WillByDefault(testing::Return(4096));
+    ON_CALL(backend, max_vcpus()).WillByDefault(testing::Return(4));
   }
 
   void TearDown() override
@@ -64,57 +60,37 @@ protected:
     praas::common::http::HTTPClientFactory::shutdown();
   }
 
+  std::unique_ptr<state::DiskSwapLocation> swap_loc{new state::DiskSwapLocation{"loc"}};
   Resources resources;
   MockBackend backend;
-  // MockWorkers workers{resources, backend};
-  worker::Workers workers{config::Workers{}, backend, resources};
   MockDeployment deployment;
+  worker::Workers workers{config::Workers{}, backend, deployment, resources};
 
   config::TCPServer config;
   tcpserver::TCPServer server{config, workers};
 };
 
-TEST_F(HttpServerTest, Create)
+TEST_F(HttpServerTest, CreateApp)
 {
-  // FIXME: config structure for http
   config::HTTPServer cfg;
   auto http_server = std::make_shared<HttpServer>(cfg, workers);
   http_server->run();
-
-  //_loop.run();
 
   std::this_thread::sleep_for(std::chrono::milliseconds(250));
 
   // Connect to the HTTP Server
   auto client =
       praas::common::http::HTTPClientFactory::create_client_shared("http://127.0.0.1", cfg.port);
-  //  drogon::HttpClient::newHttpClient(
-  //    fmt::format("http://127.0.0.1:{}/", cfg.port), _loop.getLoop(), false, false
-  //);
 
   // Create the application.
   {
-    // auto req = drogon::HttpRequest::newHttpRequest();
-    // req->setMethod(drogon::Put);
-    // req->setPath(fmt::format("/apps/{}", "app_id"));
-    // req->setParameter("container_name", "container_42");
-
-    // std::promise<void> p;
-    // client->sendRequest(
-    //     req,
-    //     [&p](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
-    //       EXPECT_EQ(result, drogon::ReqResult::Ok);
-    //       EXPECT_EQ(response.get()->getStatusCode(), drogon::k200OK);
-    //       p.set_value();
-    //     }
-    //);
-    // p.get_future().wait();
     std::promise<void> p;
     client.put(
-        fmt::format("/apps/{}", "app_id"), {{"container_name", "container_42"}},
+        fmt::format("/apps/{}", "app_id"), {{"cloud_resource_name", "container_42"}},
         [&p](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
           EXPECT_EQ(result, drogon::ReqResult::Ok);
           EXPECT_EQ(response.get()->getStatusCode(), drogon::k200OK);
+          std::cerr << response.get()->getBody() << std::endl;
           p.set_value();
         }
     );
@@ -125,10 +101,135 @@ TEST_F(HttpServerTest, Create)
     EXPECT_FALSE(acc.empty());
   }
 
-  // client.reset();
+  http_server->shutdown();
+}
 
-  //_loop.getLoop()->quit();
-  //_loop.wait();
+TEST_F(HttpServerTest, CreateProcess)
+{
+  config::HTTPServer cfg;
+  auto http_server = std::make_shared<HttpServer>(cfg, workers);
+  http_server->run();
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+  // Connect to the HTTP Server
+  auto client =
+      praas::common::http::HTTPClientFactory::create_client_shared("http://127.0.0.1", cfg.port);
+
+  // Create the application.
+  {
+    std::promise<void> promise_app, promise_proc;
+    client.put(
+        fmt::format("/apps/{}", "app_id42"), {{"cloud_resource_name", "container_42"}},
+        [&promise_app](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          EXPECT_EQ(result, drogon::ReqResult::Ok);
+          EXPECT_EQ(response.get()->getStatusCode(), drogon::k200OK);
+          promise_app.set_value();
+        }
+    );
+    client.put(
+        fmt::format("/apps/{}/processes/{}", "app_id42", "proc_id42"),
+        {{"vcpus", "1"}, {"memory", "1024"}},
+        [&promise_proc](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          EXPECT_EQ(result, drogon::ReqResult::Ok);
+          EXPECT_EQ(response.get()->getStatusCode(), drogon::k200OK);
+          std::cerr << response.get()->getBody() << std::endl;
+          promise_proc.set_value();
+        }
+    );
+    promise_app.get_future().wait();
+    promise_proc.get_future().wait();
+
+    Resources::ROAccessor acc;
+    resources.get_application("app_id42", acc);
+    ASSERT_FALSE(acc.empty());
+    EXPECT_EQ(acc.get()->name(), "app_id42");
+    auto [lock, proc] = acc.get()->get_process("proc_id42");
+    ASSERT_TRUE(proc != nullptr);
+    EXPECT_EQ(proc->name(), "proc_id42");
+  }
+
+  http_server->shutdown();
+}
+
+TEST_F(HttpServerTest, DeleteProcess)
+{
+  config::HTTPServer cfg;
+  auto http_server = std::make_shared<HttpServer>(cfg, workers);
+  http_server->run();
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+  // Connect to the HTTP Server
+  auto client =
+      praas::common::http::HTTPClientFactory::create_client_shared("http://127.0.0.1", cfg.port);
+
+  std::string app_name = "test_app_42";
+  std::string app_resource = "test_container";
+  std::string proc_name = "test_proc_42";
+
+  {
+    Resources::RWAccessor app_acc;
+    resources.add_application(Application(app_name, ApplicationResources(app_resource)));
+    resources.get_application(app_name, app_acc);
+    ASSERT_FALSE(app_acc.empty());
+
+    app_acc.get()->add_process(backend, server, proc_name, process::Resources(1, 2048, ""));
+  }
+
+  // Now delete the application - this should fail as the process is not active.
+  {
+    std::promise<void> promise_proc;
+    client.post(
+        fmt::format("/apps/{}/processes/{}/delete", app_name, proc_name), {},
+        [&promise_proc](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          EXPECT_EQ(result, drogon::ReqResult::Ok);
+          EXPECT_EQ(response.get()->getStatusCode(), drogon::HttpStatusCode::k400BadRequest);
+          promise_proc.set_value();
+        }
+    );
+    promise_proc.get_future().wait();
+  }
+
+  EXPECT_CALL(deployment, get_location(testing::_))
+      .WillOnce(testing::Return(testing::ByMove(std::move(swap_loc))));
+
+  {
+    Resources::RWAccessor app_acc;
+    resources.get_application(app_name, app_acc);
+    ASSERT_FALSE(app_acc.empty());
+
+    // FIXME: This should be encapsulated in a routine.
+    // Manually change the process to be allocated.
+    {
+      auto [lock, proc] = app_acc.get()->get_process(proc_name);
+      proc->set_status(process::Status::ALLOCATED);
+    }
+
+    app_acc.get()->swap_process(proc_name, deployment);
+    app_acc.get()->swapped_process(proc_name);
+  }
+
+  //// Now delete the application again - this should succeed as the process is swapped.
+  {
+    std::promise<void> promise_proc;
+    client.post(
+        fmt::format("/apps/{}/processes/{}/delete", app_name, proc_name), {},
+        [&promise_proc](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          EXPECT_EQ(result, drogon::ReqResult::Ok);
+          EXPECT_EQ(response.get()->getStatusCode(), drogon::k200OK);
+          promise_proc.set_value();
+        }
+    );
+    promise_proc.get_future().wait();
+
+    Resources::ROAccessor app_acc;
+    resources.get_application(app_name, app_acc);
+    ASSERT_FALSE(app_acc.empty());
+
+    // The process does not exist anymore
+    EXPECT_THROW(app_acc.get()->get_swapped_process(proc_name), praas::common::ObjectDoesNotExist);
+  }
 
   http_server->shutdown();
 }

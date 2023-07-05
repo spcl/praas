@@ -5,8 +5,8 @@
 #include <string>
 #include <thread>
 
-#include <drogon/drogon.h>
 #include <drogon/HttpTypes.h>
+#include <drogon/drogon.h>
 #include <spdlog/spdlog.h>
 
 namespace praas::control_plane {
@@ -19,10 +19,8 @@ namespace praas::control_plane {
     struct HTTPServer;
   } // namespace config
 
-  struct HttpServer : public
-                      drogon::HttpController<HttpServer, false>,
-                      std::enable_shared_from_this<HttpServer>
-  {
+  struct HttpServer : public drogon::HttpController<HttpServer, false>,
+                      std::enable_shared_from_this<HttpServer> {
     using request_t = drogon::HttpRequestPtr;
     using callback_t = std::function<void(const drogon::HttpResponsePtr&)>;
 
@@ -36,61 +34,52 @@ namespace praas::control_plane {
     ADD_METHOD_TO(HttpServer::list_apps, "/apps", drogon::Get);
     METHOD_LIST_END
 
-    HttpServer(
-      config::HTTPServer & cfg,
-      worker::Workers & workers
-    );
+    HttpServer(config::HTTPServer& cfg, worker::Workers& workers);
 
     void run();
     void shutdown();
 
     void create_app(
-      const drogon::HttpRequestPtr&,
-      std::function<void(const drogon::HttpResponsePtr&)>&& callback,
-      std::string app_id
+        const drogon::HttpRequestPtr& request,
+        std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string& app_name
     );
 
     void create_process(
-      const drogon::HttpRequestPtr&,
-      std::function<void(const drogon::HttpResponsePtr&)>&& callback,
-      std::string app_id,
-      std::string process_id
+        const drogon::HttpRequestPtr& request,
+        std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string& app_name,
+        const std::string& process_name
     );
 
     void delete_process(
-      const drogon::HttpRequestPtr&,
-      std::function<void(const drogon::HttpResponsePtr&)>&& callback,
-      std::string app_id,
-      std::string process_id
+        const drogon::HttpRequestPtr& request,
+        std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string& app_name,
+        const std::string& process_name
     );
 
     void swap_process(
-      const drogon::HttpRequestPtr&,
-      std::function<void(const drogon::HttpResponsePtr&)>&& callback,
-      std::string app_id,
-      std::string process_id
+        const drogon::HttpRequestPtr&,
+        std::function<void(const drogon::HttpResponsePtr&)>&& callback, std::string app_id,
+        std::string process_id
     );
 
     void invoke(
-      const drogon::HttpRequestPtr&,
-      std::function<void(const drogon::HttpResponsePtr&)>&& callback,
-      std::string app_id,
-      std::string func_name
+        const drogon::HttpRequestPtr&,
+        std::function<void(const drogon::HttpResponsePtr&)>&& callback, std::string app_id,
+        std::string func_name
     );
 
     void list_processes(
-      const drogon::HttpRequestPtr&,
-      std::function<void(const drogon::HttpResponsePtr&)>&& callback,
-      std::string app_id
+        const drogon::HttpRequestPtr&,
+        std::function<void(const drogon::HttpResponsePtr&)>&& callback, std::string app_id
     );
 
     void list_apps(
-      const drogon::HttpRequestPtr&,
-      std::function<void(const drogon::HttpResponsePtr&)>&& callback
+        const drogon::HttpRequestPtr&,
+        std::function<void(const drogon::HttpResponsePtr&)>&& callback
     );
 
     static drogon::HttpResponsePtr failed_response(
-      const std::string& reason, drogon::HttpStatusCode code = drogon::k500InternalServerError
+        const std::string& reason, drogon::HttpStatusCode code = drogon::k500InternalServerError
     );
     static drogon::HttpResponsePtr correct_response(const std::string& reason);
 
@@ -100,7 +89,6 @@ namespace praas::control_plane {
     }
 
   private:
-
     int _port;
 
     int _threads;

@@ -3,8 +3,8 @@
 #include <praas/common/messages.hpp>
 #include <praas/control-plane/backend.hpp>
 #include <praas/control-plane/config.hpp>
-#include <praas/control-plane/http.hpp>
 #include <praas/control-plane/deployment.hpp>
+#include <praas/control-plane/http.hpp>
 #include <praas/control-plane/process.hpp>
 #include <praas/control-plane/resources.hpp>
 #include <praas/control-plane/tcpserver.hpp>
@@ -26,9 +26,10 @@ using namespace praas::control_plane;
 
 class MockWorkers : public worker::Workers {
 public:
-  MockWorkers(Resources& resources, backend::Backend & backend):
-    worker::Workers(config::Workers{}, backend, resources)
-  {}
+  MockWorkers(Resources& resources, backend::Backend& backend, deployment::Deployment& deployment)
+      : worker::Workers(config::Workers{}, backend, deployment, resources)
+  {
+  }
 };
 
 class MockDeployment : public deployment::Deployment {
@@ -44,8 +45,11 @@ public:
 
 class MockBackend : public backend::Backend {
 public:
-  MOCK_METHOD(std::shared_ptr<backend::ProcessInstance>, allocate_process, (process::ProcessPtr, const process::Resources&), (override));
-  MOCK_METHOD(void, shutdown, (const std::shared_ptr<backend::ProcessInstance> &), ());
+  MOCK_METHOD(
+      std::shared_ptr<backend::ProcessInstance>, allocate_process,
+      (process::ProcessPtr, const process::Resources&), (override)
+  );
+  MOCK_METHOD(void, shutdown, (const std::shared_ptr<backend::ProcessInstance>&), ());
   MOCK_METHOD(int, max_memory, (), (const));
   MOCK_METHOD(int, max_vcpus, (), (const));
 };
@@ -57,7 +61,8 @@ protected:
     ON_CALL(backend, max_memory()).WillByDefault(testing::Return(4096));
     ON_CALL(backend, max_vcpus()).WillByDefault(testing::Return(4));
 
-    ON_CALL(backend, allocate_process(testing::_, testing::_)).WillByDefault(testing::Return(instance));
+    ON_CALL(backend, allocate_process(testing::_, testing::_))
+        .WillByDefault(testing::Return(instance));
 
     workers.attach_tcpserver(server);
 
@@ -67,8 +72,8 @@ protected:
   Resources resources;
   std::shared_ptr<MockBackendInstance> instance = std::make_shared<MockBackendInstance>();
   MockBackend backend;
-  MockWorkers workers{resources, backend};
   MockDeployment deployment;
+  MockWorkers workers{resources, backend, deployment};
 
   config::TCPServer config;
   tcpserver::TCPServer server{config, workers};
@@ -89,8 +94,7 @@ TEST_F(HttpTCPIntegration, Invoke)
 
   // Connect to the HTTP Server
   auto client = drogon::HttpClient::newHttpClient(
-    fmt::format("http://127.0.0.1:{}/", cfg.port),
-    _loop.getLoop(), false, false
+      fmt::format("http://127.0.0.1:{}/", cfg.port), _loop.getLoop(), false, false
   );
 
   // Create the application.
@@ -101,12 +105,13 @@ TEST_F(HttpTCPIntegration, Invoke)
     req->setParameter("name", "app_id");
 
     std::promise<void> p;
-    client->sendRequest(req,
-      [&p](drogon::ReqResult result, const drogon::HttpResponsePtr &response) {
-        EXPECT_EQ(result, drogon::ReqResult::Ok);
-        EXPECT_EQ(response.get()->getStatusCode(), drogon::k200OK);
-        p.set_value();
-      }
+    client->sendRequest(
+        req,
+        [&p](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          EXPECT_EQ(result, drogon::ReqResult::Ok);
+          EXPECT_EQ(response.get()->getStatusCode(), drogon::k200OK);
+          p.set_value();
+        }
     );
     p.get_future().wait();
   }
@@ -125,7 +130,6 @@ TEST_F(HttpTCPIntegration, Invoke)
     EXPECT_CALL(backend, allocate_process(testing::_, testing::_))
         .Times(testing::Exactly(1))
         .WillOnce([&](process::ProcessPtr ptr, const process::Resources&) {
-
           EXPECT_EQ(ptr->name(), process_name);
 
           created_process.set_value();
@@ -144,20 +148,20 @@ TEST_F(HttpTCPIntegration, Invoke)
     req->setContentTypeCode(drogon::ContentType::CT_APPLICATION_JSON);
 
     std::promise<void> p;
-    client->sendRequest(req,
-      [&](drogon::ReqResult result, const drogon::HttpResponsePtr &response) {
+    client->sendRequest(
+        req,
+        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          EXPECT_EQ(result, drogon::ReqResult::Ok);
+          EXPECT_EQ(response.get()->getStatusCode(), drogon::k200OK);
 
-        EXPECT_EQ(result, drogon::ReqResult::Ok);
-        EXPECT_EQ(response.get()->getStatusCode(), drogon::k200OK);
+          auto json = response->getJsonObject();
+          ASSERT_TRUE(json);
+          EXPECT_EQ((*json)["function"], func_name);
+          EXPECT_EQ((*json)["return_code"], 0);
+          EXPECT_EQ((*json)["result"].asString(), func_response);
 
-        auto json = response->getJsonObject();
-        ASSERT_TRUE(json);
-        EXPECT_EQ((*json)["function"], func_name);
-        EXPECT_EQ((*json)["return_code"], 0);
-        EXPECT_EQ((*json)["result"].asString(), func_response);
-
-        p.set_value();
-      }
+          p.set_value();
+        }
     );
 
     // Wait for the request to be received
@@ -178,7 +182,8 @@ TEST_F(HttpTCPIntegration, Invoke)
 
     // Receive invocation data
     auto parsed_msg = recv_msg.parse();
-    ASSERT_TRUE(std::holds_alternative<praas::common::message::InvocationRequestParsed>(parsed_msg));
+    ASSERT_TRUE(std::holds_alternative<praas::common::message::InvocationRequestParsed>(parsed_msg)
+    );
     auto invoc_msg = std::get<praas::common::message::InvocationRequestParsed>(parsed_msg);
     ASSERT_EQ(invocation_data.length(), invoc_msg.total_length());
 
@@ -206,20 +211,20 @@ TEST_F(HttpTCPIntegration, Invoke)
     req->setPath(fmt::format("/invoke/{}/{}", "app_id", func_name));
     req->setBody(invocation_data);
     req->setContentTypeCode(drogon::ContentType::CT_APPLICATION_JSON);
-    client->sendRequest(req,
-      [&](drogon::ReqResult result, const drogon::HttpResponsePtr &response) {
+    client->sendRequest(
+        req,
+        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          EXPECT_EQ(result, drogon::ReqResult::Ok);
+          EXPECT_EQ(response.get()->getStatusCode(), drogon::k200OK);
 
-        EXPECT_EQ(result, drogon::ReqResult::Ok);
-        EXPECT_EQ(response.get()->getStatusCode(), drogon::k200OK);
+          auto json = response->getJsonObject();
+          ASSERT_TRUE(json);
+          EXPECT_EQ((*json)["function"], func_name);
+          EXPECT_EQ((*json)["return_code"], 0);
+          EXPECT_EQ((*json)["result"].asString(), func_response);
 
-        auto json = response->getJsonObject();
-        ASSERT_TRUE(json);
-        EXPECT_EQ((*json)["function"], func_name);
-        EXPECT_EQ((*json)["return_code"], 0);
-        EXPECT_EQ((*json)["result"].asString(), func_response);
-
-        p.set_value();
-      }
+          p.set_value();
+        }
     );
 
     // Receive invocation data
@@ -227,7 +232,8 @@ TEST_F(HttpTCPIntegration, Invoke)
     process_socket.read_n(recv_msg.data.data(), decltype(msg)::BUF_SIZE);
 
     parsed_msg = recv_msg.parse();
-    ASSERT_TRUE(std::holds_alternative<praas::common::message::InvocationRequestParsed>(parsed_msg));
+    ASSERT_TRUE(std::holds_alternative<praas::common::message::InvocationRequestParsed>(parsed_msg)
+    );
     invoc_msg = std::get<praas::common::message::InvocationRequestParsed>(parsed_msg);
     ASSERT_EQ(invocation_data.length(), invoc_msg.total_length());
 
@@ -256,20 +262,20 @@ TEST_F(HttpTCPIntegration, Invoke)
     req->setPath(fmt::format("/invoke/{}/{}", "app_id", func_name));
     req->setBody(invocation_data);
     req->setContentTypeCode(drogon::ContentType::CT_APPLICATION_OCTET_STREAM);
-    client->sendRequest(req,
-      [&](drogon::ReqResult result, const drogon::HttpResponsePtr &response) {
+    client->sendRequest(
+        req,
+        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          EXPECT_EQ(result, drogon::ReqResult::Ok);
+          EXPECT_EQ(response.get()->getStatusCode(), drogon::k200OK);
 
-        EXPECT_EQ(result, drogon::ReqResult::Ok);
-        EXPECT_EQ(response.get()->getStatusCode(), drogon::k200OK);
+          auto json = response->getJsonObject();
+          ASSERT_TRUE(json);
+          EXPECT_EQ((*json)["function"], func_name);
+          EXPECT_EQ((*json)["return_code"], 0);
+          EXPECT_EQ((*json)["result"].asString(), func_response);
 
-        auto json = response->getJsonObject();
-        ASSERT_TRUE(json);
-        EXPECT_EQ((*json)["function"], func_name);
-        EXPECT_EQ((*json)["return_code"], 0);
-        EXPECT_EQ((*json)["result"].asString(), func_response);
-
-        p.set_value();
-      }
+          p.set_value();
+        }
     );
 
     // Receive invocation data
@@ -277,7 +283,8 @@ TEST_F(HttpTCPIntegration, Invoke)
     process_socket.read_n(recv_msg.data.data(), decltype(msg)::BUF_SIZE);
 
     parsed_msg = recv_msg.parse();
-    ASSERT_TRUE(std::holds_alternative<praas::common::message::InvocationRequestParsed>(parsed_msg));
+    ASSERT_TRUE(std::holds_alternative<praas::common::message::InvocationRequestParsed>(parsed_msg)
+    );
     invoc_msg = std::get<praas::common::message::InvocationRequestParsed>(parsed_msg);
     ASSERT_EQ(invocation_data.length(), invoc_msg.total_length());
 
@@ -301,4 +308,3 @@ TEST_F(HttpTCPIntegration, Invoke)
 
   http_server->shutdown();
 }
-

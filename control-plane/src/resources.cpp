@@ -7,7 +7,7 @@
 #include <praas/control-plane/deployment.hpp>
 #include <praas/control-plane/process.hpp>
 
-//#include <fmt/format.h>
+// #include <fmt/format.h>
 #include <spdlog/fmt/fmt.h>
 
 namespace praas::control_plane {
@@ -51,8 +51,8 @@ namespace praas::control_plane {
     }
 
     // Ensure that process is not modified.
-    //process::Process& p = (*iter).second;
-    //p.read_lock();
+    // process::Process& p = (*iter).second;
+    // p.read_lock();
 
     try {
 
@@ -71,7 +71,7 @@ namespace praas::control_plane {
   }
 
   std::tuple<process::Process::read_lock_t, process::Process*>
-  Application::get_process(const std::string& name)
+  Application::get_process(const std::string& name) const
   {
     read_lock_t lock(_active_mutex);
 
@@ -83,8 +83,9 @@ namespace praas::control_plane {
     }
   }
 
-  std::tuple<process::Process::read_lock_t, process::Process*> Application::get_controlplane_process(
-    backend::Backend& backend, tcpserver::TCPServer& poller, process::Resources&& resources
+  std::tuple<process::Process::read_lock_t, process::Process*>
+  Application::get_controlplane_process(
+      backend::Backend& backend, tcpserver::TCPServer& poller, process::Resources&& resources
   )
   {
     {
@@ -93,25 +94,25 @@ namespace praas::control_plane {
       // FIXME: this needs to be a parameter - store it in the process
       int max_funcs_per_process = 1;
 
-      for(auto & proc : _controlplane_processes) {
+      for (auto& proc : _controlplane_processes) {
 
         int active_funcs = proc->active_invocations();
-        if(active_funcs < max_funcs_per_process) {
+        if (active_funcs < max_funcs_per_process) {
           spdlog::info("Select existing process for invocation {}", proc->name());
           return std::make_tuple(proc->read_lock(), proc.get());
         }
-
       }
     }
 
     // No process? create
     std::string name = fmt::format("controlplane-{}", _controlplane_processes.size());
-    process::ProcessPtr process = std::make_shared<process::Process>(name, this, std::move(resources));
+    process::ProcessPtr process =
+        std::make_shared<process::Process>(name, this, std::move(resources));
 
     spdlog::info("Allocating process for invocation {}", name);
     poller.add_process(process);
     auto backend_allocate = backend.allocate_process(process, resources);
-    if(!backend_allocate) {
+    if (!backend_allocate) {
       // FIXME: error handling
       // FIXME: remove from poller
       spdlog::error("Failed to allocate process!");
@@ -130,7 +131,7 @@ namespace praas::control_plane {
   }
 
   std::tuple<process::Process::read_lock_t, process::Process*>
-  Application::get_swapped_process(const std::string& name)
+  Application::get_swapped_process(const std::string& name) const
   {
     read_lock_t lock(_swapped_mutex);
 
@@ -175,7 +176,7 @@ namespace praas::control_plane {
     proc.set_status(process::Status::SWAPPING_OUT);
 
     // Swap the process
-    proc.state().swap = std::move(deployment.get_location(process_name));
+    proc.state().swap = deployment.get_location(process_name);
 
     proc.swap();
   }
@@ -212,7 +213,7 @@ namespace praas::control_plane {
   {
     auto proc_lock = ptr->write_lock();
 
-    if(ptr->status() != process::Status::SWAPPED_OUT){
+    if (ptr->status() != process::Status::SWAPPED_OUT) {
 
       spdlog::error("Failure! Closing not-swapped process {}, state {}", _name, ptr->status());
 
@@ -233,22 +234,20 @@ namespace praas::control_plane {
         } else {
           spdlog::error("Unknown process {}", ptr->name());
         }
-
       }
 
     } else {
       ptr->close_connection();
     }
-
   }
 
   void Application::delete_process(std::string process_name, deployment::Deployment& deployment)
   {
     if (process_name.length() == 0) {
-      throw praas::common::InvalidConfigurationError("Application name cannot be empty");
+      throw praas::common::InvalidConfigurationError("Process name cannot be empty");
     }
 
-    write_lock_t application_lock(_active_mutex);
+    write_lock_t application_lock(_swapped_mutex);
 
     // We cannot close it immediately because we need to first lock the process
     auto iter = _swapped_processes.find(process_name);
@@ -257,6 +256,7 @@ namespace praas::control_plane {
     }
 
     process::Process& proc = *(*iter).second;
+    std::cerr << proc.state().swap << std::endl;
 
     deployment.delete_swap(*proc.state().swap);
 
@@ -328,7 +328,6 @@ namespace praas::control_plane {
   {
     return _accessor.empty();
   }
-
 
   // Process& Resources::add_process(Process&& p)
   //{

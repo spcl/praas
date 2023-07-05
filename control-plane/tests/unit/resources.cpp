@@ -15,7 +15,7 @@ TEST(Resources, AddApplication)
   std::string third_app_name{"app3"};
 
   {
-    Application app{app_name};
+    Application app{app_name, ApplicationResources{}};
     EXPECT_NO_THROW(resources.add_application(std::move(app)));
   }
 
@@ -28,7 +28,7 @@ TEST(Resources, AddApplication)
   }
 
   {
-    Application app{second_app_name};
+    Application app{second_app_name, ApplicationResources{}};
     EXPECT_NO_THROW(resources.add_application(std::move(app)));
   }
 
@@ -50,19 +50,14 @@ TEST(Resources, AddApplication)
   {
     Application app;
     EXPECT_THROW(
-      resources.add_application(std::move(app)),
-      praas::common::InvalidConfigurationError
+        resources.add_application(std::move(app)), praas::common::InvalidConfigurationError
     );
   }
 
   {
-    Application app{second_app_name};
-    EXPECT_THROW(
-      resources.add_application(std::move(app)),
-      praas::common::ObjectExists
-    );
+    Application app{second_app_name, ApplicationResources{}};
+    EXPECT_THROW(resources.add_application(std::move(app)), praas::common::ObjectExists);
   }
-
 }
 
 TEST(Resources, DeleteApplication)
@@ -74,33 +69,20 @@ TEST(Resources, DeleteApplication)
   std::string third_app_name{"app3"};
 
   {
-    EXPECT_THROW(
-        resources.delete_application(app_name),
-        praas::common::ObjectDoesNotExist
-    );
+    EXPECT_THROW(resources.delete_application(app_name), praas::common::ObjectDoesNotExist);
   }
 
   {
-    Application app{app_name};
+    Application app{app_name, ApplicationResources{}};
     EXPECT_NO_THROW(resources.add_application(std::move(app)));
 
     EXPECT_NO_THROW(resources.delete_application(app_name));
-    EXPECT_THROW(
-        resources.delete_application(app_name),
-        praas::common::ObjectDoesNotExist
-    );
-    EXPECT_THROW(
-        resources.delete_application(second_app_name),
-        praas::common::ObjectDoesNotExist
-    );
+    EXPECT_THROW(resources.delete_application(app_name), praas::common::ObjectDoesNotExist);
+    EXPECT_THROW(resources.delete_application(second_app_name), praas::common::ObjectDoesNotExist);
   }
 
   {
     Application app;
-    EXPECT_THROW(
-      resources.delete_application(""),
-      praas::common::InvalidConfigurationError
-    );
+    EXPECT_THROW(resources.delete_application(""), praas::common::InvalidConfigurationError);
   }
-
 }

@@ -16,7 +16,10 @@ using namespace praas::control_plane;
 
 class MockWorkers : public worker::Workers {
 public:
-  MockWorkers(backend::Backend & backend) : worker::Workers(config::Workers{}, backend, resources) {}
+  MockWorkers(backend::Backend& backend, deployment::Deployment& deployment)
+      : worker::Workers(config::Workers{}, backend, deployment, resources)
+  {
+  }
   Resources resources;
 };
 
@@ -24,7 +27,7 @@ class MockTCPServer : public tcpserver::TCPServer {
 public:
   MockTCPServer(MockWorkers& workers) : tcpserver::TCPServer(config::TCPServer{}, workers) {}
 
-  MOCK_METHOD(void, add_process, (const process::ProcessPtr & ptr), (override));
+  MOCK_METHOD(void, add_process, (const process::ProcessPtr& ptr), (override));
   MOCK_METHOD(void, remove_process, (const process::Process&), (override));
 };
 
@@ -36,8 +39,11 @@ public:
 
 class MockBackend : public backend::Backend {
 public:
-  MOCK_METHOD(std::shared_ptr<backend::ProcessInstance>, allocate_process, (process::ProcessPtr, const process::Resources&), ());
-  MOCK_METHOD(void, shutdown, (const std::shared_ptr<backend::ProcessInstance> &), ());
+  MOCK_METHOD(
+      std::shared_ptr<backend::ProcessInstance>, allocate_process,
+      (process::ProcessPtr, const process::Resources&), ()
+  );
+  MOCK_METHOD(void, shutdown, (const std::shared_ptr<backend::ProcessInstance>&), ());
   MOCK_METHOD(int, max_memory, (), (const));
   MOCK_METHOD(int, max_vcpus, (), (const));
 };
@@ -48,7 +54,7 @@ protected:
 
   void SetUp() override
   {
-    _app_create = Application{"app"};
+    _app_create = Application{"app", ApplicationResources{}};
 
     ON_CALL(backend, max_memory()).WillByDefault(testing::Return(4096));
     ON_CALL(backend, max_vcpus()).WillByDefault(testing::Return(4));
@@ -56,9 +62,9 @@ protected:
 
   Application _app_create;
   MockBackend backend;
-  MockWorkers workers{backend};
-  MockTCPServer poller;
   MockDeployment deployment;
+  MockWorkers workers{backend, deployment};
+  MockTCPServer poller;
 };
 
 TEST_F(CreateProcessTest, CreateProcess)
@@ -70,8 +76,7 @@ TEST_F(CreateProcessTest, CreateProcess)
     std::string resource_name{"sandbox"};
     process::Resources resources{1, 128, resource_name};
 
-    EXPECT_CALL(backend, allocate_process(testing::_, testing::_))
-        .Times(testing::Exactly(1));
+    EXPECT_CALL(backend, allocate_process(testing::_, testing::_)).Times(testing::Exactly(1));
 
     EXPECT_CALL(poller, add_process(testing::_)).Times(1);
     EXPECT_CALL(poller, remove_process(testing::_)).Times(0);

@@ -23,7 +23,10 @@ using namespace praas::control_plane;
 
 class MockWorkers : public worker::Workers {
 public:
-  MockWorkers(backend::Backend & backend) : worker::Workers(config::Workers{}, backend, resources) {}
+  MockWorkers(backend::Backend& backend, deployment::Deployment& deployment)
+      : worker::Workers(config::Workers{}, backend, deployment, resources)
+  {
+  }
   Resources resources;
 };
 
@@ -35,8 +38,11 @@ public:
 
 class MockBackend : public backend::Backend {
 public:
-  MOCK_METHOD(std::shared_ptr<backend::ProcessInstance>, allocate_process, (process::ProcessPtr, const process::Resources&), ());
-  MOCK_METHOD(void, shutdown, (const std::shared_ptr<backend::ProcessInstance> &), ());
+  MOCK_METHOD(
+      std::shared_ptr<backend::ProcessInstance>, allocate_process,
+      (process::ProcessPtr, const process::Resources&), ()
+  );
+  MOCK_METHOD(void, shutdown, (const std::shared_ptr<backend::ProcessInstance>&), ());
   MOCK_METHOD(int, max_memory, (), (const));
   MOCK_METHOD(int, max_vcpus, (), (const));
 };
@@ -45,7 +51,7 @@ class TCPServerTest : public ::testing::Test {
 protected:
   void SetUp() override
   {
-    _app_create = Application{"app"};
+    _app_create = Application{"app", ApplicationResources{}};
 
     ON_CALL(backend, max_memory()).WillByDefault(testing::Return(4096));
     ON_CALL(backend, max_vcpus()).WillByDefault(testing::Return(4));
@@ -56,7 +62,7 @@ protected:
 
   Application _app_create;
   MockBackend backend;
-  MockWorkers workers{backend};
+  MockWorkers workers{backend, deployment};
   MockDeployment deployment;
 };
 

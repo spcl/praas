@@ -23,23 +23,35 @@ using namespace praas::control_plane;
 
 class MockWorkers : public worker::Workers {
 public:
-  MockWorkers(backend::Backend & backend) : worker::Workers(config::Workers{}, backend, resources) {}
+  MockWorkers(backend::Backend& backend, deployment::Deployment& deployment)
+      : worker::Workers(config::Workers{}, backend, deployment, resources)
+  {
+  }
   Resources resources;
 };
 
 class MockBackend : public backend::Backend {
 public:
-  MOCK_METHOD(std::shared_ptr<backend::ProcessInstance>, allocate_process, (process::ProcessPtr, const process::Resources&), ());
+  MOCK_METHOD(
+      std::shared_ptr<backend::ProcessInstance>, allocate_process,
+      (process::ProcessPtr, const process::Resources&), ()
+  );
   MOCK_METHOD(void, shutdown, (const std::shared_ptr<backend::ProcessInstance>&), ());
   MOCK_METHOD(int, max_memory, (), (const));
   MOCK_METHOD(int, max_vcpus, (), (const));
+};
+
+class MockDeployment : public deployment::Deployment {
+public:
+  MOCK_METHOD(std::unique_ptr<state::SwapLocation>, get_location, (std::string), (override));
+  MOCK_METHOD(void, delete_swap, (const state::SwapLocation&), (override));
 };
 
 class TCPServerTest : public ::testing::Test {
 protected:
   void SetUp() override
   {
-    app = Application{"app"};
+    app = Application{"app", ApplicationResources{}};
 
     ON_CALL(backend, max_memory()).WillByDefault(testing::Return(4096));
     ON_CALL(backend, max_vcpus()).WillByDefault(testing::Return(4));
@@ -50,7 +62,8 @@ protected:
 
   Application app;
   MockBackend backend;
-  MockWorkers workers{backend};
+  MockDeployment deployment;
+  MockWorkers workers{backend, deployment};
 };
 
 /**
@@ -151,10 +164,7 @@ TEST_F(TCPServerTest, SwapProcessAndConfirm)
   //// Wait for the swap to be processed
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-  EXPECT_THROW(
-    app.get_process(process_name),
-    praas::common::ObjectDoesNotExist
-  );
+  EXPECT_THROW(app.get_process(process_name), praas::common::ObjectDoesNotExist);
 
   {
     auto [lock, proc] = app.get_swapped_process(process_name);
