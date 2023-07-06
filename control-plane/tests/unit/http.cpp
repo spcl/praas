@@ -1,45 +1,23 @@
 
+#include "mocks.hpp"
+
 #include <praas/common/exceptions.hpp>
 #include <praas/common/http.hpp>
 #include <praas/common/messages.hpp>
-#include <praas/control-plane/backend.hpp>
 #include <praas/control-plane/config.hpp>
-#include <praas/control-plane/deployment.hpp>
 #include <praas/control-plane/http.hpp>
 #include <praas/control-plane/process.hpp>
 #include <praas/control-plane/resources.hpp>
-#include <praas/control-plane/tcpserver.hpp>
 #include <praas/control-plane/worker.hpp>
 
 #include <thread>
 
 #include <drogon/HttpTypes.h>
-#include <gmock/gmock-actions.h>
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <sockpp/tcp_connector.h>
 #include <spdlog/common.h>
 #include <spdlog/spdlog.h>
 #include <trantor/net/EventLoopThread.h>
-
-using namespace praas::control_plane;
-
-class MockDeployment : public deployment::Deployment {
-public:
-  MOCK_METHOD(std::unique_ptr<state::SwapLocation>, get_location, (std::string), (override));
-  MOCK_METHOD(void, delete_swap, (const state::SwapLocation&), (override));
-};
-
-class MockBackend : public backend::Backend {
-public:
-  MOCK_METHOD(
-      std::shared_ptr<backend::ProcessInstance>, allocate_process,
-      (process::ProcessPtr, const process::Resources&), ()
-  );
-  MOCK_METHOD(void, shutdown, (const std::shared_ptr<backend::ProcessInstance>&), ());
-  MOCK_METHOD(int, max_memory, (), (const));
-  MOCK_METHOD(int, max_vcpus, (), (const));
-};
 
 class HttpServerTest : public ::testing::Test {
 protected:
@@ -51,8 +29,7 @@ protected:
 
     praas::common::http::HTTPClientFactory::initialize(1);
 
-    ON_CALL(backend, max_memory()).WillByDefault(testing::Return(4096));
-    ON_CALL(backend, max_vcpus()).WillByDefault(testing::Return(4));
+    setup_mocks(backend);
   }
 
   void TearDown() override

@@ -1,46 +1,13 @@
 
-#include <praas/common/exceptions.hpp>
-#include <praas/control-plane/backend.hpp>
-#include <praas/control-plane/config.hpp>
-#include <praas/control-plane/deployment.hpp>
-#include <praas/control-plane/process.hpp>
-#include <praas/control-plane/resources.hpp>
-#include <praas/control-plane/tcpserver.hpp>
-#include <praas/control-plane/worker.hpp>
+#include "mocks.hpp"
 
-#include <gmock/gmock-actions.h>
-#include <gmock/gmock.h>
+#include <praas/common/exceptions.hpp>
+#include <praas/control-plane/config.hpp>
+#include <praas/control-plane/process.hpp>
+
 #include <gtest/gtest.h>
 
 using namespace praas::control_plane;
-
-class MockWorkers : public worker::Workers {
-public:
-  MockWorkers(backend::Backend& backend, deployment::Deployment& deployment)
-      : worker::Workers(config::Workers{}, backend, deployment, resources)
-  {
-  }
-  Resources resources;
-};
-
-class MockTCPServer : public tcpserver::TCPServer {
-public:
-  MockTCPServer(MockWorkers& workers) : tcpserver::TCPServer(config::TCPServer{}, workers) {}
-
-  MOCK_METHOD(void, add_process, (const process::ProcessPtr& ptr), (override));
-  MOCK_METHOD(void, remove_process, (const process::Process&), (override));
-};
-
-class MockBackend : public backend::Backend {
-public:
-  MOCK_METHOD(
-      std::shared_ptr<backend::ProcessInstance>, allocate_process,
-      (process::ProcessPtr, const process::Resources&), ()
-  );
-  MOCK_METHOD(void, shutdown, (const std::shared_ptr<backend::ProcessInstance>&), ());
-  MOCK_METHOD(int, max_memory, (), (const));
-  MOCK_METHOD(int, max_vcpus, (), (const));
-};
 
 class DeleteProcessTest : public ::testing::Test {
 protected:
@@ -49,9 +16,7 @@ protected:
   void SetUp() override
   {
     _app_create = Application{"app", ApplicationResources{}};
-
-    ON_CALL(backend, max_memory()).WillByDefault(testing::Return(4096));
-    ON_CALL(backend, max_vcpus()).WillByDefault(testing::Return(4));
+    setup_mocks(backend);
   }
 
   Application _app_create;
