@@ -96,7 +96,7 @@ namespace praas::control_plane::worker {
     try {
       acc.get()->delete_process(proc_id, this->_deployment);
       return std::nullopt;
-    } catch (common::ObjectDoesNotExist) {
+    } catch (common::ObjectDoesNotExist&) {
       return "Process does not exist or is not swapped out.";
     }
   }
@@ -114,9 +114,9 @@ namespace praas::control_plane::worker {
     try {
       acc.get()->swap_process(proc_id, this->_deployment);
       return std::nullopt;
-    } catch (common::ObjectDoesNotExist) {
+    } catch (common::ObjectDoesNotExist&) {
       return "Process does not exist.";
-    } catch (common::InvalidProcessState) {
+    } catch (common::InvalidProcessState&) {
       return "Process cannot be swapped out (not allocated, not active).";
     }
   }
