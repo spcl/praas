@@ -65,7 +65,7 @@ namespace praas::control_plane::worker {
     /// @brief Creates a PraaS application with a given name. Succeeds only if an
     /// application with such name does not exist.
     ///
-    /// @param [in] name new application name
+    /// @param[in] name new application name
     /// @return true if application has been created; false otherwise
     ////////////////////////////////////////////////////////////////////////////////
     bool create_application(const std::string& app_name, ApplicationResources&& cloud_resources);
@@ -74,10 +74,11 @@ namespace praas::control_plane::worker {
     /// @brief Creates a process within an existing application.
     /// This launches process creation in the background that will be resolved later.
     /// In practice, this means sending an asynchronous HTTP request.
+    /// FIXME: this method should take a callback - work in the background
     ///
-    /// @param [in] app_name application name
-    /// @param [in] proc_id new process name
-    /// @param [in] resources process resource specification
+    /// @param[in] app_name application name
+    /// @param[in] proc_id new process name
+    /// @param[in] resources process resource specification
     /// @return true if a process has been created in an application
     ////////////////////////////////////////////////////////////////////////////////
     bool create_process(
@@ -88,12 +89,27 @@ namespace praas::control_plane::worker {
     /// @brief Delete a process and its swapped state. Applies only to processes
     /// that have been swapped out.
     ///
-    /// @param [in] app_name application name
-    /// @param [in] proc_id new process name
+    /// @param[in] app_name application name
+    /// @param[in] proc_id new process name
     /// @return error message if operation failed; empty optional otherwise
     ////////////////////////////////////////////////////////////////////////////////
     std::optional<std::string>
     delete_process(const std::string& app_name, const std::string& proc_id);
+
+    // Starts the swap operation.
+    // Requires a write operation to process to lock all future invocations.
+
+    ////////////////////////////////////////////////////////////////////////////////
+    /// @brief Starts a swap operation by telling the process to swap out. Applies only
+    /// to processes that are active and have been allocated.
+    /// FIXME: this method should take a callback - work in the background
+    ///
+    /// @param[in] app_name application name
+    /// @param[in] proc_id new process name
+    /// @return error message if operation failed; empty optional otherwise
+    ////////////////////////////////////////////////////////////////////////////////
+    std::optional<std::string>
+    swap_process(const std::string& app_name, const std::string& proc_id);
 
   private:
     // Looks up the associated invocation in a process and calls the callback.
@@ -113,10 +129,6 @@ namespace praas::control_plane::worker {
     // Close down a process.
     // Requires write access to the application.
     static void handle_closure(const process::ProcessPtr& ptr);
-
-    // Starts the swap operation.
-    // Requires a write operation to process to lock all future invocations.
-    static void swap(const process::ProcessPtr& ptr, state::SwapLocation& swap_loc);
 
     // Adds an invocation request and sends the payload.
     // Requires write access to list of invocations.

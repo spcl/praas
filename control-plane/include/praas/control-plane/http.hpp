@@ -58,8 +58,8 @@ namespace praas::control_plane {
 
     void swap_process(
         const drogon::HttpRequestPtr&,
-        std::function<void(const drogon::HttpResponsePtr&)>&& callback, std::string app_id,
-        std::string process_id
+        std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string& app_id,
+        const std::string& process_id
     );
 
     void invoke(

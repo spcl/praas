@@ -233,3 +233,113 @@ TEST_F(HttpServerTest, DeleteProcess)
 
   http_server->shutdown();
 }
+
+TEST_F(HttpServerTest, SwapProcess)
+{
+  config::HTTPServer cfg;
+  auto http_server = std::make_shared<HttpServer>(cfg, workers);
+  http_server->run();
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+  // Connect to the HTTP Server
+  auto client =
+      praas::common::http::HTTPClientFactory::create_client_shared("http://127.0.0.1", cfg.port);
+
+  std::string app_name = "test_app_42";
+  std::string app_resource = "test_container";
+  std::string proc_name = "test_proc_42";
+
+  {
+    Resources::RWAccessor app_acc;
+    resources.add_application(Application(app_name, ApplicationResources(app_resource)));
+    resources.get_application(app_name, app_acc);
+    ASSERT_FALSE(app_acc.empty());
+
+    app_acc.get()->add_process(backend, server, proc_name, process::Resources(1, 2048, ""));
+  }
+
+  // Now swap the process - should fail because process is not allocated.
+  {
+    std::promise<void> promise_proc;
+    client.post(
+        fmt::format("/apps/{}/processes/{}/swap", app_name, proc_name), {},
+        [&promise_proc](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          EXPECT_EQ(result, drogon::ReqResult::Ok);
+          EXPECT_EQ(response.get()->getStatusCode(), drogon::HttpStatusCode::k400BadRequest);
+          promise_proc.set_value();
+        }
+    );
+    promise_proc.get_future().wait();
+  }
+
+  // Now swap the process - should fail because process does not exist.
+  {
+    std::promise<void> promise_proc;
+    client.post(
+        fmt::format("/apps/{}/processes/{}_invalid/swap", app_name, proc_name), {},
+        [&promise_proc](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          EXPECT_EQ(result, drogon::ReqResult::Ok);
+          EXPECT_EQ(response.get()->getStatusCode(), drogon::HttpStatusCode::k400BadRequest);
+          promise_proc.set_value();
+        }
+    );
+    promise_proc.get_future().wait();
+  }
+
+  EXPECT_CALL(deployment, get_location(testing::_))
+      .WillOnce(testing::Return(testing::ByMove(std::move(swap_loc))));
+
+  {
+    Resources::RWAccessor app_acc;
+    resources.get_application(app_name, app_acc);
+    ASSERT_FALSE(app_acc.empty());
+
+    // FIXME: This should be encapsulated in a routine.
+    // Manually change the process to be allocated.
+    {
+      auto [lock, proc] = app_acc.get()->get_process(proc_name);
+      proc->set_status(process::Status::ALLOCATED);
+    }
+  }
+
+  // Now swapping should work.
+  {
+    std::promise<void> promise_proc;
+    client.post(
+        fmt::format("/apps/{}/processes/{}/swap", app_name, proc_name), {},
+        [&promise_proc](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          EXPECT_EQ(result, drogon::ReqResult::Ok);
+          EXPECT_EQ(response.get()->getStatusCode(), drogon::k200OK);
+          promise_proc.set_value();
+        }
+    );
+    promise_proc.get_future().wait();
+
+    Resources::ROAccessor app_acc;
+    resources.get_application(app_name, app_acc);
+    ASSERT_FALSE(app_acc.empty());
+
+    // The process is being swapped out.
+    EXPECT_THROW(app_acc.get()->get_swapped_process(proc_name), praas::common::ObjectDoesNotExist);
+    auto [lock, proc] = app_acc.get()->get_process(proc_name);
+    ASSERT_TRUE(proc != nullptr);
+    EXPECT_EQ(proc->status(), process::Status::SWAPPING_OUT);
+  }
+
+  // Swapping again should fail.
+  {
+    std::promise<void> promise_proc;
+    client.post(
+        fmt::format("/apps/{}/processes/{}/swap", app_name, proc_name), {},
+        [&promise_proc](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          EXPECT_EQ(result, drogon::ReqResult::Ok);
+          EXPECT_EQ(response.get()->getStatusCode(), drogon::HttpStatusCode::k400BadRequest);
+          promise_proc.set_value();
+        }
+    );
+    promise_proc.get_future().wait();
+  }
+
+  http_server->shutdown();
+}

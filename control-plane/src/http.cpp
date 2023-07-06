@@ -145,9 +145,18 @@ namespace praas::control_plane {
 
   void HttpServer::swap_process(
       const drogon::HttpRequestPtr&, std::function<void(const drogon::HttpResponsePtr&)>&& callback,
-      std::string app_id, std::string process_id
+      const std::string& app_name, const std::string& process_name
   )
   {
+    _logger->info("Swap process {}", process_name);
+    _workers.add_task([=, this, callback = std::move(callback)]() {
+      auto response = _workers.swap_process(app_name, process_name);
+      if (response) {
+        callback(failed_response(response.value(), drogon::HttpStatusCode::k400BadRequest));
+      } else {
+        callback(correct_response(fmt::format("Request swapping of process {}.", process_name)));
+      }
+    });
   }
 
   void HttpServer::list_processes(
