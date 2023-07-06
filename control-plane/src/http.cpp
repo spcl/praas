@@ -199,10 +199,4 @@ namespace praas::control_plane {
     });
   }
 
-  void HttpServer::list_apps(
-      const drogon::HttpRequestPtr&, std::function<void(const drogon::HttpResponsePtr&)>&& callback
-  )
-  {
-  }
-
 } // namespace praas::control_plane

@@ -31,7 +31,6 @@ namespace praas::control_plane {
     ADD_METHOD_TO(HttpServer::swap_process, "/apps/{1}/processes/{2}/swap", drogon::Post);
     ADD_METHOD_TO(HttpServer::invoke, "/apps/{1}/processes/{2}/invoke", drogon::Post);
     ADD_METHOD_TO(HttpServer::list_processes, "/apps/{1}/processes", drogon::Get);
-    ADD_METHOD_TO(HttpServer::list_apps, "/apps", drogon::Get);
     METHOD_LIST_END
 
     HttpServer(config::HTTPServer& cfg, worker::Workers& workers);
@@ -71,11 +70,6 @@ namespace praas::control_plane {
     void list_processes(
         const drogon::HttpRequestPtr&,
         std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string& app_name
-    );
-
-    void list_apps(
-        const drogon::HttpRequestPtr&,
-        std::function<void(const drogon::HttpResponsePtr&)>&& callback
     );
 
     static drogon::HttpResponsePtr failed_response(
