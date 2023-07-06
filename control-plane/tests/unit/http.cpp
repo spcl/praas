@@ -10,6 +10,7 @@
 #include <praas/control-plane/resources.hpp>
 #include <praas/control-plane/worker.hpp>
 
+#include <json/value.h>
 #include <thread>
 
 #include <drogon/HttpTypes.h>
@@ -312,6 +313,163 @@ TEST_F(HttpServerTest, SwapProcess)
         [&promise_proc](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
           EXPECT_EQ(result, drogon::ReqResult::Ok);
           EXPECT_EQ(response.get()->getStatusCode(), drogon::HttpStatusCode::k400BadRequest);
+          promise_proc.set_value();
+        }
+    );
+    promise_proc.get_future().wait();
+  }
+
+  http_server->shutdown();
+}
+
+TEST_F(HttpServerTest, ListProcesses)
+{
+  config::HTTPServer cfg;
+  auto http_server = std::make_shared<HttpServer>(cfg, workers);
+  http_server->run();
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+  // Connect to the HTTP Server
+  auto client =
+      praas::common::http::HTTPClientFactory::create_client_shared("http://127.0.0.1", cfg.port);
+
+  std::string app_name = "test_app_42";
+  std::string app_resource = "test_container";
+  std::string proc_name = "test_proc_42";
+  std::string second_proc_name = "test_proc_44";
+
+  resources.add_application(Application(app_name, ApplicationResources(app_resource)));
+
+  // First case - empty app
+  {
+    std::promise<void> promise_proc;
+    client.get(
+        fmt::format("/apps/{}/processes", app_name, proc_name), {},
+        [&promise_proc,
+         app_name](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          EXPECT_EQ(result, drogon::ReqResult::Ok);
+          EXPECT_EQ(response.get()->getStatusCode(), drogon::HttpStatusCode::k200OK);
+
+          auto json = *response->getJsonObject();
+          EXPECT_EQ(app_name, json["application"]);
+          EXPECT_EQ(Json::nullValue, json.get("active", Json::nullValue));
+          EXPECT_EQ(Json::nullValue, json.get("swapped", Json::nullValue));
+          promise_proc.set_value();
+        }
+    );
+    promise_proc.get_future().wait();
+  }
+
+  {
+    Resources::RWAccessor app_acc;
+    resources.get_application(app_name, app_acc);
+    ASSERT_FALSE(app_acc.empty());
+
+    app_acc.get()->add_process(backend, server, proc_name, process::Resources(1, 2048, ""));
+  }
+
+  // First case - single process
+  {
+    std::promise<void> promise_proc;
+    client.get(
+        fmt::format("/apps/{}/processes", app_name, proc_name), {},
+        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          EXPECT_EQ(result, drogon::ReqResult::Ok);
+          EXPECT_EQ(response.get()->getStatusCode(), drogon::HttpStatusCode::k200OK);
+
+          auto json = *response->getJsonObject();
+          EXPECT_EQ(app_name, json["application"]);
+          EXPECT_EQ(Json::nullValue, json.get("swapped", Json::nullValue));
+
+          auto active_processes = json.get("active", Json::nullValue);
+          EXPECT_EQ(active_processes.size(), 1);
+          EXPECT_EQ(active_processes[0].asString(), proc_name);
+
+          promise_proc.set_value();
+        }
+    );
+    promise_proc.get_future().wait();
+  }
+
+  {
+    Resources::RWAccessor app_acc;
+    resources.get_application(app_name, app_acc);
+    ASSERT_FALSE(app_acc.empty());
+
+    app_acc.get()->add_process(backend, server, second_proc_name, process::Resources(1, 2048, ""));
+  }
+
+  // Second case - two processes
+  {
+    std::promise<void> promise_proc;
+    client.get(
+        fmt::format("/apps/{}/processes", app_name, proc_name), {},
+        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          EXPECT_EQ(result, drogon::ReqResult::Ok);
+          EXPECT_EQ(response.get()->getStatusCode(), drogon::HttpStatusCode::k200OK);
+
+          auto json = *response->getJsonObject();
+          EXPECT_EQ(app_name, json["application"]);
+          EXPECT_EQ(Json::nullValue, json.get("swapped", Json::nullValue));
+
+          auto active_processes = json.get("active", Json::nullValue);
+          EXPECT_EQ(active_processes.size(), 2);
+          // We cannot apply std::sort to Json::value - the iterator is not random access.
+          std::vector<std::string> processes;
+          for (auto& val : active_processes) {
+            processes.emplace_back(val.asString());
+          }
+          std::sort(processes.begin(), processes.end());
+          EXPECT_EQ(processes[0], proc_name);
+          EXPECT_EQ(processes[1], second_proc_name);
+
+          promise_proc.set_value();
+        }
+    );
+    promise_proc.get_future().wait();
+  }
+
+  // Swap the process.
+  {
+    Resources::RWAccessor app_acc;
+    resources.get_application(app_name, app_acc);
+    ASSERT_FALSE(app_acc.empty());
+
+    // FIXME: This should be encapsulated in a routine.
+    // Manually change the process to be allocated.
+    {
+      auto [lock, proc] = app_acc.get()->get_process(proc_name);
+      proc->set_status(process::Status::ALLOCATED);
+    }
+
+    EXPECT_CALL(deployment, get_location(testing::_))
+        .WillOnce(testing::Return(testing::ByMove(std::move(swap_loc))));
+
+    app_acc.get()->swap_process(proc_name, deployment);
+    app_acc.get()->swapped_process(proc_name);
+  }
+
+  // Third case - one active and one swapped process
+  {
+    std::promise<void> promise_proc;
+    client.get(
+        fmt::format("/apps/{}/processes", app_name, proc_name), {},
+        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          EXPECT_EQ(result, drogon::ReqResult::Ok);
+          EXPECT_EQ(response.get()->getStatusCode(), drogon::HttpStatusCode::k200OK);
+
+          auto json = *response->getJsonObject();
+          EXPECT_EQ(app_name, json["application"]);
+
+          auto active_processes = json.get("active", Json::nullValue);
+          EXPECT_EQ(active_processes.size(), 1);
+          EXPECT_EQ(active_processes[0].asString(), second_proc_name);
+
+          auto swapped_processes = json.get("swapped", Json::nullValue);
+          EXPECT_EQ(swapped_processes.size(), 1);
+          EXPECT_EQ(swapped_processes[0].asString(), proc_name);
+
           promise_proc.set_value();
         }
     );

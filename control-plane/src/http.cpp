@@ -144,8 +144,9 @@ namespace praas::control_plane {
   }
 
   void HttpServer::swap_process(
-      const drogon::HttpRequestPtr&, std::function<void(const drogon::HttpResponsePtr&)>&& callback,
-      const std::string& app_name, const std::string& process_name
+      const drogon::HttpRequestPtr&, // NOLINT,
+      std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string& app_name,
+      const std::string& process_name
   )
   {
     _logger->info("Swap process {}", process_name);
@@ -161,9 +162,41 @@ namespace praas::control_plane {
 
   void HttpServer::list_processes(
       const drogon::HttpRequestPtr&, std::function<void(const drogon::HttpResponsePtr&)>&& callback,
-      std::string app_id
+      const std::string& app_name
   )
   {
+    _workers.add_task([=, this, callback = std::move(callback)]() {
+      std::vector<std::string> active_processes;
+      std::vector<std::string> swapped_processes;
+
+      auto response = _workers.list_processes(app_name, active_processes, swapped_processes);
+      if (response) {
+        callback(failed_response(response.value(), drogon::HttpStatusCode::k400BadRequest));
+      }
+
+      Json::Value json;
+      json["application"] = app_name;
+
+      if (!active_processes.empty()) {
+        Json::Value active;
+        for (const auto& proc_name : active_processes) {
+          active.append(proc_name);
+        }
+        json["active"] = active;
+      }
+
+      if (!swapped_processes.empty()) {
+        Json::Value swapped;
+        for (const auto& proc_name : swapped_processes) {
+          swapped.append(proc_name);
+        }
+        json["swapped"] = swapped;
+      }
+
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(json);
+      resp->setStatusCode(drogon::HttpStatusCode::k200OK);
+      callback(resp);
+    });
   }
 
   void HttpServer::list_apps(

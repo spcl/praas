@@ -121,6 +121,21 @@ namespace praas::control_plane::worker {
     }
   }
 
+  std::optional<std::string> Workers::list_processes(
+      const std::string& app_name, std::vector<std::string>& active_processes,
+      std::vector<std::string>& swapped_processes
+  )
+  {
+    Resources::ROAccessor acc;
+    _resources.get_application(app_name, acc);
+    if (acc.empty()) {
+      return "Application does not exist";
+    }
+    acc.get()->get_processes(active_processes);
+    acc.get()->get_swapped_processes(swapped_processes);
+    return std::nullopt;
+  }
+
   void Workers::
       handle_invocation_result(const process::ProcessPtr& ptr, const praas::common::message::InvocationResultParsed&)
   {

@@ -266,4 +266,22 @@ namespace praas::control_plane {
     return this->_name;
   }
 
+  void Application::get_processes(std::vector<std::string>& results) const
+  {
+    read_lock_t application_lock(_active_mutex);
+
+    for (const auto& [key, value] : _active_processes) {
+      results.emplace_back(value->name());
+    }
+  }
+
+  void Application::get_swapped_processes(std::vector<std::string>& results) const
+  {
+    read_lock_t application_lock(_swapped_mutex);
+
+    for (const auto& [key, value] : _swapped_processes) {
+      results.emplace_back(value->name());
+    }
+  }
+
 } // namespace praas::control_plane

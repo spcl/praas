@@ -155,6 +155,20 @@ namespace praas::control_plane {
     ////////////////////////////////////////////////////////////////////////////////
     void delete_process(std::string process_name, deployment::Deployment& deployment);
 
+    ////////////////////////////////////////////////////////////////////////////////
+    /// @brief Returns the list of active processes in an application
+    ///
+    /// @param[out] results list of process names
+    ////////////////////////////////////////////////////////////////////////////////
+    void get_processes(std::vector<std::string>& results) const;
+
+    ////////////////////////////////////////////////////////////////////////////////
+    /// @brief Returns the list of swapped processes in an application
+    ///
+    /// @param[out] results list of swapped process names
+    ////////////////////////////////////////////////////////////////////////////////
+    void get_swapped_processes(std::vector<std::string>& results) const;
+
     std::string name() const;
 
     const ApplicationResources& resources() const;

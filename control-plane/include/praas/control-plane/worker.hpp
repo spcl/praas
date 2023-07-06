@@ -65,6 +65,8 @@ namespace praas::control_plane::worker {
     /// @brief Creates a PraaS application with a given name. Succeeds only if an
     /// application with such name does not exist.
     ///
+    /// This methods requires write access to the resources class.
+    ///
     /// @param[in] name new application name
     /// @return true if application has been created; false otherwise
     ////////////////////////////////////////////////////////////////////////////////
@@ -75,6 +77,9 @@ namespace praas::control_plane::worker {
     /// This launches process creation in the background that will be resolved later.
     /// In practice, this means sending an asynchronous HTTP request.
     /// FIXME: this method should take a callback - work in the background
+    ///
+    /// This methods requires read-only access to the resources class and write
+    /// access to the application class.
     ///
     /// @param[in] app_name application name
     /// @param[in] proc_id new process name
@@ -88,6 +93,9 @@ namespace praas::control_plane::worker {
     ////////////////////////////////////////////////////////////////////////////////
     /// @brief Delete a process and its swapped state. Applies only to processes
     /// that have been swapped out.
+    ///
+    /// This methods requires read-only access to the resources class and write
+    /// access to the application class.
     ///
     /// @param[in] app_name application name
     /// @param[in] proc_id new process name
@@ -104,12 +112,23 @@ namespace praas::control_plane::worker {
     /// to processes that are active and have been allocated.
     /// FIXME: this method should take a callback - work in the background
     ///
+    /// This methods requires read-only access to the resources class, read-only
+    /// access to the application class, and write access to the process - changing
+    /// status and locking all future invocations.
+    /// TODO: verify that future invocations are locked
+    ///
     /// @param[in] app_name application name
     /// @param[in] proc_id new process name
     /// @return error message if operation failed; empty optional otherwise
     ////////////////////////////////////////////////////////////////////////////////
     std::optional<std::string>
     swap_process(const std::string& app_name, const std::string& proc_id);
+    // const process::ProcessPtr& ptr, state::SwapLocation& swap_loc);
+
+    std::optional<std::string> list_processes(
+        const std::string& app_name, std::vector<std::string>& active_processes,
+        std::vector<std::string>& swapped_processes
+    );
 
   private:
     // Looks up the associated invocation in a process and calls the callback.
