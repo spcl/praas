@@ -1,0 +1,21 @@
+
+cmake_minimum_required(VERSION 3.11)
+project(praas-serving)
+
+file(GLOB sdk_files "src/*.cpp")
+add_executable(praas_serving ${sdk_files})
+target_include_directories(praas_serving SYSTEM PUBLIC "include")
+set_target_properties(praas_serving PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
+
+add_dependencies(praas_serving spdlog::spdlog)
+add_dependencies(praas_serving common_library)
+add_dependencies(praas_serving sockpp-static)
+add_dependencies(praas_serving cxxopts::cxxopts)
+target_include_directories(praas_serving SYSTEM PUBLIC $<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(praas_serving SYSTEM PUBLIC $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(praas_serving SYSTEM PUBLIC $<TARGET_PROPERTY:sockpp-static,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(praas_serving SYSTEM PUBLIC $<TARGET_PROPERTY:Drogon::Drogon,INTERFACE_INCLUDE_DIRECTORIES>)
+target_link_libraries(praas_serving PUBLIC common_library)
+target_link_libraries(praas_serving PUBLIC sockpp-static)
+target_link_libraries(praas_serving PUBLIC spdlog::spdlog)
+target_link_libraries(praas_serving PUBLIC Drogon::Drogon)
