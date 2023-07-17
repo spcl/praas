@@ -1,4 +1,5 @@
 
+#include <praas/common/http.hpp>
 #include <praas/serving/docker/server.hpp>
 
 #include <chrono>
@@ -20,6 +21,8 @@ void signal_handler(int) // NOLINT
 
 int main(int argc, char** argv)
 {
+  praas::common::http::HTTPClientFactory::initialize(1);
+
   auto opts = praas::serving::docker::opts(argc, argv);
   if (opts.verbose) {
     spdlog::set_level(spdlog::level::debug);

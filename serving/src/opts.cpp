@@ -11,7 +11,8 @@ namespace praas::serving::docker {
         "praas-serving", "Handle client connections and allocation of processes."
     );
     options.add_options()
-      ("p,port", "TCP port to listen on.",  cxxopts::value<int>()->default_value("8080"))
+      ("p,http-port", "HTTP port to listen on.",  cxxopts::value<int>()->default_value("8080"))
+      ("d,docker-port", "Port at which Docker daemon is listening.",  cxxopts::value<int>())
       ("max-processes", "Number of processes to support.", cxxopts::value<int>()->default_value("1"))
       ("threads", "Number of threads in the HTTP server.", cxxopts::value<int>()->default_value("1"))
       ("v,verbose", "Verbose output", cxxopts::value<bool>()->default_value("false"))
@@ -19,7 +20,8 @@ namespace praas::serving::docker {
     auto parsed_options = options.parse(argc, argv);
 
     Options result;
-    result.port = parsed_options["port"].as<int>();
+    result.http_port = parsed_options["http-port"].as<int>();
+    result.docker_port = parsed_options["docker-port"].as<int>();
     result.threads = parsed_options["threads"].as<int>();
     result.max_processes = parsed_options["max-processes"].as<int>();
     result.verbose = parsed_options["verbose"].as<bool>();

@@ -5,9 +5,11 @@
 
 namespace praas::serving {
 
-  Options opts(int argc, char ** argv)
+  Options opts(int argc, char** argv)
   {
-    cxxopts::Options options("praas-serving", "Handle client connections and allocation of executors.");
+    cxxopts::Options options(
+        "praas-serving", "Handle client connections and allocation of executors."
+    );
     options.add_options()
       ("hole-puncher-addr", "IP address of hole puncher.",  cxxopts::value<std::string>())
       ("p,port", "TCP port to listen on.",  cxxopts::value<int>()->default_value("8080"))
@@ -29,5 +31,4 @@ namespace praas::serving {
     return result;
   }
 
-
-}
+} // namespace praas::serving
