@@ -15,6 +15,8 @@ namespace praas::common::http {
 
     using parameters_t = std::initializer_list<std::pair<std::string, std::string>>;
 
+    HTTPClient();
+
     HTTPClient(const std::string& address, trantor::EventLoop* loop);
 
     template <typename F>

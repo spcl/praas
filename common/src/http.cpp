@@ -9,6 +9,8 @@ namespace praas::common::http {
   std::unique_ptr<trantor::EventLoopThreadPool> HTTPClientFactory::_pool;
   trantor::EventLoop* HTTPClientFactory::_default_loop;
 
+  HTTPClient::HTTPClient() : _http_client(nullptr) {}
+
   HTTPClient::HTTPClient(const std::string& address, trantor::EventLoop* loop)
   {
     this->_http_client = drogon::HttpClient::newHttpClient(address, loop, false, false);
