@@ -1,7 +1,10 @@
 
+#include <praas/common/http.hpp>
 #include <praas/common/util.hpp>
 #include <praas/serving/docker/server.hpp>
-#include "praas/common/http.hpp"
+
+#include <drogon/HttpTypes.h>
+#include <drogon/utils/Utilities.h>
 
 namespace praas::serving::docker {
 
@@ -37,20 +40,53 @@ namespace praas::serving::docker {
     _server_thread.join();
   }
 
+  std::vector<std::string_view> split(std::string_view string, const std::string& delimiter)
+  {
+    std::vector<std::string_view> substrings;
+
+    size_t cur = 0;
+    size_t prev = 0;
+    while ((cur = string.find(delimiter, prev)) != std::string::npos) {
+      substrings.emplace_back(string.data() + prev, cur - prev);
+      prev = cur + delimiter.size();
+    }
+
+    if (string.length() - prev > 0) {
+      substrings.emplace_back(string.data() + prev, string.length() - prev);
+    }
+
+    return substrings;
+  }
+
   void HttpServer::create(
       const drogon::HttpRequestPtr&, std::function<void(const drogon::HttpResponsePtr&)>&& callback
   )
   {
-    _http_client.get(
-        "/info", {},
+    std::cerr << drogon::utils::urlEncode("/images/create?fromImage=python:3.7-slim-stretch")
+              << std::endl;
+    std::cerr << drogon::utils::urlEncode("/images/create?fromImage=\"python:3.7-slim-stretch\"")
+              << std::endl;
+    // auto img = drogon::utils::urlEncode("/images/create?fromImage=python:3.7-slim-stretch");
+    auto img = "/images/create?fromImage=python:3.7-slim-stretch";
+    _http_client.post(
+        "/images/create?fromImage=python:3.7-slim-stretch", {},
         [callback](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
-          Json::Value json;
-          std::cerr << result << std::endl;
-          std::cerr << response->getBody() << std::endl;
-          json["message"] = *response->getJsonObject();
-          auto resp = drogon::HttpResponse::newHttpJsonResponse(json);
-          resp->setStatusCode(drogon::k200OK);
-          callback(resp);
+          auto strings = split(response->getBody(), "\n");
+          Json::Value val;
+          Json::Reader reader;
+          // Parse the last received JSON
+          bool status = reader.parse(strings.back().begin(), strings.back().end(), val, false);
+          if (status) {
+            auto resp = drogon::HttpResponse::newHttpJsonResponse(val);
+            resp->setStatusCode(drogon::k200OK);
+            callback(resp);
+          } else {
+            Json::Value val;
+            val["status"] = "Couldn't parse the output JSON!" + std::string{strings.back()};
+            auto resp = drogon::HttpResponse::newHttpJsonResponse(val);
+            resp->setStatusCode(drogon::k500InternalServerError);
+            callback(resp);
+          }
         }
     );
   }
@@ -62,9 +98,47 @@ namespace praas::serving::docker {
   }
 
   void HttpServer::cache_image(
-      const drogon::HttpRequestPtr&, std::function<void(const drogon::HttpResponsePtr&)>&& callback
+      const drogon::HttpRequestPtr&, std::function<void(const drogon::HttpResponsePtr&)>&& callback,
+      std::string image
   )
   {
+    auto url = fmt::format("/images/create?fromImage={}", image);
+    _http_client.post(
+        url, {},
+        [callback, image](drogon::ReqResult, const drogon::HttpResponsePtr& response) {
+          Json::Value resp_json;
+          resp_json["image"] = image;
+          drogon::HttpStatusCode code = drogon::kUnknown;
+
+          auto strings = split(response->getBody(), "\n");
+          Json::Value val;
+          Json::Reader reader;
+          // Parse the last received JSON
+          bool status = reader.parse(strings.back().begin(), strings.back().end(), val, false);
+          if (status) {
+
+            if (val["status"].asString().find("Image is up to date") != std::string::npos) {
+              resp_json["status"] = val["status"];
+              code = drogon::k200OK;
+            } else if (val["message"].asString().find("manifest unknown") != std::string::npos) {
+              resp_json["status"] = val["message"];
+              code = drogon::k404NotFound;
+            } else {
+              resp_json["status"] = val["message"];
+              code = drogon::k500InternalServerError;
+            }
+
+          } else {
+            resp_json["status"] =
+                fmt::format("Couldn't parse the output JSON! JSON: {}", strings.back());
+            code = drogon::k500InternalServerError;
+          }
+
+          auto resp = drogon::HttpResponse::newHttpJsonResponse(resp_json);
+          resp->setStatusCode(code);
+          callback(resp);
+        }
+    );
   }
 
 } // namespace praas::serving::docker
