@@ -1,12 +1,12 @@
 
-#include <praas/process/runtime/ipc/messages.hpp>
+#include <praas/process/runtime/internal/ipc/messages.hpp>
 
 #include <praas/common/exceptions.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-using namespace praas::process::runtime::ipc;
+using namespace praas::process::runtime::internal::ipc;
 
 template <typename A, typename B>
 struct TypeDefinitions {
@@ -15,8 +15,7 @@ struct TypeDefinitions {
 };
 
 template <class T>
-class IPCMessagesTest : public testing::Test {
-};
+class IPCMessagesTest : public testing::Test {};
 
 using Implementations = ::testing::Types<
     TypeDefinitions<GetRequest, GetRequestParsed>, TypeDefinitions<PutRequest, PutRequestParsed>>;
@@ -125,10 +124,7 @@ TEST(IPCMessagesInvocTest, InvocMessage)
     EXPECT_EQ(req.function_name(), func_name);
     EXPECT_EQ(req.buffers(), buffers.size());
     EXPECT_EQ(req.total_length(), 10);
-    EXPECT_THAT(
-        buffers,
-        testing::ElementsAreArray(req.buffers_lengths(), req.buffers())
-    );
+    EXPECT_THAT(buffers, testing::ElementsAreArray(req.buffers_lengths(), req.buffers()));
   }
 
   {
@@ -150,10 +146,7 @@ TEST(IPCMessagesInvocTest, InvocMessage)
     EXPECT_EQ(req.function_name(), func_name);
     EXPECT_EQ(req.buffers(), buffers.size());
     EXPECT_EQ(req.total_length(), 42);
-    EXPECT_THAT(
-        buffers,
-        testing::ElementsAreArray(req.buffers_lengths(), req.buffers())
-    );
+    EXPECT_THAT(buffers, testing::ElementsAreArray(req.buffers_lengths(), req.buffers()));
   }
 }
 
@@ -193,15 +186,11 @@ TEST(IPCMessagesInvocTest, InvocMessageParse)
   EXPECT_TRUE(std::visit(
       overloaded{
           [=](InvocationRequestParsed& req) {
-
             EXPECT_EQ(req.process_id(), proc_id);
             EXPECT_EQ(req.invocation_id(), invoc_id);
             EXPECT_EQ(req.function_name(), func_name);
             EXPECT_EQ(req.buffers(), buffers.size());
-            EXPECT_THAT(
-                buffers,
-                testing::ElementsAreArray(req.buffers_lengths(), req.buffers())
-            );
+            EXPECT_THAT(buffers, testing::ElementsAreArray(req.buffers_lengths(), req.buffers()));
 
             return true;
           },
@@ -265,7 +254,6 @@ TEST(IPCMessagesInvocTest, InvocResultParse)
   EXPECT_TRUE(std::visit(
       overloaded{
           [=](InvocationResultParsed& req) {
-
             EXPECT_EQ(req.invocation_id(), invoc_id);
             EXPECT_EQ(req.buffer_length(), buffer_length);
 

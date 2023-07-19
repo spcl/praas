@@ -1,4 +1,4 @@
-#include <praas/process/runtime/ipc/ipc.hpp>
+#include <praas/process/runtime/internal/ipc/ipc.hpp>
 
 #include <praas/common/exceptions.hpp>
 #include <praas/common/util.hpp>
@@ -8,7 +8,7 @@
 #include <spdlog/spdlog.h>
 #include <sys/signal.h>
 
-namespace praas::process::runtime::ipc {
+namespace praas::process::runtime::internal::ipc {
 
   IPCMode deserialize(std::string mode)
   {
@@ -36,10 +36,9 @@ namespace praas::process::runtime::ipc {
       attributes.mq_maxmsg = MAX_MSGS;
       attributes.mq_msgsize = message_size;
 
-      if(send)
+      if (send)
         _queue = mq_open(
-            queue_name.c_str(), O_CREAT | O_EXCL | mq_direction, S_IRUSR | S_IWUSR,
-            &attributes
+            queue_name.c_str(), O_CREAT | O_EXCL | mq_direction, S_IRUSR | S_IWUSR, &attributes
         );
       else
         _queue = mq_open(
@@ -51,22 +50,22 @@ namespace praas::process::runtime::ipc {
         // Attempt remove - unless it is used by another process
         mq_unlink(queue_name.c_str());
 
-        if(send)
-        common::util::assert_other(
-            _queue = mq_open(
-                queue_name.c_str(), O_CREAT | O_EXCL | mq_direction, S_IRUSR | S_IWUSR,
-                &attributes
-            ),
-            -1
-        );
+        if (send)
+          common::util::assert_other(
+              _queue = mq_open(
+                  queue_name.c_str(), O_CREAT | O_EXCL | mq_direction, S_IRUSR | S_IWUSR,
+                  &attributes
+              ),
+              -1
+          );
         else
-        common::util::assert_other(
-            _queue = mq_open(
-                queue_name.c_str(), O_CREAT | O_EXCL | O_NONBLOCK | mq_direction, S_IRUSR | S_IWUSR,
-                &attributes
-            ),
-            -1
-        );
+          common::util::assert_other(
+              _queue = mq_open(
+                  queue_name.c_str(), O_CREAT | O_EXCL | O_NONBLOCK | mq_direction,
+                  S_IRUSR | S_IWUSR, &attributes
+              ),
+              -1
+          );
       } else {
         common::util::assert_other(_queue, -1);
       }
@@ -93,7 +92,7 @@ namespace praas::process::runtime::ipc {
 
   void POSIXMQChannel::shutdown()
   {
-    if(_queue == -1) {
+    if (_queue == -1) {
       return;
     }
 
@@ -146,14 +145,14 @@ namespace praas::process::runtime::ipc {
   void POSIXMQChannel::send(Message& msg, const std::vector<Buffer<char>>& data)
   {
     size_t len = 0;
-    for (const auto & buf : data) {
+    for (const auto& buf : data) {
       len += buf.len;
     }
 
     msg.total_length(len);
 
     _send(msg.bytes(), msg.BUF_SIZE);
-    for (const auto & buf : data) {
+    for (const auto& buf : data) {
       if (buf.len > 0) {
         _send(buf.data(), buf.len);
       }
@@ -172,16 +171,19 @@ namespace praas::process::runtime::ipc {
 
       auto size = (len - pos < _msg_size) ? len - pos : _msg_size;
       int ret = mq_send(_queue, data + pos, size, 1);
-      SPDLOG_DEBUG("Sending status {}, {} bytes, at pos {}, out of {} bytes to sent, errno {}", ret, size, pos, len, errno);
+      SPDLOG_DEBUG(
+          "Sending status {}, {} bytes, at pos {}, out of {} bytes to sent, errno {}", ret, size,
+          pos, len, errno
+      );
 
       if (ret == -1) {
 
-        //if (errno == EAGAIN) {
-        //  // FIXME: add to epoll as oneshot to be woken up as ready
-        //  std::this_thread::sleep_for(std::chrono::microseconds(5));
-        //} else {
-          throw praas::common::PraaSException{
-              fmt::format("Failed sending with error {}, strerror {}", errno, strerror(errno))};
+        // if (errno == EAGAIN) {
+        //   // FIXME: add to epoll as oneshot to be woken up as ready
+        //   std::this_thread::sleep_for(std::chrono::microseconds(5));
+        // } else {
+        throw praas::common::PraaSException{
+            fmt::format("Failed sending with error {}, strerror {}", errno, strerror(errno))};
         //}
       } else {
         pos += size;
@@ -189,11 +191,11 @@ namespace praas::process::runtime::ipc {
     }
   }
 
-  bool POSIXMQChannel::blocking_receive(Buffer<std::byte> & buf)
+  bool POSIXMQChannel::blocking_receive(Buffer<std::byte>& buf)
   {
     size_t read_data = _recv(_msg_buffer.get(), Message::BUF_SIZE);
     // We do not support sending partial message headers.
-    if(read_data < Message::BUF_SIZE) {
+    if (read_data < Message::BUF_SIZE) {
       throw praas::common::NotImplementedError();
     }
 
@@ -201,7 +203,7 @@ namespace praas::process::runtime::ipc {
     std::copy_n(_msg_buffer.get(), Message::BUF_SIZE, _msg.data.data());
 
     size_t data_to_read = _msg.total_length();
-    if(buf.size < data_to_read) {
+    if (buf.size < data_to_read) {
       buf.resize(data_to_read);
     }
 
@@ -219,12 +221,12 @@ namespace praas::process::runtime::ipc {
       size_t read_data = _recv(_msg_buffer.get(), Message::BUF_SIZE);
 
       // We did not manage to read any data
-      if(read_data == 0) {
+      if (read_data == 0) {
         return std::make_tuple(false, Buffer<char>{});
       }
 
       // We do not support sending partial message headers.
-      if(read_data < Message::BUF_SIZE) {
+      if (read_data < Message::BUF_SIZE) {
         throw praas::common::NotImplementedError();
       }
 
@@ -239,7 +241,7 @@ namespace praas::process::runtime::ipc {
       // (1) We just read message, buffer not allocated.
       // (2) We read message in previous epoll, buffer not allocated.
       // (3) We read message in previous allocated, buffer allocated, data not read completely.
-      if(_msg_payload.null()) {
+      if (_msg_payload.null()) {
         // Buffer cannot be smaller than message queue size
         size_t size = std::max(_msg.total_length(), _msg_size);
         _msg_payload = _buffers.retrieve_buffer(size);
@@ -254,7 +256,7 @@ namespace praas::process::runtime::ipc {
       _msg_payload.len += read_data;
 
       // We read everything
-      if(read_data == data_to_read) {
+      if (read_data == data_to_read) {
 
         _msg_read = false;
 
@@ -271,10 +273,9 @@ namespace praas::process::runtime::ipc {
       _msg_read = false;
       return std::make_tuple(true, Buffer<char>{});
     }
-
   }
 
-  size_t POSIXMQChannel::_recv(std::byte * data, size_t len) const
+  size_t POSIXMQChannel::_recv(std::byte* data, size_t len) const
   {
     // NOLINTNEXTLINE
     return _recv(reinterpret_cast<char*>(data), len);
@@ -305,4 +306,4 @@ namespace praas::process::runtime::ipc {
     return pos;
   }
 
-} // namespace praas::process::runtime::ipc
+} // namespace praas::process::runtime::internal::ipc

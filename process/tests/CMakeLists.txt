@@ -56,9 +56,8 @@ endif()
 ###
 add_library(example_cpp SHARED integration/examples/cpp/test.cpp)
 target_include_directories(example_cpp PUBLIC "tests/integration/examples/cpp/")
-target_include_directories(example_cpp SYSTEM PUBLIC $<TARGET_PROPERTY:cereal::cereal,INTERFACE_INCLUDE_DIRECTORIES>)
 set_target_properties(example_cpp PROPERTIES LIBRARY_OUTPUT_DIRECTORY examples)
-target_link_libraries(example_cpp PRIVATE functionsdk)
+target_link_libraries(example_cpp PRIVATE runtime)
 
 set(PRAAS_DIRECTORY ${CMAKE_BINARY_DIR})
 set(PRAAS_SOURCE_DIRECTORY ${CMAKE_SOURCE_DIR})

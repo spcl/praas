@@ -1,17 +1,17 @@
 
-#include <praas/function/context.hpp>
-#include <praas/process/invoker.hpp>
+#include <praas/process/runtime/context.hpp>
+#include <praas/process/runtime/internal/invoker.hpp>
 
+#include <execinfo.h>
 #include <signal.h>
 #include <sys/time.h>
-#include <execinfo.h>
 
 #include <spdlog/spdlog.h>
 
 #include "functions.hpp"
 #include "opts.hpp"
 
-praas::process::Invoker* instance = nullptr;
+praas::process::runtime::internal::Invoker* instance = nullptr;
 
 std::atomic<bool> ending{};
 
@@ -19,7 +19,7 @@ void signal_handler(int signal)
 {
   spdlog::info("Handling signal {}", strsignal(signal));
 
-  if(instance != nullptr) {
+  if (instance != nullptr) {
     instance->shutdown();
   }
   ending = true;
@@ -27,12 +27,12 @@ void signal_handler(int signal)
 
 void failure_handler(int signum)
 {
-  if(instance != nullptr) {
+  if (instance != nullptr) {
     instance->shutdown();
   }
 
   fprintf(stderr, "Unfortunately, the invoker has crashed - signal %d.\n", signum);
-  void *array[10];
+  void* array[10];
   size_t size;
   // get void*'s for all entries on the stack
   size = backtrace(array, 10);
@@ -67,7 +67,7 @@ int main(int argc, char** argv)
     memset(&sa, 0, sizeof(struct sigaction));
     sigemptyset(&sa.sa_mask);
     sa.sa_handler = failure_handler;
-    sa.sa_flags   = SA_SIGINFO;
+    sa.sa_flags = SA_SIGINFO;
 
     sigaction(SIGSEGV, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
@@ -75,34 +75,35 @@ int main(int argc, char** argv)
     sigaction(SIGHUP, &sa, NULL);
   }
 
-  praas::process::Invoker invoker{config.process_id, config.ipc_mode, config.ipc_name};
+  praas::process::runtime::internal::Invoker invoker{
+      config.process_id, config.ipc_mode, config.ipc_name};
   praas::process::FunctionsLibrary library{config.code_location, config.code_config_location};
   instance = &invoker;
 
-  praas::function::Context context = invoker.create_context();
+  praas::process::runtime::Context context = invoker.create_context();
 
-  while(true) {
+  while (true) {
 
     auto invoc = invoker.poll();
 
-    if(ending || !invoc.has_value()) {
+    if (ending || !invoc.has_value()) {
       break;
     }
 
     auto& invoc_value = invoc.value();
 
-    //spdlog::info("invoking {}, invocation key {}", invoc_value.function_name, invoc_value.key);
+    // spdlog::info("invoking {}, invocation key {}", invoc_value.function_name, invoc_value.key);
     auto func = library.get_function(invoc_value.function_name);
-    if(!func) {
+    if (!func) {
       spdlog::error("Could not load function {}", invoc_value.function_name);
     } else {
       context.start_invocation(invoc_value.key);
       int ret = (*func)(invoc_value, context);
       invoker.finish(context.invocation_id(), context.as_buffer(), ret);
       context.end_invocation();
-      //spdlog::info("Finished invocation of {} with {}", invoc_value.function_name, invoc_value.key);
+      // spdlog::info("Finished invocation of {} with {}", invoc_value.function_name,
+      // invoc_value.key);
     }
-
   }
 
   spdlog::info("Process invoker is closing down");

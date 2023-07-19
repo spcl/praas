@@ -1,8 +1,8 @@
 #ifndef PRAAS_PROCESS_CONTROLLER_CONFIG_HPP
 #define PRAAS_PROCESS_CONTROLLER_CONFIG_HPP
 
-#include <praas/process/runtime/ipc/ipc.hpp>
-#include <praas/process/runtime/functions.hpp>
+#include <praas/process/runtime/internal/functions.hpp>
+#include <praas/process/runtime/internal/ipc/ipc.hpp>
 
 #include <istream>
 #include <optional>
@@ -23,7 +23,7 @@ namespace praas::process::config {
 
     std::string location;
     std::string config_location;
-    runtime::functions::Language language;
+    runtime::internal::Language language;
 
     std::string language_runtime_path;
 
@@ -41,7 +41,7 @@ namespace praas::process::config {
     int port;
     bool verbose;
     int function_workers;
-    runtime::ipc::IPCMode ipc_mode;
+    runtime::internal::ipc::IPCMode ipc_mode;
     int ipc_message_size;
     std::string ipc_name_prefix;
 

@@ -1,10 +1,10 @@
-#include <praas/process/invoker.hpp>
+#include <praas/process/runtime/internal/invoker.hpp>
 
 #include <praas/common/application.hpp>
 #include <praas/common/exceptions.hpp>
 #include <praas/common/util.hpp>
-#include <praas/process/runtime/buffer.hpp>
-#include <praas/process/runtime/ipc/messages.hpp>
+#include <praas/process/runtime/internal/buffer.hpp>
+#include <praas/process/runtime/internal/ipc/messages.hpp>
 
 #include <optional>
 #include <variant>
@@ -14,17 +14,17 @@
 
 #include <spdlog/spdlog.h>
 
-namespace praas::process {
+namespace praas::process::runtime::internal {
 
-  Invoker::Invoker(std::string process_id, runtime::ipc::IPCMode ipc_mode, const std::string& ipc_name):
-    _process_id(std::move(process_id))
+  Invoker::Invoker(std::string process_id, ipc::IPCMode ipc_mode, const std::string& ipc_name)
+      : _process_id(std::move(process_id))
   {
-    if (ipc_mode == runtime::ipc::IPCMode::POSIX_MQ) {
-      _ipc_channel_read = std::make_unique<runtime::ipc::POSIXMQChannel>(
-          ipc_name + "_write", runtime::ipc::IPCDirection::READ, true, false
+    if (ipc_mode == ipc::IPCMode::POSIX_MQ) {
+      _ipc_channel_read = std::make_unique<ipc::POSIXMQChannel>(
+          ipc_name + "_write", ipc::IPCDirection::READ, true, false
       );
-      _ipc_channel_write = std::make_unique<runtime::ipc::POSIXMQChannel>(
-          ipc_name + "_read", runtime::ipc::IPCDirection::WRITE, false, false
+      _ipc_channel_write = std::make_unique<ipc::POSIXMQChannel>(
+          ipc_name + "_read", ipc::IPCDirection::WRITE, false, false
       );
     }
 
@@ -37,31 +37,30 @@ namespace praas::process {
     _app_status.active_processes.emplace_back(_process_id);
   }
 
-  std::optional<praas::function::Invocation> Invoker::poll()
+  std::optional<Invocation> Invoker::poll()
   {
-    praas::function::Invocation invoc;
+    Invocation invoc;
     bool received_invocation = false;
 
-    while(!received_invocation) {
+    while (!received_invocation) {
 
       try {
         auto read = _ipc_channel_read->blocking_receive(_input);
 
-        if(!read) {
-          throw praas::common::PraaSException(fmt::format(
-              "Did not receive a full buffer - failed receive!"
-          ));
+        if (!read) {
+          throw praas::common::PraaSException(
+              fmt::format("Did not receive a full buffer - failed receive!")
+          );
         }
 
         auto parsed_msg = _ipc_channel_read->message().parse();
 
         std::visit(
-            runtime::ipc::overloaded{
-                [&](runtime::ipc::InvocationRequestParsed& req) mutable {
+            ipc::overloaded{
+                [&](ipc::InvocationRequestParsed& req) mutable {
                   SPDLOG_LOGGER_DEBUG(
-                      _logger,
-                      "Received invocation request of {}, key {}, inputs {}", req.function_name(),
-                      req.invocation_id(), req.buffers()
+                      _logger, "Received invocation request of {}, key {}, inputs {}",
+                      req.function_name(), req.invocation_id(), req.buffers()
                   );
 
                   // Validate
@@ -88,14 +87,14 @@ namespace praas::process {
 
                   received_invocation = true;
                 },
-                [&](runtime::ipc::ApplicationUpdateParsed& req) mutable {
+                [&](ipc::ApplicationUpdateParsed& req) mutable {
                   SPDLOG_LOGGER_DEBUG(
-                      _logger,
-                      "Received application update - process change for {}", req.process_id()
+                      _logger, "Received application update - process change for {}",
+                      req.process_id()
                   );
                   _app_status.update(
-                    static_cast<common::Application::Status>(req.status_change()),
-                    req.process_id()
+                      static_cast<common::Application::Status>(req.status_change()),
+                      req.process_id()
                   );
                 },
                 [](auto&) { spdlog::error("Received unsupported message!"); }},
@@ -115,9 +114,9 @@ namespace praas::process {
     return invoc;
   }
 
-  void Invoker::finish(std::string_view invocation_id, runtime::BufferAccessor<char> output, int return_code)
+  void Invoker::finish(std::string_view invocation_id, BufferAccessor<char> output, int return_code)
   {
-    runtime::ipc::InvocationResult msg;
+    ipc::InvocationResult msg;
     msg.return_code(return_code);
     msg.buffer_length(output.len);
     msg.invocation_id(invocation_id);
@@ -125,17 +124,17 @@ namespace praas::process {
     _ipc_channel_write->send(msg, output);
   }
 
-  void Invoker::put(runtime::ipc::Message & msg, process::runtime::BufferAccessor<std::byte> payload)
+  void Invoker::put(ipc::Message& msg, BufferAccessor<std::byte> payload)
   {
     _ipc_channel_write->send(msg, payload);
   }
 
-  std::tuple<runtime::ipc::GetRequestParsed, process::runtime::Buffer<char>> Invoker::get(runtime::ipc::Message & msg)
+  std::tuple<ipc::GetRequestParsed, Buffer<char>> Invoker::get(ipc::Message& msg)
   {
     // Send GET request, zero payload.
-    _ipc_channel_write->send(msg, process::runtime::BufferAccessor<std::byte>{});
+    _ipc_channel_write->send(msg, BufferAccessor<std::byte>{});
 
-    return this->get<runtime::ipc::GetRequestParsed>();
+    return this->get<ipc::GetRequestParsed>();
   }
 
   void Invoker::shutdown()
@@ -145,9 +144,9 @@ namespace praas::process {
     _ipc_channel_write.reset();
   }
 
-  function::Context Invoker::create_context()
+  Context Invoker::create_context()
   {
-    return function::Context{_process_id, *this};
+    return Context{_process_id, *this};
   }
 
-} // namespace praas::process
+} // namespace praas::process::runtime::internal

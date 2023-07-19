@@ -1,10 +1,10 @@
-#include <praas/process/runtime/ipc/messages.hpp>
+#include <praas/process/runtime/internal/ipc/messages.hpp>
 
 #include <praas/common/exceptions.hpp>
 
 #include <spdlog/fmt/fmt.h>
 
-namespace praas::process::runtime::ipc {
+namespace praas::process::runtime::internal::ipc {
 
   Message::MessageVariants Message::parse() const
   {
@@ -76,7 +76,7 @@ namespace praas::process::runtime::ipc {
 
   bool GenericRequestParsed::state() const
   {
-    return *reinterpret_cast<const bool*>(buf + Message::NAME_LENGTH*2 + 4);
+    return *reinterpret_cast<const bool*>(buf + Message::NAME_LENGTH * 2 + 4);
   }
 
   std::string_view GenericRequestParsed::process_id() const
@@ -100,7 +100,7 @@ namespace praas::process::runtime::ipc {
 
   void GenericRequest::state(bool val)
   {
-    *reinterpret_cast<bool*>(data.data() + HEADER_OFFSET + Message::NAME_LENGTH*2 + 4) = val;
+    *reinterpret_cast<bool*>(data.data() + HEADER_OFFSET + Message::NAME_LENGTH * 2 + 4) = val;
   }
 
   void GenericRequest::process_id(std::string_view process_id)
@@ -136,21 +136,23 @@ namespace praas::process::runtime::ipc {
   int32_t InvocationRequestParsed::buffers() const
   {
     // NOLINTNEXTLINE
-    return *reinterpret_cast<const int32_t*>(buf + 2*Message::ID_LENGTH + Message::NAME_LENGTH);
+    return *reinterpret_cast<const int32_t*>(buf + 2 * Message::ID_LENGTH + Message::NAME_LENGTH);
   }
 
   const int32_t* InvocationRequestParsed::buffers_lengths() const
   {
     // NOLINTNEXTLINE
     return reinterpret_cast<const int32_t*>(
-        buf + 2*Message::ID_LENGTH + Message::NAME_LENGTH + sizeof(int32_t)
+        buf + 2 * Message::ID_LENGTH + Message::NAME_LENGTH + sizeof(int32_t)
     );
   }
 
   std::string_view InvocationRequestParsed::process_id() const
   {
-    return std::string_view{// NOLINTNEXTLINE
-                            reinterpret_cast<const char*>(buf + Message::ID_LENGTH + Message::NAME_LENGTH), process_id_len};
+    return std::string_view{
+        // NOLINTNEXTLINE
+        reinterpret_cast<const char*>(buf + Message::ID_LENGTH + Message::NAME_LENGTH),
+        process_id_len};
   }
 
   std::string_view InvocationRequestParsed::invocation_id() const
@@ -174,7 +176,9 @@ namespace praas::process::runtime::ipc {
 
     std::strncpy(
         // NOLINTNEXTLINE
-        reinterpret_cast<char*>(data.data() + HEADER_OFFSET + Message::ID_LENGTH + Message::NAME_LENGTH),
+        reinterpret_cast<char*>(
+            data.data() + HEADER_OFFSET + Message::ID_LENGTH + Message::NAME_LENGTH
+        ),
         id.data(), Message::ID_LENGTH
     );
     process_id_len = id.length();
@@ -213,7 +217,7 @@ namespace praas::process::runtime::ipc {
   {
     // NOLINTNEXTLINE
     auto ptr = reinterpret_cast<int32_t*>(
-        data.data() + HEADER_OFFSET + Message::NAME_LENGTH + 2*Message::ID_LENGTH
+        data.data() + HEADER_OFFSET + Message::NAME_LENGTH + 2 * Message::ID_LENGTH
     );
     *ptr++ = 1;
     *ptr = buffer_len;
@@ -223,13 +227,14 @@ namespace praas::process::runtime::ipc {
   {
     int elems = std::distance(begin, end);
     if (elems > InvocationRequest::MAX_BUFFERS) {
-      throw common::InvalidArgument{
-          fmt::format("Number of buffers too large: {} > {}", elems, InvocationRequest::MAX_BUFFERS)};
+      throw common::InvalidArgument{fmt::format(
+          "Number of buffers too large: {} > {}", elems, InvocationRequest::MAX_BUFFERS
+      )};
     }
 
     // NOLINTNEXTLINE
     auto ptr = reinterpret_cast<int32_t*>(
-        data.data() + HEADER_OFFSET + Message::NAME_LENGTH + 2*Message::ID_LENGTH
+        data.data() + HEADER_OFFSET + Message::NAME_LENGTH + 2 * Message::ID_LENGTH
     );
     *ptr++ = elems;
 
@@ -273,7 +278,9 @@ namespace praas::process::runtime::ipc {
   void InvocationResult::return_code(int32_t code)
   {
     // NOLINTNEXTLINE
-    *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + Message::ID_LENGTH + sizeof(int32_t)) = code;
+    *reinterpret_cast<int32_t*>(
+        data.data() + HEADER_OFFSET + Message::ID_LENGTH + sizeof(int32_t)
+    ) = code;
   }
 
   void InvocationResult::buffer_length(int32_t len)
@@ -314,4 +321,4 @@ namespace praas::process::runtime::ipc {
     *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + Message::NAME_LENGTH) = code;
   }
 
-} // namespace praas::process::runtime::ipc
+} // namespace praas::process::runtime::internal::ipc

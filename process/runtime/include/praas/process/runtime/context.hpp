@@ -1,19 +1,19 @@
-#ifndef PRAAS_FUNCTION_CONTEXT_HPP
-#define PRAAS_FUNCTION_CONTEXT_HPP
+#ifndef PRAAS_PROCESS_RUNTIME_CONTEXT_HPP
+#define PRAAS_PROCESS_RUNTIME_CONTEXT_HPP
 
-#include <praas/function/buffer.hpp>
-#include <praas/function/invocation.hpp>
 #include <praas/process/runtime/buffer.hpp>
+#include <praas/process/runtime/internal/buffer.hpp>
+#include <praas/process/runtime/invocation.hpp>
 
 #include <memory>
 #include <string>
 #include <vector>
 
-namespace praas::process {
+namespace praas::process::runtime::internal {
   struct Invoker;
-} // namespace praas::process
+} // namespace praas::process::runtime::internal
 
-namespace praas::function {
+namespace praas::process::runtime {
 
   struct Context {
 
@@ -22,7 +22,7 @@ namespace praas::function {
     static constexpr std::string_view ANY = "ANY";
 
     // FIXME: byte arguments
-    void put(std::string_view destination, std::string_view msg_key, std::byte * ptr, size_t size);
+    void put(std::string_view destination, std::string_view msg_key, std::byte* ptr, size_t size);
 
     // Prefered way - if we use shm, we want to write directly to a buffer and just transport
     // the location of the message.
@@ -35,7 +35,10 @@ namespace praas::function {
     // Non-owning!
     Buffer get(std::string_view source, std::string_view msg_key);
 
-    function::InvocationResult invoke(std::string_view process_id, std::string_view function, std::string_view invocation_id, Buffer input);
+    InvocationResult invoke(
+        std::string_view process_id, std::string_view function, std::string_view invocation_id,
+        Buffer input
+    );
 
     // FIXME: state ops
     // FIXME: invocation ops
@@ -76,24 +79,24 @@ namespace praas::function {
     const std::vector<std::string>& swapped_processes() const;
 
     // make private
-    process::runtime::BufferAccessor<char> as_buffer() const;
-  private:
+    internal::BufferAccessor<char> as_buffer() const;
 
+  private:
     // Now we always allocate a buffer - but this can be a shared memory object in future.
     static constexpr int BUFFER_SIZE = 1024 * 1024 * 5;
 
-    Context(std::string process_id, process::Invoker& invoker):
-      _invoker(invoker),
-      _output(new std::byte[BUFFER_SIZE], BUFFER_SIZE, 0),
-      _output_buf_view{_output.ptr.get(), _output.len, _output.size},
-      _process_id(std::move(process_id))
-    {}
+    Context(std::string process_id, internal::Invoker& invoker)
+        : _invoker(invoker), _output(new std::byte[BUFFER_SIZE], BUFFER_SIZE, 0),
+          _output_buf_view{_output.ptr.get(), _output.len, _output.size},
+          _process_id(std::move(process_id))
+    {
+    }
 
-    process::Invoker& _invoker;
+    internal::Invoker& _invoker;
 
-    process::runtime::Buffer<std::byte> _output;
+    internal::Buffer<std::byte> _output;
 
-    std::vector<process::runtime::Buffer<std::byte>> _user_buffers;
+    std::vector<internal::Buffer<std::byte>> _user_buffers;
 
     Buffer _output_buf_view;
 
@@ -101,9 +104,9 @@ namespace praas::function {
 
     std::string _process_id;
 
-    friend struct process::Invoker;
+    friend struct internal::Invoker;
   };
 
-} // namespace praas::function
+} // namespace praas::process::runtime
 
 #endif

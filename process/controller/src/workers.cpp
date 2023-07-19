@@ -2,8 +2,8 @@
 
 #include <praas/common/exceptions.hpp>
 #include <praas/common/util.hpp>
-#include <praas/process/runtime/buffer.hpp>
-#include <praas/process/runtime/functions.hpp>
+#include <praas/process/runtime/internal/buffer.hpp>
+#include <praas/process/runtime/internal/functions.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -18,7 +18,7 @@
 namespace praas::process {
 
   void WorkQueue::add_payload(
-      const std::string& fname, const std::string& key, runtime::Buffer<char>&& buffer,
+      const std::string& fname, const std::string& key, runtime::internal::Buffer<char>&& buffer,
       InvocationSource&& source
   )
   {
@@ -32,7 +32,7 @@ namespace praas::process {
     // Create a new invocation
     else {
 
-      const runtime::functions::Trigger* trigger = _functions.get_trigger(fname);
+      const runtime::internal::Trigger* trigger = _functions.get_trigger(fname);
       if (!trigger) {
         // FIXME: return error to the user
         spdlog::error("Ignoring invocation of an unknown function {}", fname);
@@ -61,7 +61,6 @@ namespace praas::process {
   Invocation* WorkQueue::next()
   {
     for (auto it = _pending_invocations.begin(); it != _pending_invocations.end(); ++it) {
-
 
       TriggerChecker visitor{*(*it), *this};
 
@@ -93,20 +92,21 @@ namespace praas::process {
     return invoc;
   }
 
-  void TriggerChecker::visit(const runtime::functions::DirectTrigger&)
+  void TriggerChecker::visit(const runtime::internal::DirectTrigger&)
   {
     // Single argument, no dependencies - always ready
     ready = true;
   }
 
   FunctionWorker::FunctionWorker(
-      const char** args, runtime::ipc::IPCMode mode, std::string ipc_name, int ipc_msg_size,
-      char** envp
+      const char** args, runtime::internal::ipc::IPCMode mode, std::string ipc_name,
+      int ipc_msg_size, char** envp
   )
   {
     int mypid = fork();
     if (mypid < 0) {
-      throw praas::common::PraaSException{fmt::format("Fork failed! {}, reason {} {}", mypid, errno, strerror(errno))};
+      throw praas::common::PraaSException{
+          fmt::format("Fork failed! {}, reason {} {}", mypid, errno, strerror(errno))};
     }
 
     if (mypid == 0) {
@@ -121,7 +121,7 @@ namespace praas::process {
       // int ret = execvp(args[0], const_cast<char**>(&args[0]));
 
       int ret = 0;
-      if(envp) {
+      if (envp) {
         ret = execvpe(args[0], const_cast<char**>(&args[0]), envp);
       } else {
         ret = execvp(args[0], const_cast<char**>(&args[0]));
@@ -138,24 +138,24 @@ namespace praas::process {
 
     _pid = mypid;
 
-    if (mode == runtime::ipc::IPCMode::POSIX_MQ) {
-      _ipc_read = std::make_unique<runtime::ipc::POSIXMQChannel>(
-          ipc_name + "_read", runtime::ipc::IPCDirection::READ, true, true, ipc_msg_size
+    if (mode == runtime::internal::ipc::IPCMode::POSIX_MQ) {
+      _ipc_read = std::make_unique<runtime::internal::ipc::POSIXMQChannel>(
+          ipc_name + "_read", runtime::internal::ipc::IPCDirection::READ, true, true, ipc_msg_size
       );
-      _ipc_write = std::make_unique<runtime::ipc::POSIXMQChannel>(
-          ipc_name + "_write", runtime::ipc::IPCDirection::WRITE, true, true, ipc_msg_size
+      _ipc_write = std::make_unique<runtime::internal::ipc::POSIXMQChannel>(
+          ipc_name + "_write", runtime::internal::ipc::IPCDirection::WRITE, true, true, ipc_msg_size
       );
     }
 
     _busy = false;
   }
 
-  runtime::ipc::IPCChannel& FunctionWorker::ipc_read() const
+  runtime::internal::ipc::IPCChannel& FunctionWorker::ipc_read() const
   {
     return *_ipc_read;
   }
 
-  runtime::ipc::IPCChannel& FunctionWorker::ipc_write() const
+  runtime::internal::ipc::IPCChannel& FunctionWorker::ipc_write() const
   {
     return *_ipc_write;
   }
@@ -164,11 +164,13 @@ namespace praas::process {
   {
     // Linux specific
     std::string exec_path = cfg.deployment_location.empty()
-                                ? std::filesystem::canonical("/proc/self/exe").parent_path() / "invoker" / "cpp_invoker_exe"
+                                ? std::filesystem::canonical("/proc/self/exe").parent_path() /
+                                      "invoker" / "cpp_invoker_exe"
                                 : std::filesystem::path{cfg.deployment_location} / "bin" /
                                       "invoker" / "cpp_invoker_exe";
     // FIXME: enable this for further testing - integration test
-    //exec_path = "/work/serverless/2022/praas/code/build_debug/process/bin/invoker/cpp_invoker_exe";
+    // exec_path =
+    // "/work/serverless/2022/praas/code/build_debug/process/bin/invoker/cpp_invoker_exe";
     const char* argv[] = {
         exec_path.c_str(),
         "--process-id",
@@ -181,8 +183,7 @@ namespace praas::process {
         cfg.code.location.c_str(),
         "--code-config-location",
         cfg.code.config_location.c_str(),
-        nullptr
-    };
+        nullptr};
 
     _workers.emplace_back(argv, cfg.ipc_mode, ipc_name, cfg.ipc_message_size);
   }
@@ -201,10 +202,7 @@ namespace praas::process {
     auto python_lib_path = deployment_path.parent_path().parent_path().parent_path();
     std::string env_var = fmt::format("PYTHONPATH={}", python_lib_path.c_str());
     // This is safe because execvpe does not modify contents
-    char* envp[] = {
-      const_cast<char*>(env_var.c_str()),
-      0
-    };
+    char* envp[] = {const_cast<char*>(env_var.c_str()), 0};
 
     const char* argv[] = {
         python_runtime.c_str(),
@@ -229,20 +227,23 @@ namespace praas::process {
 
     _logger = common::util::create_logger("Workers");
 
-    common::util::assert_other(static_cast<int>(cfg.code.language), static_cast<int>(runtime::functions::Language::NONE));
+    common::util::assert_other(
+        static_cast<int>(cfg.code.language), static_cast<int>(runtime::internal::Language::NONE)
+    );
 
     for (int i = 0; i < cfg.function_workers; ++i) {
 
       std::string ipc_name;
-      if(cfg.ipc_name_prefix.empty()) {
-         ipc_name = fmt::format("/praas_queue_{}_{}", getpid(), _worker_counter++);
+      if (cfg.ipc_name_prefix.empty()) {
+        ipc_name = fmt::format("/praas_queue_{}_{}", getpid(), _worker_counter++);
       } else {
-         ipc_name = fmt::format("/{}_praas_queue_{}_{}", cfg.ipc_name_prefix, getpid(), _worker_counter++);
+        ipc_name =
+            fmt::format("/{}_praas_queue_{}_{}", cfg.ipc_name_prefix, getpid(), _worker_counter++);
       }
 
-      if (cfg.code.language == runtime::functions::Language::CPP) {
+      if (cfg.code.language == runtime::internal::Language::CPP) {
         _launch_cpp(cfg, ipc_name);
-      } else if (cfg.code.language == runtime::functions::Language::PYTHON) {
+      } else if (cfg.code.language == runtime::internal::Language::PYTHON) {
         _launch_python(cfg, ipc_name);
       }
     }
@@ -281,9 +282,7 @@ namespace praas::process {
     invocation.confirm_payload();
 
     SPDLOG_LOGGER_DEBUG(
-        _logger,
-        "Sending invocation of {}, with key {}",
-        invocation.req.function_name(),
+        _logger, "Sending invocation of {}, with key {}", invocation.req.function_name(),
         invocation.req.invocation_id()
     );
 

@@ -4,7 +4,7 @@
 #include <praas/process/controller/config.hpp>
 #include <praas/process/controller/controller.hpp>
 #include <praas/process/controller/remote.hpp>
-#include <praas/process/runtime/ipc/messages.hpp>
+#include <praas/process/runtime/internal/ipc/messages.hpp>
 #include <praas/sdk/process.hpp>
 
 #include "examples/cpp/test.hpp"
@@ -15,18 +15,18 @@
 #include <spdlog/spdlog.h>
 #include <thread>
 
-#include <boost/iostreams/device/array.hpp>
 #include <boost/interprocess/streams/bufferstream.hpp>
+#include <boost/iostreams/device/array.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <cereal/archives/binary.hpp>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include <trantor/net/callbacks.h>
 #include <trantor/net/TcpClient.h>
+#include <trantor/net/callbacks.h>
 
 using namespace praas::process;
 
-size_t generate_input_binary(int arg1, int arg2, const runtime::Buffer<char> & buf)
+size_t generate_input_binary(int arg1, int arg2, const runtime::internal::Buffer<char>& buf)
 {
   Input input{arg1, arg2};
   boost::interprocess::bufferstream stream(buf.data(), buf.size);
@@ -37,7 +37,7 @@ size_t generate_input_binary(int arg1, int arg2, const runtime::Buffer<char> & b
   return pos;
 }
 
-size_t generate_input_json(int arg1, int arg2, const runtime::Buffer<char> & buf)
+size_t generate_input_json(int arg1, int arg2, const runtime::internal::Buffer<char>& buf)
 {
   Input input{arg1, arg2};
   boost::interprocess::bufferstream stream(buf.data(), buf.size);
@@ -83,11 +83,12 @@ public:
     auto path = std::filesystem::canonical("/proc/self/exe").parent_path() / "integration";
     cfg.code.location = path;
     cfg.code.config_location = "configuration.json";
-    cfg.code.language = runtime::functions::string_to_language(std::get<0>(GetParam()));
+    cfg.code.language = runtime::internal::string_to_language(std::get<0>(GetParam()));
 
     cfg.function_workers = workers;
     // process/tests/<exe> -> process
-    cfg.deployment_location = std::filesystem::canonical("/proc/self/exe").parent_path().parent_path();
+    cfg.deployment_location =
+        std::filesystem::canonical("/proc/self/exe").parent_path().parent_path();
 
     controller = std::make_unique<Controller>(cfg);
 
@@ -100,11 +101,11 @@ public:
     controller_thread.join();
   }
 
-  size_t generate_input(int arg1, int arg2, const runtime::Buffer<char> & buf)
+  size_t generate_input(int arg1, int arg2, const runtime::internal::Buffer<char>& buf)
   {
-    if(cfg.code.language == runtime::functions::Language::CPP) {
+    if (cfg.code.language == runtime::internal::Language::CPP) {
       return generate_input_binary(arg1, arg2, buf);
-    } else if(cfg.code.language == runtime::functions::Language::PYTHON) {
+    } else if (cfg.code.language == runtime::internal::Language::PYTHON) {
       return generate_input_json(arg1, arg2, buf);
     }
     return 0;
@@ -112,9 +113,9 @@ public:
 
   int get_output(char* buf, size_t len)
   {
-    if(cfg.code.language == runtime::functions::Language::CPP) {
+    if (cfg.code.language == runtime::internal::Language::CPP) {
       return get_output_binary(buf, len);
-    } else if(cfg.code.language == runtime::functions::Language::PYTHON) {
+    } else if (cfg.code.language == runtime::internal::Language::PYTHON) {
       return get_output_json(buf, len);
     }
     return -1;
@@ -135,18 +136,18 @@ public:
     std::optional<std::string> process;
     std::string id;
     int return_code;
-    runtime::Buffer<char> payload;
+    runtime::internal::Buffer<char> payload;
     timepoint_t timestamp;
   };
   std::array<Result, INVOC_COUNT> saved_results;
 
   void reset()
   {
-    for(int idx = 0; idx < INVOC_COUNT; ++idx) {
+    for (int idx = 0; idx < INVOC_COUNT; ++idx) {
       saved_results[idx].process = std::nullopt;
       saved_results[idx].id.clear();
       saved_results[idx].return_code = -1;
-      saved_results[idx].payload = runtime::Buffer<char>{};
+      saved_results[idx].payload = runtime::internal::Buffer<char>{};
       saved_results[idx].finished = std::promise<void>{};
     }
   }
@@ -154,10 +155,8 @@ public:
 
 struct ProcessConnection {
 
-
 private:
   trantor::EventLoopThread loop;
-
 };
 
 /**
@@ -185,15 +184,15 @@ TEST_P(ProcessRemoteServer, DataPlaneInvocations)
   const int COUNT = 4;
   int BUF_LEN = 1024;
   std::string function_name = "add";
-  std::array<std::string, COUNT> invocation_id = { "first_id", "second_id", "third_id", "another_id" };
+  std::array<std::string, COUNT> invocation_id = {
+      "first_id", "second_id", "third_id", "another_id"};
   std::array<std::tuple<int, int>, COUNT> args = {
-    std::make_tuple(42, 4), std::make_tuple(-1, 35),
-    std::make_tuple(1000, 0), std::make_tuple(-33, 39)
-  };
-  std::array<int, COUNT> results = { 46, 34, 1000, 6 };
-  runtime::BufferQueue<char> buffers(10, BUF_LEN);
+      std::make_tuple(42, 4), std::make_tuple(-1, 35), std::make_tuple(1000, 0),
+      std::make_tuple(-33, 39)};
+  std::array<int, COUNT> results = {46, 34, 1000, 6};
+  runtime::internal::BufferQueue<char> buffers(10, BUF_LEN);
 
-  for(int idx = 0; idx < args.size(); ++idx) {
+  for (int idx = 0; idx < args.size(); ++idx) {
 
     auto buf = buffers.retrieve_buffer(BUF_LEN);
     buf.len = generate_input(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
@@ -203,7 +202,6 @@ TEST_P(ProcessRemoteServer, DataPlaneInvocations)
     ASSERT_TRUE(result.payload_len > 0);
     int res = get_output(result.payload.get(), result.payload_len);
     EXPECT_EQ(res, results[idx]);
-
   }
 
   process.disconnect();
@@ -211,15 +209,10 @@ TEST_P(ProcessRemoteServer, DataPlaneInvocations)
   server.shutdown();
 }
 
-
 #if defined(PRAAS_WITH_INVOKER_PYTHON)
-  INSTANTIATE_TEST_SUITE_P(ProcessRemoteServer,
-                           ProcessRemoteServer,
-                           testing::Values("cpp", "python")
-                           );
+INSTANTIATE_TEST_SUITE_P(
+    ProcessRemoteServer, ProcessRemoteServer, testing::Values("cpp", "python")
+);
 #else
-  INSTANTIATE_TEST_SUITE_P(ProcessRemoteServer,
-                           ProcessRemoteServer,
-                           testing::Values("cpp")
-                          );
+INSTANTIATE_TEST_SUITE_P(ProcessRemoteServer, ProcessRemoteServer, testing::Values("cpp"));
 #endif

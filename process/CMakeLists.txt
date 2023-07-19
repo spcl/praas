@@ -23,12 +23,12 @@ add_compile_options(-Wall -Wextra -pedantic)
 
 function(process_dependencies tgt)
 
-  add_dependencies(${tgt} cxxopts::cxxopts)
-  add_dependencies(${tgt} spdlog::spdlog)
-  add_dependencies(${tgt} cereal::cereal)
-  add_dependencies(${tgt} fmt::fmt)
-  add_dependencies(${tgt} Drogon::Drogon)
-  add_dependencies(${tgt} common_library)
+  #add_dependencies(${tgt} cxxopts::cxxopts)
+  #add_dependencies(${tgt} spdlog::spdlog)
+  #add_dependencies(${tgt} cereal::cereal)
+  #add_dependencies(${tgt} fmt::fmt)
+  #add_dependencies(${tgt} Drogon::Drogon)
+  #add_dependencies(${tgt} common_library)
   target_include_directories(${tgt} SYSTEM PRIVATE $<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
   target_include_directories(${tgt} SYSTEM PUBLIC $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
   target_include_directories(${tgt} SYSTEM PUBLIC $<TARGET_PROPERTY:cereal::cereal,INTERFACE_INCLUDE_DIRECTORIES>)
@@ -60,25 +60,37 @@ endfunction()
 # Runtime library
 ###
 
-file(GLOB runtime_lib_files "runtime/src/*.cpp")
+file(GLOB runtime_lib_files "runtime/src/*.cpp" "runtime/src/internal/*.cpp")
 add_library(
   runtime
-  STATIC
+  SHARED
   ${runtime_lib_files}
+)
+target_include_directories(
+  runtime
+  PUBLIC
+  "runtime/include"
 )
 target_include_directories(
   runtime
   SYSTEM
   PUBLIC
-  "runtime/include"
+  $<TARGET_PROPERTY:cereal::cereal,INTERFACE_INCLUDE_DIRECTORIES>
+  $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>
+  $<TARGET_PROPERTY:praas::common,INTERFACE_INCLUDE_DIRECTORIES>
 )
 target_link_libraries(
   runtime
   PUBLIC
   rt
+  praas::common
 )
-process_dependencies(runtime)
-process_link(runtime)
+#target_link_libraries(functionsdk PUBLIC cereal::cereal)
+#target_link_libraries(functionsdk PUBLIC runtime)
+set_property(TARGET runtime PROPERTY POSITION_INDEPENDENT_CODE ON)
+#process_dependencies(runtime)
+#process_link(runtime)
+install(TARGETS runtime EXPORT ${PROJECT_NAME})
 
 ###
 # Process
@@ -103,34 +115,20 @@ process_dependencies(process_exe)
 process_link(process_exe)
 
 ###
-# Function SDK
-###
-
-add_library(functionsdk SHARED function/src/context.cpp function/src/invocation.cpp)
-target_include_directories(functionsdk PUBLIC $<TARGET_PROPERTY:runtime,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(functionsdk INTERFACE PUBLIC "function/include")
-target_include_directories(functionsdk SYSTEM PUBLIC "invoker/include")
-target_link_libraries(functionsdk PUBLIC cereal::cereal)
-target_link_libraries(functionsdk PUBLIC runtime)
-set_property(TARGET functionsdk PROPERTY POSITION_INDEPENDENT_CODE ON)
-
-###
 # Invoker library
 ###
 
-file(GLOB invoker_files "invoker/src/*.cpp")
-get_filename_component(fullpath_python ${CMAKE_CURRENT_SOURCE_DIR}/invoker/src/python.cpp ABSOLUTE)
-list(REMOVE_ITEM invoker_files ${fullpath_python})
+#file(GLOB invoker_files "invoker/src/*.cpp")
+#get_filename_component(fullpath_python ${CMAKE_CURRENT_SOURCE_DIR}/invoker/src/python.cpp ABSOLUTE)
+#list(REMOVE_ITEM invoker_files ${fullpath_python})
+#
+#add_library(invoker_lib STATIC ${invoker_files})
+#target_include_directories(invoker_lib SYSTEM PUBLIC "invoker/include")
+#target_link_libraries(invoker_lib PUBLIC runtime)
+##target_link_libraries(invoker_lib PUBLIC function_lib)
+#process_dependencies(invoker_lib)
+#process_link(invoker_lib)
 
-add_library(invoker_lib STATIC ${invoker_files})
-target_include_directories(invoker_lib SYSTEM PUBLIC "invoker/include")
-target_include_directories(invoker_lib PUBLIC $<TARGET_PROPERTY:functionsdk,INTERFACE_INCLUDE_DIRECTORIES>)
-target_link_libraries(invoker_lib PUBLIC runtime)
-#target_link_libraries(invoker_lib PUBLIC function_lib)
-process_dependencies(invoker_lib)
-process_link(invoker_lib)
-
-install(TARGETS functionsdk EXPORT ${PROJECT_NAME})
 #install(TARGETS functionsdk
 #        EXPORT  ${PROJECT_NAME}
 #        LIBRARY       DESTINATION "${CMAKE_INSTALL_LIBDIR}"                            COMPONENT shlib
@@ -144,8 +142,7 @@ install(TARGETS functionsdk EXPORT ${PROJECT_NAME})
 
 add_executable(cpp_invoker_exe invoker/cpp/cli.cpp invoker/cpp/opts.cpp invoker/cpp/functions.cpp)
 set_target_properties(cpp_invoker_exe PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
-target_link_libraries(cpp_invoker_exe PRIVATE invoker_lib)
-target_link_libraries(cpp_invoker_exe PRIVATE functionsdk)
+target_link_libraries(cpp_invoker_exe PRIVATE runtime)
 target_link_libraries(cpp_invoker_exe PUBLIC dl)
 process_dependencies(cpp_invoker_exe)
 process_link(cpp_invoker_exe)
@@ -167,8 +164,7 @@ if(Python_FOUND AND pybind11_FOUND)
     add_feature_info(invoker_python ON "enabled")
 
     pybind11_add_module(_pypraas invoker/python/bindings/function.cpp invoker/python/bindings/invoker.cpp)
-    target_link_libraries(_pypraas PRIVATE invoker_lib)
-    target_link_libraries(_pypraas PRIVATE functionsdk)
+    target_link_libraries(_pypraas PRIVATE runtime)
     process_link_private(_pypraas)
 
     set_target_properties(_pypraas PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/pypraas)

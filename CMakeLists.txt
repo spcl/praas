@@ -111,6 +111,7 @@ target_link_libraries(common_library PRIVATE cereal::cereal)
 target_link_libraries(common_library PRIVATE spdlog::spdlog)
 target_link_libraries(common_library PRIVATE stduuid)
 target_link_libraries(common_library PRIVATE Drogon::Drogon)
+add_library(praas::common ALIAS common_library)
 
 if(PRAAS_WITH_TESTING)
 
@@ -133,6 +134,7 @@ if(NOT PRAAS_DEPLOYMENTS)
 
 endif()
 
+set(PRAAS_WITH_SDK OFF)
 foreach(COMPONENT ${PRAAS_COMPONENTS})
 
   if(COMPONENT STREQUAL "control-plane")
@@ -147,6 +149,7 @@ foreach(COMPONENT ${PRAAS_COMPONENTS})
     message(STATUS "Building serving component")
     add_subdirectory(serving)
     add_feature_info(component_serving ON "enabled")
+    set(PRAAS_WITH_SDK ON)
   elseif(COMPONENT STREQUAL "process")
     message(STATUS "Building process component")
     add_subdirectory(process)

@@ -4,7 +4,7 @@
 #include <praas/process/controller/config.hpp>
 #include <praas/process/controller/controller.hpp>
 #include <praas/process/controller/remote.hpp>
-#include <praas/process/runtime/ipc/messages.hpp>
+#include <praas/process/runtime/internal/ipc/messages.hpp>
 
 #include "examples/cpp/test.hpp"
 
@@ -12,8 +12,8 @@
 #include <future>
 #include <thread>
 
-#include <boost/iostreams/device/array.hpp>
 #include <boost/interprocess/streams/bufferstream.hpp>
+#include <boost/iostreams/device/array.hpp>
 #include <boost/iostreams/stream.hpp>
 #include <cereal/archives/binary.hpp>
 #include <gmock/gmock.h>
@@ -26,20 +26,24 @@ public:
   MockTCPServer() = default;
 
   MOCK_METHOD(void, poll, (std::optional<std::string>), (override));
-  MOCK_METHOD(void, put_message, (std::string_view, std::string_view, runtime::Buffer<char> &&), (override));
+  MOCK_METHOD(
+      void, put_message, (std::string_view, std::string_view, runtime::internal::Buffer<char>&&),
+      (override)
+  );
   MOCK_METHOD(
       void, invocation_result,
-      (remote::RemoteType, std::optional<std::string_view>, std::string_view, int, runtime::Buffer<char> &&),
+      (remote::RemoteType, std::optional<std::string_view>, std::string_view, int,
+       runtime::internal::Buffer<char>&&),
       (override)
   );
   MOCK_METHOD(
       void, invocation_request,
-      (std::string_view, std::string_view, std::string_view, runtime::Buffer<char> &&),
+      (std::string_view, std::string_view, std::string_view, runtime::internal::Buffer<char>&&),
       (override)
   );
 };
 
-size_t generate_input_binary(std::string key, const runtime::Buffer<char> & buf)
+size_t generate_input_binary(std::string key, const runtime::internal::Buffer<char>& buf)
 {
   InputMsgKey input{key};
   boost::interprocess::bufferstream stream(buf.data(), buf.size);
@@ -50,7 +54,7 @@ size_t generate_input_binary(std::string key, const runtime::Buffer<char> & buf)
   return pos;
 }
 
-size_t generate_input_json(std::string key, const runtime::Buffer<char> & buf)
+size_t generate_input_json(std::string key, const runtime::internal::Buffer<char>& buf)
 {
   InputMsgKey input{key};
   boost::interprocess::bufferstream stream(buf.data(), buf.size);
@@ -74,11 +78,12 @@ public:
     auto path = std::filesystem::canonical("/proc/self/exe").parent_path() / "integration";
     cfg.code.location = path;
     cfg.code.config_location = "configuration.json";
-    cfg.code.language = runtime::functions::string_to_language(std::get<1>(GetParam()));
+    cfg.code.language = runtime::internal::string_to_language(std::get<1>(GetParam()));
 
     cfg.function_workers = workers;
     // process/tests/<exe> -> process
-    cfg.deployment_location = std::filesystem::canonical("/proc/self/exe").parent_path().parent_path();
+    cfg.deployment_location =
+        std::filesystem::canonical("/proc/self/exe").parent_path().parent_path();
 
     controller = std::make_unique<Controller>(cfg);
     controller->set_remote(&server);
@@ -86,20 +91,18 @@ public:
     controller_thread = std::thread{&Controller::start, controller.get()};
 
     EXPECT_CALL(server, invocation_result)
-        .WillRepeatedly(
-            [&](auto, auto _process, auto _id, int _return_code, auto && _payload) mutable {
+        .WillRepeatedly([&](auto, auto _process, auto _id, int _return_code,
+                            auto&& _payload) mutable {
+          saved_results[idx].process = _process;
+          saved_results[idx].id = _id;
+          saved_results[idx].return_code = _return_code;
+          saved_results[idx].payload = std::move(_payload);
+          saved_results[idx].finished.set_value();
 
-              saved_results[idx].process = _process;
-              saved_results[idx].id = _id;
-              saved_results[idx].return_code = _return_code;
-              saved_results[idx].payload = std::move(_payload);
-              saved_results[idx].finished.set_value();
+          saved_results[idx].timestamp = std::chrono::system_clock::now();
 
-              saved_results[idx].timestamp = std::chrono::system_clock::now();
-
-              idx++;
-            }
-        );
+          idx++;
+        });
   }
 
   void TearDown() override
@@ -108,11 +111,11 @@ public:
     controller_thread.join();
   }
 
-  size_t generate_input(std::string key, const runtime::Buffer<char> & buf)
+  size_t generate_input(std::string key, const runtime::internal::Buffer<char>& buf)
   {
-    if(cfg.code.language == runtime::functions::Language::CPP) {
+    if (cfg.code.language == runtime::internal::Language::CPP) {
       return generate_input_binary(key, buf);
-    } else if(cfg.code.language == runtime::functions::Language::PYTHON) {
+    } else if (cfg.code.language == runtime::internal::Language::PYTHON) {
       return generate_input_json(key, buf);
     }
     return 0;
@@ -134,18 +137,18 @@ public:
     std::optional<std::string> process;
     std::string id;
     int return_code;
-    runtime::Buffer<char> payload;
+    runtime::internal::Buffer<char> payload;
     timepoint_t timestamp;
   };
   std::array<Result, INVOC_COUNT> saved_results;
 
   void reset()
   {
-    for(int idx = 0; idx < INVOC_COUNT; ++idx) {
+    for (int idx = 0; idx < INVOC_COUNT; ++idx) {
       saved_results[idx].process = std::nullopt;
       saved_results[idx].id.clear();
       saved_results[idx].return_code = -1;
-      saved_results[idx].payload = runtime::Buffer<char>{};
+      saved_results[idx].payload = runtime::internal::Buffer<char>{};
       saved_results[idx].finished = std::promise<void>{};
     }
   }
@@ -172,9 +175,9 @@ TEST_P(ProcessMessagingTest, GetPutOneWorker)
   std::string put_function_name = "send_message";
   std::string get_function_name = std::get<0>(GetParam());
   std::string process_id = "remote-process-1";
-  std::array<std::string, 2> invocation_id = { "first_id", "second_id" };
+  std::array<std::string, 2> invocation_id = {"first_id", "second_id"};
 
-  runtime::BufferQueue<char> buffers(10, 1024);
+  runtime::internal::BufferQueue<char> buffers(10, 1024);
 
   reset();
 
@@ -191,7 +194,10 @@ TEST_P(ProcessMessagingTest, GetPutOneWorker)
     controller->dataplane_message(std::move(msg), std::move(buf));
 
     // Wait for the invocation to finish
-    ASSERT_EQ(std::future_status::ready, saved_results[0].finished.get_future().wait_for(std::chrono::seconds(1)));
+    ASSERT_EQ(
+        std::future_status::ready,
+        saved_results[0].finished.get_future().wait_for(std::chrono::seconds(1))
+    );
 
     // Dataplane message
     EXPECT_FALSE(saved_results[0].process.has_value());
@@ -214,7 +220,10 @@ TEST_P(ProcessMessagingTest, GetPutOneWorker)
     controller->remote_message(std::move(msg), std::move(buf), process_id);
 
     // Wait for the invocation to finish
-    ASSERT_EQ(std::future_status::ready, saved_results[1].finished.get_future().wait_for(std::chrono::seconds(1)));
+    ASSERT_EQ(
+        std::future_status::ready,
+        saved_results[1].finished.get_future().wait_for(std::chrono::seconds(1))
+    );
 
     // Remote message
     EXPECT_TRUE(saved_results[1].process.has_value());
@@ -225,19 +234,21 @@ TEST_P(ProcessMessagingTest, GetPutOneWorker)
 }
 
 #if defined(PRAAS_WITH_INVOKER_PYTHON)
-  INSTANTIATE_TEST_SUITE_P(ProcessGetPutTestSelf,
-                           ProcessMessagingTest,
-                           testing::Combine(
-                             testing::Values("get_message_self", "get_message_any", "get_message_explicit"),
-                             testing::Values("cpp", "python")
-                           ));
+INSTANTIATE_TEST_SUITE_P(
+    ProcessGetPutTestSelf, ProcessMessagingTest,
+    testing::Combine(
+        testing::Values("get_message_self", "get_message_any", "get_message_explicit"),
+        testing::Values("cpp", "python")
+    )
+);
 #else
-  INSTANTIATE_TEST_SUITE_P(ProcessGetPutTestSelf,
-                           ProcessMessagingTest,
-                           testing::Combine(
-                             testing::Values("get_message_self", "get_message_any", "get_message_explicit"),
-                             testing::Values("cpp")
-                           ));
+INSTANTIATE_TEST_SUITE_P(
+    ProcessGetPutTestSelf, ProcessMessagingTest,
+    testing::Combine(
+        testing::Values("get_message_self", "get_message_any", "get_message_explicit"),
+        testing::Values("cpp")
+    )
+);
 #endif
 
 /**
@@ -256,9 +267,9 @@ TEST_P(ProcessMessagingTest, GetPutTwoWorkers)
   std::string put_function_name = "send_message";
   std::string get_function_name = "get_message_self";
   std::string process_id = "remote-process-1";
-  std::array<std::string, 2> invocation_id = { "first_id", "second_id" };
+  std::array<std::string, 2> invocation_id = {"first_id", "second_id"};
 
-  runtime::BufferQueue<char> buffers(10, 1024);
+  runtime::internal::BufferQueue<char> buffers(10, 1024);
 
   reset();
 
@@ -285,23 +296,24 @@ TEST_P(ProcessMessagingTest, GetPutTwoWorkers)
   controller->dataplane_message(std::move(put_msg), std::move(buf));
 
   // Wait for both invocations to finish
-  for(int i = 0; i < 2; ++i) {
-    ASSERT_EQ(std::future_status::ready, saved_results[i].finished.get_future().wait_for(std::chrono::seconds(1)));
+  for (int i = 0; i < 2; ++i) {
+    ASSERT_EQ(
+        std::future_status::ready,
+        saved_results[i].finished.get_future().wait_for(std::chrono::seconds(1))
+    );
   }
 
   // Results will arrive in a different order because they are executed by different workers.
-  std::sort(saved_results.begin(), saved_results.begin() + 2,
-      [](Result & first, Result & second) -> bool {
-        return first.id < second.id;
-      }
+  std::sort(
+      saved_results.begin(), saved_results.begin() + 2,
+      [](Result& first, Result& second) -> bool { return first.id < second.id; }
   );
 
-  for(int i = 0; i < 2; ++i) {
+  for (int i = 0; i < 2; ++i) {
     // Dataplane message
     EXPECT_FALSE(saved_results[i].process.has_value());
     EXPECT_EQ(saved_results[i].id, invocation_id[i]);
     EXPECT_EQ(saved_results[i].return_code, 0);
     EXPECT_EQ(saved_results[i].return_code, 0);
   }
-
 }

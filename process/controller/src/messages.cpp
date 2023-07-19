@@ -1,4 +1,5 @@
 #include <praas/process/controller/messages.hpp>
+
 #include <praas/common/util.hpp>
 
 #include <compare>
@@ -17,10 +18,11 @@ namespace praas::process::message {
       const std::string& key, std::string_view source, FunctionWorker& worker
   )
   {
-    SPDLOG_LOGGER_DEBUG(_logger, "Inserting worker pending for a message with name {}, from {}", key, source);
+    SPDLOG_LOGGER_DEBUG(
+        _logger, "Inserting worker pending for a message with name {}, from {}", key, source
+    );
     _msgs.emplace(
-        std::piecewise_construct,
-        std::forward_as_tuple(key),
+        std::piecewise_construct, std::forward_as_tuple(key),
         std::forward_as_tuple(PendingMessage::Type::GET, std::string{source}, &worker)
     );
   }
@@ -28,8 +30,7 @@ namespace praas::process::message {
   void PendingMessages::insert_invocation(std::string_view key, FunctionWorker& worker)
   {
     _msgs.emplace(
-        std::piecewise_construct,
-        std::forward_as_tuple(key),
+        std::piecewise_construct, std::forward_as_tuple(key),
         std::forward_as_tuple(PendingMessage::Type::INVOCATION, "", &worker)
     );
   }
@@ -38,7 +39,9 @@ namespace praas::process::message {
   {
     auto [begin, end] = _msgs.equal_range(key);
 
-    SPDLOG_LOGGER_DEBUG(_logger, "Searching for pending message with name {}, from {}", key, source);
+    SPDLOG_LOGGER_DEBUG(
+        _logger, "Searching for pending message with name {}, from {}", key, source
+    );
     // Find the first matching function to consume the message
     for (auto iter = begin; iter != end; ++iter) {
 
@@ -49,16 +52,19 @@ namespace praas::process::message {
         return worker;
       }
     }
-    SPDLOG_LOGGER_DEBUG(_logger, "Did not find a worker waiting for message with name {}, from {}", key, source);
+    SPDLOG_LOGGER_DEBUG(
+        _logger, "Did not find a worker waiting for message with name {}, from {}", key, source
+    );
 
     return nullptr;
   }
 
-  void PendingMessages::find_invocation(std::string_view key, std::vector<const FunctionWorker*> & output)
+  void
+  PendingMessages::find_invocation(std::string_view key, std::vector<const FunctionWorker*>& output)
   {
     // Invocations
     auto [begin, end] = _msgs.equal_range(std::string{key});
-    if(begin == end)
+    if (begin == end)
       return;
 
     // Find the first matching function to consume the message
@@ -69,20 +75,20 @@ namespace praas::process::message {
   }
 
   bool MessageStore::put(
-      const std::string& key, const std::string& source, runtime::Buffer<char>& payload
+      const std::string& key, const std::string& source, runtime::internal::Buffer<char>& payload
   )
   {
     auto [it, success] = _msgs.try_emplace(key, source, std::move(payload));
     return success;
   }
 
-  bool MessageStore::state(const std::string& key, runtime::Buffer<char> & payload)
+  bool MessageStore::state(const std::string& key, runtime::internal::Buffer<char>& payload)
   {
     auto [it, success] = _msgs.try_emplace(key, "", std::move(payload));
     return success;
   }
 
-  std::optional<runtime::Buffer<char>>
+  std::optional<runtime::internal::Buffer<char>>
   MessageStore::try_get(const std::string& key, std::string_view source)
   {
     auto it = _msgs.find(key);
@@ -99,7 +105,7 @@ namespace praas::process::message {
     return buf;
   }
 
-  runtime::Buffer<char>* MessageStore::try_state(const std::string& key)
+  runtime::internal::Buffer<char>* MessageStore::try_state(const std::string& key)
   {
     auto it = _msgs.find(key);
     if (it == _msgs.end()) {

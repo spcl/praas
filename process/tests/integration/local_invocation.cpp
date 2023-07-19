@@ -4,8 +4,8 @@
 #include <praas/process/controller/config.hpp>
 #include <praas/process/controller/controller.hpp>
 #include <praas/process/controller/remote.hpp>
-#include <praas/process/runtime/functions.hpp>
-#include <praas/process/runtime/ipc/messages.hpp>
+#include <praas/process/runtime/internal/functions.hpp>
+#include <praas/process/runtime/internal/ipc/messages.hpp>
 
 #include "examples/cpp/test.hpp"
 
@@ -28,20 +28,24 @@ public:
   MockTCPServer() = default;
 
   MOCK_METHOD(void, poll, (std::optional<std::string> control_plane_address), (override));
-  MOCK_METHOD(void, put_message, (std::string_view, std::string_view, runtime::Buffer<char> &&), (override));
+  MOCK_METHOD(
+      void, put_message, (std::string_view, std::string_view, runtime::internal::Buffer<char>&&),
+      (override)
+  );
   MOCK_METHOD(
       void, invocation_result,
-      (remote::RemoteType, std::optional<std::string_view>, std::string_view, int, runtime::Buffer<char> &&),
+      (remote::RemoteType, std::optional<std::string_view>, std::string_view, int,
+       runtime::internal::Buffer<char>&&),
       (override)
   );
   MOCK_METHOD(
       void, invocation_request,
-      (std::string_view, std::string_view, std::string_view, runtime::Buffer<char> &&),
+      (std::string_view, std::string_view, std::string_view, runtime::internal::Buffer<char>&&),
       (override)
   );
 };
 
-size_t generate_input_binary(int arg1, int arg2, const runtime::Buffer<char> & buf)
+size_t generate_input_binary(int arg1, int arg2, const runtime::internal::Buffer<char>& buf)
 {
   Input input{arg1, arg2};
   boost::interprocess::bufferstream stream(buf.data(), buf.size);
@@ -52,7 +56,7 @@ size_t generate_input_binary(int arg1, int arg2, const runtime::Buffer<char> & b
   return pos;
 }
 
-size_t generate_input_json(int arg1, int arg2, const runtime::Buffer<char> & buf)
+size_t generate_input_json(int arg1, int arg2, const runtime::internal::Buffer<char>& buf)
 {
   Input input{arg1, arg2};
   boost::interprocess::bufferstream stream(buf.data(), buf.size);
@@ -65,7 +69,7 @@ size_t generate_input_json(int arg1, int arg2, const runtime::Buffer<char> & buf
   return pos;
 }
 
-int get_output_binary(const runtime::Buffer<char> & buf)
+int get_output_binary(const runtime::internal::Buffer<char>& buf)
 {
   Output out;
   boost::iostreams::stream<boost::iostreams::array_source> stream(buf.data(), buf.size);
@@ -75,7 +79,7 @@ int get_output_binary(const runtime::Buffer<char> & buf)
   return out.result;
 }
 
-int get_output_json(const runtime::Buffer<char> & buf)
+int get_output_json(const runtime::internal::Buffer<char>& buf)
 {
   Output out;
   boost::iostreams::stream<boost::iostreams::array_source> stream(buf.data(), buf.len);
@@ -96,10 +100,11 @@ public:
     auto path = std::filesystem::canonical("/proc/self/exe").parent_path() / "integration";
     cfg.code.location = path;
     cfg.code.config_location = "configuration.json";
-    cfg.code.language = runtime::functions::string_to_language(GetParam());
+    cfg.code.language = runtime::internal::string_to_language(GetParam());
 
     // process/tests/<exe> -> process
-    cfg.deployment_location = std::filesystem::canonical("/proc/self/exe").parent_path().parent_path();
+    cfg.deployment_location =
+        std::filesystem::canonical("/proc/self/exe").parent_path().parent_path();
 
     cfg.function_workers = 4;
 
@@ -109,15 +114,14 @@ public:
     controller_thread = std::thread{&Controller::start, controller.get()};
 
     EXPECT_CALL(server, invocation_result)
-        .WillRepeatedly(
-            [&](remote::RemoteType, auto _process, auto _id, int _return_code, auto && _payload) {
-              process = _process;
-              id = _id;
-              return_code = _return_code;
-              payload = std::move(_payload);
-              finished.set_value();
-            }
-        );
+        .WillRepeatedly([&](remote::RemoteType, auto _process, auto _id, int _return_code,
+                            auto&& _payload) {
+          process = _process;
+          id = _id;
+          return_code = _return_code;
+          payload = std::move(_payload);
+          finished.set_value();
+        });
   }
 
   void TearDown() override
@@ -126,21 +130,21 @@ public:
     controller_thread.join();
   }
 
-  size_t generate_input(int arg1, int arg2, const runtime::Buffer<char> & buf)
+  size_t generate_input(int arg1, int arg2, const runtime::internal::Buffer<char>& buf)
   {
-    if(cfg.code.language == runtime::functions::Language::CPP) {
+    if (cfg.code.language == runtime::internal::Language::CPP) {
       return generate_input_binary(arg1, arg2, buf);
-    } else if(cfg.code.language == runtime::functions::Language::PYTHON) {
+    } else if (cfg.code.language == runtime::internal::Language::PYTHON) {
       return generate_input_json(arg1, arg2, buf);
     }
     return 0;
   }
 
-  int get_output(const runtime::Buffer<char> & buf)
+  int get_output(const runtime::internal::Buffer<char>& buf)
   {
-    if(cfg.code.language == runtime::functions::Language::CPP) {
+    if (cfg.code.language == runtime::internal::Language::CPP) {
       return get_output_binary(buf);
-    } else if(cfg.code.language == runtime::functions::Language::PYTHON) {
+    } else if (cfg.code.language == runtime::internal::Language::PYTHON) {
       return get_output_json(buf);
     }
     return -1;
@@ -156,14 +160,14 @@ public:
   std::optional<std::string> process;
   std::string id;
   int return_code;
-  runtime::Buffer<char> payload;
+  runtime::internal::Buffer<char> payload;
 
   void reset()
   {
     process = std::nullopt;
     id.clear();
     return_code = -1;
-    payload = runtime::Buffer<char>{};
+    payload = runtime::internal::Buffer<char>{};
     finished = std::promise<void>{};
   }
 };
@@ -179,14 +183,15 @@ TEST_P(ProcessLocalInvocationTest, SimpleInvocation)
   const int BUF_LEN = 1024;
   std::string function_name = "power";
   std::string process_id = "remote-process-1";
-  std::array<std::string, 3> invocation_id = { "first_id", "second_id", "third_id" };
+  std::array<std::string, 3> invocation_id = {"first_id", "second_id", "third_id"};
 
-  std::array<std::tuple<int, int>, 3> args = { std::make_tuple(2, 3), std::make_tuple(2, 4), std::make_tuple(3, 5)};
-  std::array<int, 3> results = { 8, 16, 243};
+  std::array<std::tuple<int, int>, 3> args = {
+      std::make_tuple(2, 3), std::make_tuple(2, 4), std::make_tuple(3, 5)};
+  std::array<int, 3> results = {8, 16, 243};
 
-  runtime::BufferQueue<char> buffers(10, 1024);
+  runtime::internal::BufferQueue<char> buffers(10, 1024);
 
-  for(int i = 0; i < invocation_id.size(); ++i) {
+  for (int i = 0; i < invocation_id.size(); ++i) {
 
     reset();
 
@@ -212,19 +217,15 @@ TEST_P(ProcessLocalInvocationTest, SimpleInvocation)
     ASSERT_TRUE(payload.len > 0);
     int res = get_output(payload);
     EXPECT_EQ(res, results[i]);
-
   }
 }
 
 #if defined(PRAAS_WITH_INVOKER_PYTHON)
-  INSTANTIATE_TEST_SUITE_P(ProcessLocalInvocationTest,
-                           ProcessLocalInvocationTest,
-                           testing::Values("cpp", "python")
-                           );
+INSTANTIATE_TEST_SUITE_P(
+    ProcessLocalInvocationTest, ProcessLocalInvocationTest, testing::Values("cpp", "python")
+);
 #else
-  INSTANTIATE_TEST_SUITE_P(ProcessLocalInvocationTest,
-                           ProcessLocalInvocationTest,
-                           testing::Values("cpp")
-                           );
+INSTANTIATE_TEST_SUITE_P(
+    ProcessLocalInvocationTest, ProcessLocalInvocationTest, testing::Values("cpp")
+);
 #endif
-

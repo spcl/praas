@@ -1,8 +1,8 @@
 #ifndef PRAAS_PROCESS_CONTROLLER_MESSAGES_HPP
 #define PRAAS_PROCESS_CONTROLLER_MESSAGES_HPP
 
-#include <praas/process/runtime/buffer.hpp>
-#include <praas/process/runtime/ipc/messages.hpp>
+#include <praas/process/runtime/internal/buffer.hpp>
+#include <praas/process/runtime/internal/ipc/messages.hpp>
 
 #include <optional>
 #include <spdlog/logger.h>
@@ -20,18 +20,13 @@ namespace praas::process::message {
 
   struct PendingMessage {
 
-    enum class Type {
-      NONE,
-      GET,
-      INVOCATION
-    };
+    enum class Type { NONE, GET, INVOCATION };
 
     Type type = Type::NONE;
 
     std::optional<std::string> source{};
 
     const FunctionWorker* worker{};
-
   };
 
   /**
@@ -55,17 +50,16 @@ namespace praas::process::message {
     const FunctionWorker* find_get(const std::string& key, std::string_view source);
 
     // FIXME: inlined vector?
-    void find_invocation(std::string_view key, std::vector<const FunctionWorker*> & output);
+    void find_invocation(std::string_view key, std::vector<const FunctionWorker*>& output);
 
   private:
-
     using key_t = std::tuple<std::string, std::string>;
 
     struct KeyHash {
-        std::size_t operator()(const key_t & key) const
-        {
-            return boost::hash_value(key);
-        }
+      std::size_t operator()(const key_t& key) const
+      {
+        return boost::hash_value(key);
+      }
     };
 
     // Match by key. We cannot do a tuple<str, str> key because we might want to search for *any*
@@ -83,19 +77,21 @@ namespace praas::process::message {
 
     std::string source;
 
-    runtime::Buffer<char> data;
-
+    runtime::internal::Buffer<char> data;
   };
 
   struct MessageStore {
 
-    bool put(const std::string& key, const std::string& source, runtime::Buffer<char> & payload);
+    bool
+    put(const std::string& key, const std::string& source,
+        runtime::internal::Buffer<char>& payload);
 
-    bool state(const std::string& key, runtime::Buffer<char> & payload);
+    bool state(const std::string& key, runtime::internal::Buffer<char>& payload);
 
-    std::optional<runtime::Buffer<char>> try_get(const std::string& key, std::string_view source);
+    std::optional<runtime::internal::Buffer<char>>
+    try_get(const std::string& key, std::string_view source);
 
-    runtime::Buffer<char>* try_state(const std::string& key);
+    runtime::internal::Buffer<char>* try_state(const std::string& key);
 
   private:
     std::unordered_map<std::string, Message> _msgs;

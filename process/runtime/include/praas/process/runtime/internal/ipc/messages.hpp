@@ -8,10 +8,10 @@
 #include <string>
 #include <variant>
 
-//#include <fmt/format.h>
+// #include <fmt/format.h>
 #include <spdlog/fmt/fmt.h>
 
-namespace praas::process::runtime::ipc {
+namespace praas::process::runtime::internal::ipc {
 
   template <class... Ts>
   struct overloaded : Ts... {
@@ -63,7 +63,8 @@ namespace praas::process::runtime::ipc {
     }
 
     using MessageVariants = std::variant<
-        GetRequestParsed, PutRequestParsed, InvocationRequestParsed, InvocationResultParsed, ApplicationUpdateParsed>;
+        GetRequestParsed, PutRequestParsed, InvocationRequestParsed, InvocationResultParsed,
+        ApplicationUpdateParsed>;
 
     MessageVariants parse() const;
 
@@ -157,8 +158,9 @@ namespace praas::process::runtime::ipc {
         : buf(buf),
           // NOLINTNEXTLINE
           process_id_len(strnlen(
-                reinterpret_cast<const char*>(buf + Message::ID_LENGTH + Message::NAME_LENGTH),
-          Message::ID_LENGTH)),
+              reinterpret_cast<const char*>(buf + Message::ID_LENGTH + Message::NAME_LENGTH),
+              Message::ID_LENGTH
+          )),
           id_len(strnlen(reinterpret_cast<const char*>(buf), Message::ID_LENGTH)),
           name_len(strnlen(
               // NOLINTNEXTLINE
@@ -207,7 +209,7 @@ namespace praas::process::runtime::ipc {
 
       // NOLINTNEXTLINE
       auto ptr = reinterpret_cast<int32_t*>(
-          data.data() + HEADER_OFFSET + Message::NAME_LENGTH + 2*Message::ID_LENGTH
+          data.data() + HEADER_OFFSET + Message::NAME_LENGTH + 2 * Message::ID_LENGTH
       );
       *ptr++ = elems;
 
@@ -273,13 +275,13 @@ namespace praas::process::runtime::ipc {
     {
     }
 
-    using ApplicationUpdateParsed::status_change;
     using ApplicationUpdateParsed::process_id;
+    using ApplicationUpdateParsed::status_change;
 
     void process_id(std::string_view id);
     void status_change(int32_t code);
   };
 
-} // namespace praas::process::runtime::ipc
+} // namespace praas::process::runtime::internal::ipc
 
 #endif

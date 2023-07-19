@@ -4,10 +4,10 @@
 #include <praas/common/application.hpp>
 #include <praas/common/messages.hpp>
 #include <praas/process/controller/config.hpp>
+#include <praas/process/controller/messages.hpp>
 #include <praas/process/controller/remote.hpp>
 #include <praas/process/controller/workers.hpp>
-#include <praas/process/runtime/ipc/ipc.hpp>
-#include <praas/process/controller/messages.hpp>
+#include <praas/process/runtime/internal/ipc/ipc.hpp>
 
 #include <memory>
 #include <spdlog/spdlog.h>
@@ -30,7 +30,7 @@ namespace praas::process {
       // Value? Process id.
       std::optional<std::string> source;
       praas::common::message::Message msg;
-      runtime::Buffer<char> payload;
+      runtime::internal::Buffer<char> payload;
     };
 
     // State
@@ -53,11 +53,13 @@ namespace praas::process {
 
     // FIXME: this is only required because of the split between message and parsed message
     // There should be one type only!
-    void remote_message(praas::common::message::Message &&, runtime::Buffer<char> &&, std::string process_id);
+    void remote_message(
+        praas::common::message::Message&&, runtime::internal::Buffer<char>&&, std::string process_id
+    );
 
-    void dataplane_message(praas::common::message::Message &&, runtime::Buffer<char> &&);
+    void dataplane_message(praas::common::message::Message&&, runtime::internal::Buffer<char>&&);
 
-    void controlplane_message(praas::common::message::Message &&, runtime::Buffer<char> &&);
+    void controlplane_message(praas::common::message::Message&&, runtime::internal::Buffer<char>&&);
 
     void update_application(common::Application::Status status, std::string_view process);
 
@@ -67,40 +69,39 @@ namespace praas::process {
     }
 
   private:
-
     void _process_application_updates(const std::vector<common::ApplicationUpdate>& updates);
-    void _process_external_message(ExternalMessage & msg);
-    void _process_internal_message(FunctionWorker & worker, const runtime::ipc::Message & msg, runtime::Buffer<char> &&);
+    void _process_external_message(ExternalMessage& msg);
+    void
+    _process_internal_message(FunctionWorker& worker, const runtime::internal::ipc::Message& msg, runtime::internal::Buffer<char>&&);
 
     // Store the message data, and check if there is a pending invocation waiting for this result
-    void _process_put(const runtime::ipc::PutRequestParsed & req, runtime::Buffer<char> && payload);
+    void _process_put(
+        const runtime::internal::ipc::PutRequestParsed& req,
+        runtime::internal::Buffer<char>&& payload
+    );
 
     // Check if there is a message with this data. If yes, then respond immediately.
     // If not, then put in the structure for pending messages.
-    void _process_get(runtime::Buffer<char> &&);
-    void _process_get(const runtime::ipc::Message & msg, runtime::Buffer<char> &&);
+    void _process_get(runtime::internal::Buffer<char>&&);
+    void
+    _process_get(const runtime::internal::ipc::Message& msg, runtime::internal::Buffer<char>&&);
 
     // Put the invocation into a work queue.
     // Store the invocation on a list of pending invocations.
-    //void _process_invocation(runtime::Buffer<char> &&);
-    void _process_invocation(
-      FunctionWorker & worker,
-      const runtime::ipc::InvocationRequestParsed & msg,
-      runtime::Buffer<char> &&
-    );
+    // void _process_invocation(runtime::Buffer<char> &&);
+    void
+    _process_invocation(FunctionWorker& worker, const runtime::internal::ipc::InvocationRequestParsed& msg, runtime::internal::Buffer<char>&&);
 
     void _process_invocation_result(
-      FunctionWorker & worker,
-      std::string_view invocation_id,
-      int return_code,
-      runtime::Buffer<char> && payload
+        FunctionWorker& worker, std::string_view invocation_id, int return_code,
+        runtime::internal::Buffer<char>&& payload
     );
-
 
     // Retrieve the pending invocation object.
     // Forward the response to the owner.
-    void _process_result(runtime::Buffer<char> &&);
-    void _process_result(const runtime::ipc::Message & msg, runtime::Buffer<char> &&);
+    void _process_result(runtime::internal::Buffer<char>&&);
+    void
+    _process_result(const runtime::internal::ipc::Message& msg, runtime::internal::Buffer<char>&&);
 
     int _epoll_fd;
 
@@ -111,10 +112,10 @@ namespace praas::process {
     static constexpr int DEFAULT_BUFFER_MESSAGES = 20;
     static constexpr int DEFAULT_BUFFER_SIZE = 5 * 1024 * 1024;
 
-    runtime::BufferQueue<char> _buffers;
+    runtime::internal::BufferQueue<char> _buffers;
 
     // Function triggers
-    runtime::functions::Functions _functions;
+    runtime::internal::Functions _functions;
 
     // Function workers (IPC) - seperate processes.
     Workers _workers;
@@ -124,7 +125,7 @@ namespace praas::process {
     std::mutex _deque_lock;
     // No deque in tbb
     // https://community.intel.com/t5/Intel-oneAPI-Threading-Building/Is-there-a-concurrent-dequeue/m-p/873829
-    //oneapi::tbb::concurrent_queue<ExternalMessage> _external_queue;
+    // oneapi::tbb::concurrent_queue<ExternalMessage> _external_queue;
 
     // Current world
     std::mutex _app_lock;
@@ -152,12 +153,11 @@ namespace praas::process {
     static constexpr std::string_view SELF_PROCESS = "SELF";
   };
 
-
   extern Controller* INSTANCE;
 
   void set_terminate(Controller* controller);
   void set_signals();
 
-}
+} // namespace praas::process
 
 #endif

@@ -3,11 +3,11 @@
 
 #include <memory>
 #include <string>
-
-#include <cereal/external/rapidjson/fwd.h>
 #include <unordered_map>
 
-namespace praas::process::runtime::functions {
+#include <cereal/external/rapidjson/fwd.h>
+
+namespace praas::process::runtime::internal {
 
   enum class Language { CPP = 0, PYTHON, NONE };
 
@@ -72,9 +72,9 @@ namespace praas::process::runtime::functions {
   struct Functions {
 
     using container_t = std::unordered_map<std::string, Function>;
-    using citer_t  = typename container_t::const_iterator;
+    using citer_t = typename container_t::const_iterator;
 
-    void initialize(std::istream& in_stream, runtime::functions::Language language);
+    void initialize(std::istream& in_stream, Language language);
 
     const Trigger* get_trigger(std::string name) const;
 
@@ -94,6 +94,6 @@ namespace praas::process::runtime::functions {
     std::unordered_map<std::string, Function> _functions;
   };
 
-} // namespace praas::process::runtime::functions
+} // namespace praas::process::runtime::internal
 
 #endif

@@ -1,8 +1,8 @@
 #ifndef PRAAS_PROCESS_RUNTIME_IPC_IPC_HPP
 #define PRAAS_PROCESS_RUNTIME_IPC_IPC_HPP
 
-#include <praas/process/runtime/buffer.hpp>
-#include <praas/process/runtime/ipc/messages.hpp>
+#include <praas/process/runtime/internal/buffer.hpp>
+#include <praas/process/runtime/internal/ipc/messages.hpp>
 
 #include <optional>
 #include <string>
@@ -10,7 +10,7 @@
 
 #include <mqueue.h>
 
-namespace praas::process::runtime::ipc {
+namespace praas::process::runtime::internal::ipc {
 
   enum IPCMode { POSIX_MQ, NONE };
 
@@ -34,7 +34,7 @@ namespace praas::process::runtime::ipc {
 
     virtual std::tuple<bool, Buffer<char>> receive() = 0;
 
-    virtual bool blocking_receive(Buffer<std::byte> & buf) = 0;
+    virtual bool blocking_receive(Buffer<std::byte>& buf) = 0;
 
     virtual const Message& message() const = 0;
 
@@ -63,7 +63,7 @@ namespace praas::process::runtime::ipc {
     int fd() const override;
 
     std::tuple<bool, Buffer<char>> receive() override;
-    bool blocking_receive(Buffer<std::byte> & buf) override;
+    bool blocking_receive(Buffer<std::byte>& buf) override;
 
     void send(Message& msg) override;
     void send(Message& msg, const std::vector<Buffer<char>>& data) override;
@@ -104,6 +104,6 @@ namespace praas::process::runtime::ipc {
     size_t _recv(char* data, size_t len) const;
   };
 
-} // namespace praas::process::runtime::ipc
+} // namespace praas::process::runtime::internal::ipc
 
 #endif

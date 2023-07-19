@@ -1,12 +1,12 @@
 
 #include <praas/common/exceptions.hpp>
-#include <praas/process/runtime/functions.hpp>
+#include <praas/process/runtime/internal/functions.hpp>
 
 #include <sstream>
 
 #include <gtest/gtest.h>
 
-using namespace praas::process::runtime::functions;
+using namespace praas::process::runtime::internal;
 
 TEST(ProcessFunctionsConfig, TriggerDirect)
 {
@@ -43,4 +43,3 @@ TEST(ProcessFunctionsConfig, TriggerDirect)
   EXPECT_EQ(func_ptr->function_name, "test");
   EXPECT_EQ(func_ptr->module_name, "libtest.so");
 }
-

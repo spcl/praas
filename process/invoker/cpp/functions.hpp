@@ -1,9 +1,9 @@
 #ifndef PRAAS_PROCESS_INVOKER_FUNCTIONS_HPP
 #define PRAAS_PROCESS_INVOKER_FUNCTIONS_HPP
 
-#include <praas/function/context.hpp>
-#include <praas/function/invocation.hpp>
-#include <praas/process/runtime/functions.hpp>
+#include <praas/process/runtime/context.hpp>
+#include <praas/process/runtime/internal/functions.hpp>
+#include <praas/process/runtime/invocation.hpp>
 
 #include <memory>
 #include <string>
@@ -13,9 +13,9 @@ namespace praas::process {
 
   struct FunctionsLibrary {
 
-    static constexpr runtime::functions::Language LANGUAGE = runtime::functions::Language::CPP;
+    static constexpr runtime::internal::Language LANGUAGE = runtime::internal::Language::CPP;
 
-    using FuncType = int (*)(praas::function::Invocation, praas::function::Context&);
+    using FuncType = int (*)(runtime::Invocation, runtime::Context&);
 
     FunctionsLibrary(std::string code_location, std::string config_location);
     FunctionsLibrary(const FunctionsLibrary&) = default;
@@ -35,7 +35,7 @@ namespace praas::process {
     std::unordered_map<std::string, void*> _libraries;
     std::unordered_map<std::string, void*> _functions;
 
-    runtime::functions::Functions _func_db;
+    runtime::internal::Functions _func_db;
   };
 
 } // namespace praas::process

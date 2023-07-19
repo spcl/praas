@@ -3,9 +3,9 @@
 
 #include <praas/process/controller/config.hpp>
 #include <praas/process/controller/remote.hpp>
-#include <praas/process/runtime/buffer.hpp>
-#include <praas/process/runtime/functions.hpp>
-#include <praas/process/runtime/ipc/ipc.hpp>
+#include <praas/process/runtime/internal/buffer.hpp>
+#include <praas/process/runtime/internal/functions.hpp>
+#include <praas/process/runtime/internal/ipc/ipc.hpp>
 
 #include <memory>
 #include <optional>
@@ -44,8 +44,8 @@ namespace praas::process {
 
     bool is_remote() const
     {
-      return source == remote::RemoteType::DATA_PLANE || source == remote::RemoteType::PROCESS
-        || source == remote::RemoteType::CONTROL_PLANE;
+      return source == remote::RemoteType::DATA_PLANE || source == remote::RemoteType::PROCESS ||
+             source == remote::RemoteType::CONTROL_PLANE;
     }
 
     bool is_local() const
@@ -61,8 +61,7 @@ namespace praas::process {
 
     Invocation(
         const std::string& fname, const std::string& invocation_key,
-        const runtime::functions::Trigger* trigger,
-        InvocationSource && source
+        const runtime::internal::Trigger* trigger, InvocationSource&& source
     )
         : trigger(trigger), source(source)
     {
@@ -80,9 +79,9 @@ namespace praas::process {
       req.buffers(payload.begin(), payload.end());
     }
 
-    runtime::ipc::InvocationRequest req;
-    std::vector<runtime::Buffer<char>> payload;
-    const runtime::functions::Trigger* trigger;
+    runtime::internal::ipc::InvocationRequest req;
+    std::vector<runtime::internal::Buffer<char>> payload;
+    const runtime::internal::Trigger* trigger;
 
     bool active{};
 
@@ -91,9 +90,12 @@ namespace praas::process {
 
   struct WorkQueue {
 
-    WorkQueue(runtime::functions::Functions& functions) : _functions(functions) {}
+    WorkQueue(runtime::internal::Functions& functions) : _functions(functions) {}
 
-    void add_payload(const std::string& fname, const std::string& key, runtime::Buffer<char> && buffer, InvocationSource && source);
+    void add_payload(
+        const std::string& fname, const std::string& key, runtime::internal::Buffer<char>&& buffer,
+        InvocationSource&& source
+    );
 
     Invocation* next();
 
@@ -111,10 +113,10 @@ namespace praas::process {
     // All invocations - active, and pending.
     std::unordered_map<std::string, Invocation> _active_invocations;
 
-    runtime::functions::Functions& _functions;
+    runtime::internal::Functions& _functions;
   };
 
-  struct TriggerChecker : runtime::functions::TriggerVisitor {
+  struct TriggerChecker : runtime::internal::TriggerVisitor {
 
     TriggerChecker(Invocation& invoc, WorkQueue& queue) : invocation(invoc), work_queue(queue) {}
 
@@ -122,18 +124,19 @@ namespace praas::process {
     WorkQueue& work_queue;
     bool ready{};
 
-    void visit(const runtime::functions::DirectTrigger&) override;
+    void visit(const runtime::internal::DirectTrigger&) override;
   };
 
   struct FunctionWorker {
 
     FunctionWorker(
-        const char** args, runtime::ipc::IPCMode, std::string ipc_name, int ipc_msg_size, char** env = {}
+        const char** args, runtime::internal::ipc::IPCMode, std::string ipc_name, int ipc_msg_size,
+        char** env = {}
     );
 
-    runtime::ipc::IPCChannel& ipc_write() const;
+    runtime::internal::ipc::IPCChannel& ipc_write() const;
 
-    runtime::ipc::IPCChannel& ipc_read() const;
+    runtime::internal::ipc::IPCChannel& ipc_read() const;
 
     int pid() const
     {
@@ -151,9 +154,9 @@ namespace praas::process {
     }
 
   private:
-    std::unique_ptr<runtime::ipc::IPCChannel> _ipc_read;
+    std::unique_ptr<runtime::internal::ipc::IPCChannel> _ipc_read;
 
-    std::unique_ptr<runtime::ipc::IPCChannel> _ipc_write;
+    std::unique_ptr<runtime::internal::ipc::IPCChannel> _ipc_write;
 
     int _pid;
 
@@ -168,7 +171,6 @@ namespace praas::process {
     {
       return _workers;
     }
-
     bool has_idle_workers() const;
 
     void submit(Invocation& invocation);
@@ -180,10 +182,9 @@ namespace praas::process {
     void shutdown_channels();
 
   private:
+    void _launch_cpp(config::Controller& cfg, const std::string& ipc_name);
 
-    void _launch_cpp(config::Controller & cfg, const std::string& ipc_name);
-
-    void _launch_python(config::Controller & cfg, const std::string& ipc_name);
+    void _launch_python(config::Controller& cfg, const std::string& ipc_name);
 
     FunctionWorker* _get_idle_worker();
 

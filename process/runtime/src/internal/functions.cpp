@@ -1,4 +1,4 @@
-#include <praas/process/runtime/functions.hpp>
+#include <praas/process/runtime/internal/functions.hpp>
 
 #include <praas/common/exceptions.hpp>
 
@@ -7,12 +7,12 @@
 #include <cereal/external/rapidjson/document.h>
 #include <cereal/external/rapidjson/istreamwrapper.h>
 
-//#include <fmt/format.h>
+// #include <fmt/format.h>
 #include <spdlog/fmt/fmt.h>
 #include <tuple>
 #include <utility>
 
-namespace praas::process::runtime::functions {
+namespace praas::process::runtime::internal {
 
   std::string language_to_string(Language val)
   {
@@ -38,22 +38,22 @@ namespace praas::process::runtime::functions {
     return Language::NONE;
   }
 
-  std::unique_ptr<Trigger> Trigger::parse(const std::string& fname, const rapidjson::Value & obj)
+  std::unique_ptr<Trigger> Trigger::parse(const std::string& fname, const rapidjson::Value& obj)
   {
     auto it = obj.FindMember("trigger");
-    if(it == obj.MemberEnd() || !it->value.IsObject()) {
+    if (it == obj.MemberEnd() || !it->value.IsObject()) {
       throw common::InvalidJSON{fmt::format("Could not parse trigger configuration for {}", fname)};
     }
 
     std::string trigger_type = it->value["type"].GetString();
-    if(trigger_type == "direct") {
+    if (trigger_type == "direct") {
       return std::make_unique<DirectTrigger>(fname);
     }
 
     throw common::InvalidJSON{fmt::format("Could not parse trigger type {}", trigger_type)};
   }
 
-  void Functions::initialize(std::istream & in_stream, runtime::functions::Language language)
+  void Functions::initialize(std::istream& in_stream, Language language)
   {
     rapidjson::Document doc;
     rapidjson::IStreamWrapper wrapper{in_stream};
@@ -62,11 +62,12 @@ namespace praas::process::runtime::functions {
     std::string lang_str = language_to_string(language);
 
     auto it = doc["functions"].FindMember(lang_str.c_str());
-    if(it == doc.MemberEnd() || !it->value.IsObject()) {
-      throw common::InvalidJSON{fmt::format("Could not parse configuration for language {}", lang_str)};
+    if (it == doc.MemberEnd() || !it->value.IsObject()) {
+      throw common::InvalidJSON{
+          fmt::format("Could not parse configuration for language {}", lang_str)};
     }
 
-    for(const auto& function_cfg : it->value.GetObject()) {
+    for (const auto& function_cfg : it->value.GetObject()) {
 
       std::string fname = function_cfg.name.GetString();
 
@@ -81,18 +82,16 @@ namespace praas::process::runtime::functions {
       std::string function_name = it->value["function"].GetString();
 
       _functions.emplace(
-          std::piecewise_construct,
-          std::forward_as_tuple(fname),
+          std::piecewise_construct, std::forward_as_tuple(fname),
           std::make_tuple(module_name, function_name, std::move(trigger))
       );
-
     }
   }
 
   const Trigger* Functions::get_trigger(std::string name) const
   {
     auto it = _functions.find(name);
-    if(it != _functions.end()) {
+    if (it != _functions.end()) {
       return it->second.trigger.get();
     }
     return nullptr;
@@ -101,13 +100,13 @@ namespace praas::process::runtime::functions {
   const Function* Functions::get_function(std::string name) const
   {
     auto it = _functions.find(name);
-    if(it != _functions.end()) {
+    if (it != _functions.end()) {
       return &it->second;
     }
     return nullptr;
   }
 
-  void DirectTrigger::accept(TriggerVisitor & visitor) const
+  void DirectTrigger::accept(TriggerVisitor& visitor) const
   {
     visitor.visit(*this);
   }
@@ -122,4 +121,4 @@ namespace praas::process::runtime::functions {
     return _name;
   }
 
-}
+} // namespace praas::process::runtime::internal

@@ -1,159 +1,53 @@
 #ifndef PRAAS_PROCESS_RUNTIME_BUFFER_HPP
 #define PRAAS_PROCESS_RUNTIME_BUFFER_HPP
 
-#include <cstdint>
-#include <memory>
-#include <queue>
-#include <string>
+#include <cstddef>
+
+#include <boost/interprocess/streams/bufferstream.hpp>
+#include <boost/iostreams/stream.hpp>
+#include <cereal/archives/binary.hpp>
 
 namespace praas::process::runtime {
 
-  template <typename T>
-  struct BufferAccessor {
-    T* ptr{};
-    size_t len{};
-
-    BufferAccessor() = default;
-    BufferAccessor(T* ptr, size_t len) : ptr(ptr), len(len) {}
-
-    T* data() const
-    {
-      return ptr;
-    }
-
-    bool empty() const
-    {
-      return len == 0;
-    }
-
-    bool null() const
-    {
-      return ptr == 0;
-    }
-
-  };
-
-  template <typename T>
   struct Buffer {
-    std::unique_ptr<T[]> ptr{};
-    size_t size{};
+
+    std::byte* ptr{};
+
     size_t len{};
 
-    Buffer() = default;
-    Buffer(T* ptr, size_t size, size_t len = 0) : ptr(ptr), size(size), len(len) {}
+    size_t size{};
 
-    Buffer(const Buffer&) = delete;
-    Buffer& operator=(const Buffer&) = delete;
-
-    Buffer(Buffer && obj) noexcept:
-      ptr(std::move(obj.ptr)),
-      size(obj.size),
-      len(obj.len)
+    // We cannot return char* directly - the string might not be NULL-terminated
+    std::string_view str() const
     {
-      obj.ptr = nullptr;
-      obj.size = obj.len = 0;
+      return std::string_view(reinterpret_cast<char*>(ptr), len);
     }
 
-    Buffer& operator=(Buffer && obj) noexcept
+    template <typename Obj>
+    void deserialize(Obj& obj)
     {
-      ptr = std::move(obj.ptr);
-      size = obj.size;
-      len = obj.len;
-
-      obj.ptr = nullptr;
-      obj.size = obj.len = 0;
-
-      return *this;
+      // Streams do not accept std::byte argument but char*
+      boost::iostreams::stream<boost::iostreams::array_source> stream(
+          reinterpret_cast<char*>(ptr), size
+      );
+      cereal::BinaryInputArchive archive_in{stream};
+      obj.load(archive_in);
     }
 
-    template<typename U>
-    Buffer(Buffer<U> && obj) noexcept
+    template <typename Obj>
+    size_t serialize(const Obj& obj)
     {
-      this->ptr.reset(reinterpret_cast<T*>(obj.ptr.release()));
-      this->size = obj.size;
-      this->len = obj.len;
+      try {
+        boost::interprocess::bufferstream out_stream(reinterpret_cast<char*>(ptr), size);
+        cereal::BinaryOutputArchive archive_out{out_stream};
+        archive_out(obj);
 
-      obj.len = obj.size = 0;
-    }
-
-    ~Buffer() = default;
-
-    T* data() const
-    {
-      return ptr.get();
-    }
-
-    bool empty() const
-    {
-      return len == 0;
-    }
-
-    bool null() const
-    {
-      return ptr == 0;
-    }
-
-    void resize(size_t size)
-    {
-      ptr.reset(new T[size]);
-      this->size = size;
-      this->len = 0;
-    }
-
-    operator BufferAccessor<T>() const
-    {
-      return BufferAccessor<T>(ptr.get(), len);
-    }
-
-    template<typename U>
-    BufferAccessor<U> accessor() const
-    {
-      return BufferAccessor<U>(reinterpret_cast<U*>(ptr.get()), len);
-    }
-  };
-
-  template <typename T>
-  struct BufferQueue {
-
-    typedef Buffer<T> val_t;
-
-    std::queue<val_t> _buffers;
-
-    BufferQueue() = default;
-
-    BufferQueue(size_t elements, size_t elem_size)
-    {
-      for (size_t i = 0; i < elements; ++i) {
-        _buffers.push(val_t{new T[elem_size], elem_size});
-      }
-    }
-
-    ~BufferQueue() = default;
-
-    Buffer<T> retrieve_buffer(size_t size)
-    {
-      if (_buffers.empty()) {
-        return _allocate_buffer(size);
+        len = out_stream.tellp();
+      } catch (cereal::Exception& e) {
+        std::cerr << "Serialization failed: " << e.what() << std::endl;
       }
 
-      Buffer<T> buf = std::move(_buffers.front());
-      _buffers.pop();
-      if (_buffers.size() < size) {
-        buf.resize(size);
-      }
-
-      return buf;
-    }
-
-    void return_buffer(Buffer<T>&& buf)
-    {
-      buf.len = 0;
-      _buffers.push(std::move(buf));
-    }
-
-    Buffer<T> _allocate_buffer(size_t size)
-    {
-      return Buffer<T>{new T[size], size, 0};
+      return len;
     }
   };
 
