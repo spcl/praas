@@ -1,6 +1,6 @@
 
 cmake_minimum_required(VERSION 3.11)
-project(praas-process)
+project(praas LANGUAGES CXX VERSION 0.1)
 set (CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH};${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 ###
@@ -60,13 +60,25 @@ endfunction()
 # Runtime library
 ###
 
-file(GLOB process_lib_files "runtime/src/*.cpp")
-add_library(process_lib STATIC ${process_lib_files})
-target_include_directories(process_lib SYSTEM PUBLIC "runtime/include")
-target_link_libraries(process_lib PUBLIC rt)
-#set_property(TARGET process_lib PROPERTY POSITION_INDEPENDENT_CODE ON)
-process_dependencies(process_lib)
-process_link(process_lib)
+file(GLOB runtime_lib_files "runtime/src/*.cpp")
+add_library(
+  runtime
+  STATIC
+  ${runtime_lib_files}
+)
+target_include_directories(
+  runtime
+  SYSTEM
+  PUBLIC
+  "runtime/include"
+)
+target_link_libraries(
+  runtime
+  PUBLIC
+  rt
+)
+process_dependencies(runtime)
+process_link(runtime)
 
 ###
 # Process
@@ -80,7 +92,7 @@ list(REMOVE_ITEM controller_files ${fullpath_cli})
 
 add_library(controller_lib STATIC ${controller_files})
 target_include_directories(controller_lib SYSTEM PUBLIC "controller/include")
-target_link_libraries(controller_lib PUBLIC process_lib)
+target_link_libraries(controller_lib PUBLIC runtime)
 process_dependencies(controller_lib)
 process_link(controller_lib)
 
@@ -89,6 +101,18 @@ set_target_properties(process_exe PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 target_link_libraries(process_exe PRIVATE controller_lib)
 process_dependencies(process_exe)
 process_link(process_exe)
+
+###
+# Function SDK
+###
+
+add_library(functionsdk SHARED function/src/context.cpp function/src/invocation.cpp)
+target_include_directories(functionsdk PUBLIC $<TARGET_PROPERTY:runtime,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(functionsdk INTERFACE PUBLIC "function/include")
+target_include_directories(functionsdk SYSTEM PUBLIC "invoker/include")
+target_link_libraries(functionsdk PUBLIC cereal::cereal)
+target_link_libraries(functionsdk PUBLIC runtime)
+set_property(TARGET functionsdk PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 ###
 # Invoker library
@@ -100,29 +124,19 @@ list(REMOVE_ITEM invoker_files ${fullpath_python})
 
 add_library(invoker_lib STATIC ${invoker_files})
 target_include_directories(invoker_lib SYSTEM PUBLIC "invoker/include")
-target_include_directories(invoker_lib SYSTEM PUBLIC "invoker/function/include")
-target_link_libraries(invoker_lib PUBLIC process_lib)
+target_include_directories(invoker_lib PUBLIC $<TARGET_PROPERTY:functionsdk,INTERFACE_INCLUDE_DIRECTORIES>)
+target_link_libraries(invoker_lib PUBLIC runtime)
 #target_link_libraries(invoker_lib PUBLIC function_lib)
 process_dependencies(invoker_lib)
 process_link(invoker_lib)
 
-###
-# Function API
-###
-
-#file(GLOB func_api_files "invoker/function/src/*.cpp")
-add_library(function_lib STATIC invoker/function/src/context.cpp invoker/function/src/invocation.cpp)
-target_include_directories(function_lib PUBLIC $<TARGET_PROPERTY:process_lib,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(function_lib SYSTEM PUBLIC "invoker/function/include")
-target_include_directories(function_lib SYSTEM PUBLIC "invoker/include")
-target_link_libraries(function_lib PUBLIC cereal::cereal)
-#target_link_libraries(function_lib PUBLIC spdlog::spdlog)
-target_link_libraries(function_lib PUBLIC process_lib)
-target_link_libraries(function_lib PUBLIC invoker_lib)
-set_property(TARGET function_lib PROPERTY POSITION_INDEPENDENT_CODE ON)
-#process_dependencies(function_lib)
-#process_link(function_lib)
-
+install(TARGETS functionsdk EXPORT ${PROJECT_NAME})
+#install(TARGETS functionsdk
+#        EXPORT  ${PROJECT_NAME}
+#        LIBRARY       DESTINATION "${CMAKE_INSTALL_LIBDIR}"                            COMPONENT shlib
+#        ARCHIVE       DESTINATION "${CMAKE_INSTALL_LIBDIR}"                            COMPONENT lib
+#        RUNTIME       DESTINATION "${CMAKE_INSTALL_BINDIR}"                            COMPONENT bin
+#        PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/functionsdk" COMPONENT dev)
 
 ###
 # C++ invoker
@@ -131,7 +145,7 @@ set_property(TARGET function_lib PROPERTY POSITION_INDEPENDENT_CODE ON)
 add_executable(cpp_invoker_exe invoker/cpp/cli.cpp invoker/cpp/opts.cpp invoker/cpp/functions.cpp)
 set_target_properties(cpp_invoker_exe PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 target_link_libraries(cpp_invoker_exe PRIVATE invoker_lib)
-target_link_libraries(cpp_invoker_exe PRIVATE function_lib)
+target_link_libraries(cpp_invoker_exe PRIVATE functionsdk)
 target_link_libraries(cpp_invoker_exe PUBLIC dl)
 process_dependencies(cpp_invoker_exe)
 process_link(cpp_invoker_exe)
@@ -154,7 +168,7 @@ if(Python_FOUND AND pybind11_FOUND)
 
     pybind11_add_module(_pypraas invoker/python/bindings/function.cpp invoker/python/bindings/invoker.cpp)
     target_link_libraries(_pypraas PRIVATE invoker_lib)
-    target_link_libraries(_pypraas PRIVATE function_lib)
+    target_link_libraries(_pypraas PRIVATE functionsdk)
     process_link_private(_pypraas)
 
     set_target_properties(_pypraas PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/pypraas)
