@@ -26,7 +26,7 @@
 
 using namespace praas::process;
 
-size_t generate_input_key_binary(std::string key, const runtime::Buffer<char>& buf)
+size_t generate_input_key_binary(std::string key, const runtime::internal::Buffer<char>& buf)
 {
   InputMsgKey input{key};
   boost::interprocess::bufferstream stream(buf.data(), buf.size);
@@ -37,7 +37,7 @@ size_t generate_input_key_binary(std::string key, const runtime::Buffer<char>& b
   return pos;
 }
 
-size_t generate_input_key_json(std::string key, const runtime::Buffer<char>& buf)
+size_t generate_input_key_json(std::string key, const runtime::internal::Buffer<char>& buf)
 {
   InputMsgKey input{key};
   boost::interprocess::bufferstream stream(buf.data(), buf.size);
@@ -50,7 +50,7 @@ size_t generate_input_key_json(std::string key, const runtime::Buffer<char>& buf
   return pos;
 }
 
-size_t generate_input_add_binary(int arg1, int arg2, const runtime::Buffer<char>& buf)
+size_t generate_input_add_binary(int arg1, int arg2, const runtime::internal::Buffer<char>& buf)
 {
   Input input{arg1, arg2};
   boost::interprocess::bufferstream stream(buf.data(), buf.size);
@@ -61,7 +61,7 @@ size_t generate_input_add_binary(int arg1, int arg2, const runtime::Buffer<char>
   return pos;
 }
 
-size_t generate_input_add_json(int arg1, int arg2, const runtime::Buffer<char>& buf)
+size_t generate_input_add_json(int arg1, int arg2, const runtime::internal::Buffer<char>& buf)
 {
   Input input{arg1, arg2};
   boost::interprocess::bufferstream stream(buf.data(), buf.size);
@@ -107,7 +107,7 @@ public:
     auto path = std::filesystem::canonical("/proc/self/exe").parent_path() / "integration";
     cfg.code.location = path;
     cfg.code.config_location = "configuration.json";
-    cfg.code.language = runtime::functions::string_to_language(std::get<0>(GetParam()));
+    cfg.code.language = runtime::internal::string_to_language(std::get<0>(GetParam()));
 
     cfg.function_workers = workers;
     // process/tests/<exe> -> process
@@ -134,21 +134,21 @@ public:
     }
   }
 
-  size_t generate_input_key(std::string key, const runtime::Buffer<char>& buf)
+  size_t generate_input_key(std::string key, const runtime::internal::Buffer<char>& buf)
   {
-    if (cfg.code.language == runtime::functions::Language::CPP) {
+    if (cfg.code.language == runtime::internal::Language::CPP) {
       return generate_input_key_binary(key, buf);
-    } else if (cfg.code.language == runtime::functions::Language::PYTHON) {
+    } else if (cfg.code.language == runtime::internal::Language::PYTHON) {
       return generate_input_key_json(key, buf);
     }
     return 0;
   }
 
-  size_t generate_input_add(int arg1, int arg2, const runtime::Buffer<char>& buf)
+  size_t generate_input_add(int arg1, int arg2, const runtime::internal::Buffer<char>& buf)
   {
-    if (cfg.code.language == runtime::functions::Language::CPP) {
+    if (cfg.code.language == runtime::internal::Language::CPP) {
       return generate_input_add_binary(arg1, arg2, buf);
-    } else if (cfg.code.language == runtime::functions::Language::PYTHON) {
+    } else if (cfg.code.language == runtime::internal::Language::PYTHON) {
       return generate_input_add_json(arg1, arg2, buf);
     }
     return 0;
@@ -156,9 +156,9 @@ public:
 
   int get_output_add(char* ptr, size_t len)
   {
-    if (cfg.code.language == runtime::functions::Language::CPP) {
+    if (cfg.code.language == runtime::internal::Language::CPP) {
       return get_output_add_binary(ptr, len);
-    } else if (cfg.code.language == runtime::functions::Language::PYTHON) {
+    } else if (cfg.code.language == runtime::internal::Language::PYTHON) {
       return get_output_add_json(ptr, len);
     }
     return -1;
@@ -180,7 +180,7 @@ public:
     std::optional<std::string> process;
     std::string id;
     int return_code;
-    runtime::Buffer<char> payload;
+    runtime::internal::Buffer<char> payload;
     timepoint_t timestamp;
   };
   std::array<Result, INVOC_COUNT> saved_results;
@@ -191,7 +191,7 @@ public:
       saved_results[idx].process = std::nullopt;
       saved_results[idx].id.clear();
       saved_results[idx].return_code = -1;
-      saved_results[idx].payload = runtime::Buffer<char>{};
+      saved_results[idx].payload = runtime::internal::Buffer<char>{};
       saved_results[idx].finished = std::promise<void>{};
     }
   }
@@ -214,7 +214,7 @@ TEST_P(ProcessRemoteServers, GetPutCommunication)
   SetUp(1);
 
   const int BUF_LEN = 1024;
-  runtime::BufferQueue<char> buffers(10, 1024);
+  runtime::internal::BufferQueue<char> buffers(10, 1024);
 
   std::vector<std::unique_ptr<remote::TCPServer>> servers;
   for (int i = 0; i < PROC_COUNT; ++i) {
@@ -291,7 +291,7 @@ TEST_P(ProcessRemoteServers, SimultaenousMessaging)
   SetUp(2);
 
   const int BUF_LEN = 1024;
-  runtime::BufferQueue<char> buffers(10, 1024);
+  runtime::internal::BufferQueue<char> buffers(10, 1024);
 
   std::vector<std::unique_ptr<remote::TCPServer>> servers;
   for (int i = 0; i < PROC_COUNT; ++i) {
@@ -360,7 +360,7 @@ TEST_P(ProcessRemoteServers, RemoteInvocations)
   SetUp(2);
 
   const int BUF_LEN = 1024;
-  runtime::BufferQueue<char> buffers(10, 1024);
+  runtime::internal::BufferQueue<char> buffers(10, 1024);
 
   std::vector<std::unique_ptr<remote::TCPServer>> servers;
   for (int i = 0; i < PROC_COUNT; ++i) {

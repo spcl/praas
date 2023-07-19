@@ -5,9 +5,7 @@ set(TESTS unit/messages.cpp
 foreach(test ${TESTS})
 
   PraaS_AddTest("process" test_name ${test})
-  process_dependencies(${test_name})
   target_link_libraries(${test_name} PRIVATE controller_lib)
-  process_link(${test_name})
 
 endforeach()
 
@@ -24,9 +22,7 @@ set(TESTS integration/invocation.cpp
 foreach(test ${TESTS})
 
   PraaS_AddTest("process" test_name ${test})
-  process_dependencies(${test_name})
   target_link_libraries(${test_name} PRIVATE controller_lib)
-  process_link(${test_name})
 
 endforeach()
 
@@ -42,9 +38,7 @@ if(${PRAAS_WITH_SDK})
   foreach(test ${TESTS})
 
     PraaS_AddTest("process" test_name ${test})
-    process_dependencies(${test_name})
     target_link_libraries(${test_name} PRIVATE controller_lib)
-    process_link(${test_name})
     target_link_libraries(${test_name} PRIVATE praas_sdk)
 
   endforeach()
