@@ -58,40 +58,114 @@ namespace praas::serving::docker {
     return substrings;
   }
 
-  void HttpServer::create(
-      const drogon::HttpRequestPtr&, std::function<void(const drogon::HttpResponsePtr&)>&& callback
+  drogon::HttpResponsePtr correct_response(const std::string& reason)
+  {
+    Json::Value json;
+    json["status"] = reason;
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(json);
+    resp->setStatusCode(drogon::k200OK);
+    return resp;
+  }
+
+  drogon::HttpResponsePtr failed_response(
+      const std::string& reason,
+      drogon::HttpStatusCode status_code = drogon::HttpStatusCode::k500InternalServerError
   )
   {
-    std::cerr << drogon::utils::urlEncode("/images/create?fromImage=python:3.7-slim-stretch")
-              << std::endl;
-    std::cerr << drogon::utils::urlEncode("/images/create?fromImage=\"python:3.7-slim-stretch\"")
-              << std::endl;
-    // auto img = drogon::utils::urlEncode("/images/create?fromImage=python:3.7-slim-stretch");
-    auto img = "/images/create?fromImage=python:3.7-slim-stretch";
+    Json::Value json;
+    json["reason"] = reason;
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(json);
+    resp->setStatusCode(status_code);
+    return resp;
+  }
+
+  void HttpServer::_start_container(
+      const std::string& proc_name, const std::string& container_id,
+      std::function<void(const drogon::HttpResponsePtr&)>&& callback
+  )
+  {
     _http_client.post(
-        "/images/create?fromImage=python:3.7-slim-stretch", {},
-        [callback](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
-          auto strings = split(response->getBody(), "\n");
-          Json::Value val;
-          Json::Reader reader;
-          // Parse the last received JSON
-          bool status = reader.parse(strings.back().begin(), strings.back().end(), val, false);
-          if (status) {
-            auto resp = drogon::HttpResponse::newHttpJsonResponse(val);
-            resp->setStatusCode(drogon::k200OK);
-            callback(resp);
+        fmt::format("/containers/{}/start", container_id), {},
+        [callback = std::move(callback), container_id,
+         proc_name](drogon::ReqResult, const drogon::HttpResponsePtr& response) {
+          if (response->getStatusCode() == drogon::HttpStatusCode::k404NotFound) {
+            callback(failed_response(fmt::format(
+                "Failure - container {} for process {} no longer exists", container_id, proc_name
+            )));
+          } else if (response->getStatusCode() == drogon::HttpStatusCode::k204NoContent) {
+
+            callback(correct_response(fmt::format("Container for process {} created.", proc_name)));
           } else {
-            Json::Value val;
-            val["status"] = "Couldn't parse the output JSON!" + std::string{strings.back()};
-            auto resp = drogon::HttpResponse::newHttpJsonResponse(val);
-            resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            callback(failed_response(fmt::format("Unknown error! Response: {}", response->getBody())
+            ));
           }
         }
     );
   }
 
-  void HttpServer::swap(
+  void HttpServer::create(
+      const drogon::HttpRequestPtr& request,
+      std::function<void(const drogon::HttpResponsePtr&)>&& callback
+  )
+  {
+    std::string proc_name = request->getParameter("process-name");
+    if (proc_name.empty()) {
+      callback(failed_response("Missing arguments!"));
+      return;
+    }
+
+    auto req_body = request->getJsonObject();
+    if (req_body == nullptr) {
+      callback(failed_response("Missing body!"));
+      return;
+    }
+
+    auto container_name_obj = (*req_body)["container-name"];
+    auto controlplane_addr_obj = (*req_body)["controlplane-address"];
+    if (container_name_obj.isNull() || controlplane_addr_obj.isNull()) {
+      callback(failed_response("Missing arguments in request body!"));
+      return;
+    }
+    std::string container_name = container_name_obj.asString();
+    std::string controlplane_addr = controlplane_addr_obj.asString();
+
+    Json::Value body;
+    body["Image"] = container_name;
+
+    Json::Value env_data;
+    // FIXME: reenable once Docker is enabled to handle empty strings for addr
+    // env_data.append(fmt::format("CONTROLPLANE_ADDR={}", controlplane_addr));
+    env_data.append(fmt::format("PROCESS_ID={}", proc_name));
+    body["Env"] = env_data;
+
+    // FIXME: volumes
+    // FIXME: port mapping
+
+    _http_client.post(
+        "/containers/create",
+        {
+            {"name", proc_name},
+        },
+        std::move(body),
+        [callback = std::move(callback), this,
+         proc_name](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
+          if (response->getStatusCode() == drogon::HttpStatusCode::k409Conflict) {
+            callback(
+                failed_response(fmt::format("Container for process {} already exists", proc_name))
+            );
+          } else if (response->getStatusCode() == drogon::HttpStatusCode::k201Created) {
+
+            auto container_id = (*response->getJsonObject())["Id"].asString();
+            _start_container(proc_name, container_id, std::move(callback));
+          } else {
+            callback(failed_response(fmt::format("Unknown error! Response: {}", response->getBody())
+            ));
+          }
+        }
+    );
+  }
+
+  void HttpServer::kill(
       const drogon::HttpRequestPtr&, std::function<void(const drogon::HttpResponsePtr&)>&& callback
   )
   {
@@ -102,9 +176,10 @@ namespace praas::serving::docker {
       std::string image
   )
   {
-    auto url = fmt::format("/images/create?fromImage={}", image);
+    // auto url = fmt::format("/images/create?fromImage={}", image);
+    auto url = "/images/create";
     _http_client.post(
-        url, {},
+        url, {{"fromImage", image}},
         [callback, image](drogon::ReqResult, const drogon::HttpResponsePtr& response) {
           Json::Value resp_json;
           resp_json["image"] = image;

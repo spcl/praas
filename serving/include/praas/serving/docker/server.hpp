@@ -3,6 +3,7 @@
 #define PRAAS_SERVING_DOCKER_SERVER_HPP
 
 #include <praas/common/http.hpp>
+#include <praas/serving/docker/containers.hpp>
 
 #include <thread>
 
@@ -27,7 +28,7 @@ namespace praas::serving::docker {
 
     METHOD_LIST_BEGIN
     ADD_METHOD_TO(HttpServer::create, "/create", drogon::Post);
-    ADD_METHOD_TO(HttpServer::swap, "/swap", drogon::Post);
+    ADD_METHOD_TO(HttpServer::kill, "/kill", drogon::Post);
     ADD_METHOD_TO(HttpServer::cache_image, "/cache?image={1}", drogon::Post);
     METHOD_LIST_END
 
@@ -42,7 +43,7 @@ namespace praas::serving::docker {
         std::function<void(const drogon::HttpResponsePtr&)>&& callback
     );
 
-    void swap(
+    void kill(
         const drogon::HttpRequestPtr&,
         std::function<void(const drogon::HttpResponsePtr&)>&& callback
     );
@@ -53,6 +54,11 @@ namespace praas::serving::docker {
     );
 
   private:
+    void _start_container(
+        const std::string& proc_name, const std::string& container_id,
+        std::function<void(const drogon::HttpResponsePtr&)>&& callback
+    );
+
     int _http_port;
     int _docker_port;
     int _threads;
@@ -62,6 +68,8 @@ namespace praas::serving::docker {
 
     std::thread _server_thread;
     std::shared_ptr<spdlog::logger> _logger;
+
+    Processes _processes;
   };
 
 } // namespace praas::serving::docker
