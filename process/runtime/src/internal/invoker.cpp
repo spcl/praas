@@ -42,7 +42,7 @@ namespace praas::process::runtime::internal {
     Invocation invoc;
     bool received_invocation = false;
 
-    while (!received_invocation) {
+    while (!received_invocation && !_ending) {
 
       try {
         auto read = _ipc_channel_read->blocking_receive(_input);
