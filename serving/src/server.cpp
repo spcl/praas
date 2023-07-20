@@ -86,7 +86,7 @@ namespace praas::serving::docker {
   {
     _http_client.post(
         fmt::format("/containers/{}/start", container_id), {},
-        [callback = std::move(callback), container_id,
+        [callback = std::move(callback), container_id, this,
          proc_name](drogon::ReqResult, const drogon::HttpResponsePtr& response) {
           if (response->getStatusCode() == drogon::HttpStatusCode::k404NotFound) {
             callback(failed_response(fmt::format(
@@ -94,6 +94,7 @@ namespace praas::serving::docker {
             )));
           } else if (response->getStatusCode() == drogon::HttpStatusCode::k204NoContent) {
 
+            _processes.add(proc_name, Process{proc_name, container_id});
             callback(correct_response(fmt::format("Container for process {} created.", proc_name)));
           } else {
             callback(failed_response(fmt::format("Unknown error! Response: {}", response->getBody())
