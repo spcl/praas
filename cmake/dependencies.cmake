@@ -76,8 +76,8 @@ endif()
 ###
 # cereal
 ###
-find_package(cereal QUIET)
-if(NOT cereal_FOUND)
+#find_package(cereal QUIET)
+#if(NOT cereal_FOUND)
   message(STATUS "Downloading and building cereal dependency")
   FetchContent_Declare(cereal
     GIT_REPOSITORY https://github.com/USCiLab/cereal.git
@@ -88,9 +88,9 @@ if(NOT cereal_FOUND)
   set(CEREAL_INSTALL ON)
   FetchContent_MakeAvailable(cereal)
   add_library(cereal::cereal ALIAS cereal)
-else()
-  message(STATUS "Found cereal dependency")
-endif()
+  #else()
+  #  message(STATUS "Found cereal dependency")
+  #endif()
 
 ###
 # stduuid
