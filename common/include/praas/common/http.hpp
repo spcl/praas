@@ -5,6 +5,8 @@
 #include <memory>
 #include <string>
 
+#include <json/value.h>
+
 namespace drogon {
   struct HttpRequest;
   struct HttpResponse;
@@ -37,6 +39,9 @@ namespace praas::common::http {
 
     std::shared_ptr<drogon::HttpRequest>
     post(const std::string& path, parameters_t&& params, callback_t&& callback);
+
+    std::shared_ptr<drogon::HttpRequest>
+    post(const std::string& path, parameters_t&& params, Json::Value&& body, callback_t&& callback);
 
   private:
     void request(
