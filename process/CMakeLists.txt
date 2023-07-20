@@ -34,7 +34,8 @@ add_library(
 target_include_directories(
   runtime
   PUBLIC
-  "runtime/include"
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/runtime/include>
+  $<INSTALL_INTERFACE:include>
 )
 target_include_directories(
   runtime
@@ -42,16 +43,102 @@ target_include_directories(
   PUBLIC
   $<TARGET_PROPERTY:cereal::cereal,INTERFACE_INCLUDE_DIRECTORIES>
   $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>
-  $<TARGET_PROPERTY:praas::common,INTERFACE_INCLUDE_DIRECTORIES>
+)
+target_include_directories(
+  runtime
+  SYSTEM
+  PUBLIC
+  $<TARGET_PROPERTY:common_library_interface,INTERFACE_INCLUDE_DIRECTORIES>
 )
 target_link_libraries(
   runtime
   PUBLIC
   rt
+)
+target_link_libraries(
+  runtime
+  PRIVATE
   praas::common
 )
 set_property(TARGET runtime PROPERTY POSITION_INDEPENDENT_CODE ON)
-install(TARGETS runtime EXPORT ${PROJECT_NAME})
+
+include(GNUInstallDirs)
+
+#target_sources(runtime PUBLIC mypublic.h)
+#get_target_property(MYLIB_PUBLIC_HEADERS mylib INTERFACE_SOURCES)
+#set_target_properties(mylib PROPERTIES PUBLIC_HEADER "${MYLIB_PUBLIC_HEADERS}")
+
+#install(TARGETS runtime cereal spdlog common_library stduuid fmt drogon trantor
+message(${CMAKE_INSTALL_INCLUDEDIR})
+#target_sources(
+#  runtime PUBLIC
+#  FILE_SET public_headers
+#  TYPE HEADERS
+#  BASE_DIRS include
+#  FILES include/foobar.h
+#)
+install(
+  TARGETS runtime cereal spdlog stduuid common_library_interface
+  EXPORT runtimeTargets
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/praas
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/praas
+)
+install(DIRECTORY runtime/include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(
+  EXPORT runtimeTargets
+  FILE runtimeTargets.cmake
+  NAMESPACE praas::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/praas
+)
+
+include(CMakePackageConfigHelpers)
+set(version 0.1)
+set_property(
+  TARGET runtime
+  PROPERTY VERSION
+  ${version}
+)
+set_property(
+  TARGET runtime
+  PROPERTY SOVERSION 0
+)
+set_property(
+  TARGET runtime
+  PROPERTY INTERFACE_runtime_MAJOR_VERSION 0
+)
+set_property(
+  TARGET runtime
+  APPEND PROPERTY
+  COMPATIBLE_INTERFACE_STRING runtime_MAJOR_VERSION
+)
+
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/runtimeConfigVersion.cmake"
+  VERSION "${version}"
+  COMPATIBILITY AnyNewerVersion
+)
+configure_package_config_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Config.cmake.in
+  "${CMAKE_CURRENT_BINARY_DIR}/runtimeConfig.cmake"
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/praas
+)
+install(
+  FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/runtimeConfig.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/runtimeConfigVersion.cmake"
+  DESTINATION
+  ${CMAKE_INSTALL_LIBDIR}/cmake/praas
+)
+# build tree
+export(
+  EXPORT
+  runtimeTargets
+  FILE "${CMAKE_CURRENT_BINARY_DIR}/cmake/runtimeTargets.cmake"
+  NAMESPACE praas::
+)
 
 ###
 # Process
@@ -67,6 +154,8 @@ add_library(controller_lib STATIC ${controller_files})
 target_include_directories(controller_lib PUBLIC "controller/include")
 target_include_directories(controller_lib SYSTEM PRIVATE $<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
 target_link_libraries(controller_lib PUBLIC runtime)
+target_link_libraries(controller_lib PUBLIC common_library)
+target_link_libraries(controller_lib PUBLIC Drogon::Drogon)
 
 add_executable(process_exe controller/src/cli.cpp)
 set_target_properties(process_exe PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)

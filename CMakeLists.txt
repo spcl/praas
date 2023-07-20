@@ -95,23 +95,44 @@ endif()
 ###
 file(GLOB common_library_files "common/src/*.cpp")
 add_library(common_library STATIC ${common_library_files})
-add_dependencies(common_library fmt::fmt)
-add_dependencies(common_library stduuid)
-add_dependencies(common_library spdlog::spdlog)
-add_dependencies(common_library cereal::cereal)
-target_include_directories(common_library PUBLIC "common/include")
-target_include_directories(common_library SYSTEM PRIVATE $<TARGET_PROPERTY:fmt::fmt,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(common_library SYSTEM PRIVATE $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(common_library SYSTEM INTERFACE $<TARGET_PROPERTY:stduuid,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(common_library SYSTEM PUBLIC $<TARGET_PROPERTY:cereal::cereal,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(common_library SYSTEM PUBLIC $<TARGET_PROPERTY:Drogon::Drogon,INTERFACE_INCLUDE_DIRECTORIES>)
+#add_dependencies(common_library fmt::fmt)
+#add_dependencies(common_library stduuid)
+#add_dependencies(common_library spdlog::spdlog)
+#add_dependencies(common_library cereal::cereal)
+#target_include_directories(
+#  common_library
+#  PUBLIC
+#  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/common/include>
+#  $<INSTALL_INTERFACE:include>
+#)
+#target_include_directories(common_library SYSTEM PRIVATE $<TARGET_PROPERTY:fmt::fmt,INTERFACE_INCLUDE_DIRECTORIES>)
+#target_include_directories(common_library SYSTEM PRIVATE $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>)
+#target_include_directories(common_library SYSTEM INTERFACE $<TARGET_PROPERTY:stduuid,INTERFACE_INCLUDE_DIRECTORIES>)
+#target_include_directories(common_library SYSTEM PUBLIC $<TARGET_PROPERTY:cereal::cereal,INTERFACE_INCLUDE_DIRECTORIES>)
+#target_include_directories(common_library SYSTEM PUBLIC $<TARGET_PROPERTY:Drogon::Drogon,INTERFACE_INCLUDE_DIRECTORIES>)
 set_target_properties(common_library PROPERTIES RUNTIME_OUTPUT_DIRECTORY lib)
 target_link_libraries(common_library PRIVATE fmt::fmt)
 target_link_libraries(common_library PRIVATE cereal::cereal)
 target_link_libraries(common_library PRIVATE spdlog::spdlog)
-target_link_libraries(common_library PRIVATE stduuid)
+target_link_libraries(common_library PRIVATE INTERFACE stduuid)
 target_link_libraries(common_library PRIVATE Drogon::Drogon)
 add_library(praas::common ALIAS common_library)
+
+add_library(common_library_interface INTERFACE)
+target_include_directories(
+  common_library_interface
+  INTERFACE
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/common/include>
+  $<INSTALL_INTERFACE:include>
+)
+target_include_directories(
+  common_library_interface
+  INTERFACE
+  $<TARGET_PROPERTY:stduuid,INTERFACE_INCLUDE_DIRECTORIES>
+  $<TARGET_PROPERTY:cereal::cereal,INTERFACE_INCLUDE_DIRECTORIES>
+  $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>
+)
+target_link_libraries(common_library PUBLIC common_library_interface)
 
 if(PRAAS_WITH_TESTING)
 

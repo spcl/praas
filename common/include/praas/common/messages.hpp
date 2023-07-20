@@ -1,8 +1,8 @@
 #ifndef PRAAS_COMMON_MESSAGES_HPP
 #define PRAAS_COMMON_MESSAGES_HPP
 
+#include <cstring>
 #include <memory>
-#include <string.h>
 #include <string>
 #include <variant>
 
@@ -106,11 +106,9 @@ namespace praas::common::message {
     }
 
     using MessageVariants = std::variant<
-        std::monostate,
-        ProcessConnectionParsed, SwapRequestParsed, SwapConfirmationParsed, InvocationRequestParsed,
-        InvocationResultParsed, DataPlaneMetricsParsed, ProcessClosureParsed, ApplicationUpdateParsed,
-        PutMessageParsed
-    >;
+        std::monostate, ProcessConnectionParsed, SwapRequestParsed, SwapConfirmationParsed,
+        InvocationRequestParsed, InvocationResultParsed, DataPlaneMetricsParsed,
+        ProcessClosureParsed, ApplicationUpdateParsed, PutMessageParsed>;
 
     MessageVariants parse();
     static MessageVariants parse_message(const int8_t* data);
@@ -158,7 +156,8 @@ namespace praas::common::message {
         : buf(buf),
           // NOLINTNEXTLINE
           path_len(strnlen(reinterpret_cast<const char*>(buf), Message::ID_LENGTH))
-    {}
+    {
+    }
 
     std::string_view path() const;
 
@@ -169,10 +168,11 @@ namespace praas::common::message {
 
     SwapRequest()
         : Message(Type::SWAP_REQUEST), SwapRequestParsed(this->data.data() + HEADER_OFFSET)
-    {}
+    {
+    }
 
-    using SwapRequestParsed::type;
     using SwapRequestParsed::path;
+    using SwapRequestParsed::type;
 
     void path(const std::string& function_name);
     void path(std::string_view function_name);
@@ -193,10 +193,11 @@ namespace praas::common::message {
     SwapConfirmation()
         : Message(Type::SWAP_CONFIRMATION),
           SwapConfirmationParsed(this->data.data() + HEADER_OFFSET)
-    {}
+    {
+    }
 
-    using SwapConfirmationParsed::type;
     using SwapConfirmationParsed::swap_size;
+    using SwapConfirmationParsed::type;
 
     void swap_size(int32_t);
   };
@@ -339,7 +340,9 @@ namespace praas::common::message {
         : buf(buf),
           // NOLINTNEXTLINE
           id_len(strnlen(reinterpret_cast<const char*>(buf), Message::NAME_LENGTH)),
-          ip_len(strnlen(reinterpret_cast<const char*>(buf + Message::NAME_LENGTH), Message::ID_LENGTH))
+          ip_len(
+              strnlen(reinterpret_cast<const char*>(buf + Message::NAME_LENGTH), Message::ID_LENGTH)
+          )
     {
     }
 
@@ -357,10 +360,10 @@ namespace praas::common::message {
     {
     }
 
-    using ApplicationUpdateParsed::status_change;
-    using ApplicationUpdateParsed::process_id;
     using ApplicationUpdateParsed::ip_address;
     using ApplicationUpdateParsed::port;
+    using ApplicationUpdateParsed::process_id;
+    using ApplicationUpdateParsed::status_change;
 
     void process_id(std::string_view id);
     void ip_address(std::string_view id);
@@ -377,33 +380,33 @@ namespace praas::common::message {
         : buf(buf),
           // NOLINTNEXTLINE
           name_len(strnlen(reinterpret_cast<const char*>(buf), Message::NAME_LENGTH)),
-          id_len(strnlen(reinterpret_cast<const char*>(buf + Message::NAME_LENGTH), Message::NAME_LENGTH))
+          id_len(strnlen(
+              reinterpret_cast<const char*>(buf + Message::NAME_LENGTH), Message::NAME_LENGTH
+          ))
     {
     }
 
     std::string_view name() const;
     std::string_view process_id() const;
-    //int32_t payload_size() const;
-    // FIXME: common parent
+    // int32_t payload_size() const;
+    //  FIXME: common parent
     int32_t total_length() const;
   };
 
   struct PutMessage : Message, PutMessageParsed {
 
-    PutMessage()
-        : Message(Type::PUT_MESSAGE),
-          PutMessageParsed(this->data.data() + HEADER_OFFSET)
+    PutMessage() : Message(Type::PUT_MESSAGE), PutMessageParsed(this->data.data() + HEADER_OFFSET)
     {
     }
 
     using PutMessageParsed::name;
-    //using PutMessageParsed::payload_size;
+    // using PutMessageParsed::payload_size;
     using Message::total_length;
     using PutMessageParsed::process_id;
 
     void name(std::string_view id);
     void process_id(std::string_view id);
-    //void payload_size(int32_t);
+    // void payload_size(int32_t);
   };
 
 } // namespace praas::common::message

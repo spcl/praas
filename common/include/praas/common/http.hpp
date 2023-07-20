@@ -1,68 +1,49 @@
 #ifndef PRAAS_COMMON_HTTP_HPP
 #define PRAAS_COMMON_HTTP_HPP
 
+#include <functional>
 #include <memory>
 #include <string>
 
-#include <drogon/HttpClient.h>
-#include <drogon/HttpRequest.h>
-#include <trantor/net/EventLoop.h>
-#include <trantor/net/EventLoopThreadPool.h>
+namespace drogon {
+  struct HttpRequest;
+  struct HttpResponse;
+  enum class ReqResult;
+  struct HttpClient;
+} // namespace drogon
+
+namespace trantor {
+  struct EventLoop;
+  struct EventLoopThreadPool;
+} // namespace trantor
 
 namespace praas::common::http {
 
   struct HTTPClient {
 
     using parameters_t = std::initializer_list<std::pair<std::string, std::string>>;
+    using callback_t =
+        std::function<void(drogon::ReqResult, const std::shared_ptr<drogon::HttpResponse>&)>;
 
     HTTPClient();
 
     HTTPClient(const std::string& address, trantor::EventLoop* loop);
 
-    template <typename F>
-    drogon::HttpRequestPtr put(const std::string& path, parameters_t&& params, F&& callback)
-    {
-      auto req = drogon::HttpRequest::newHttpRequest();
-      req->setMethod(drogon::Put);
-      req->setPath(path);
-      request(req, std::forward<parameters_t>(params), std::forward<F>(callback));
+    std::shared_ptr<drogon::HttpRequest>
+    put(const std::string& path, parameters_t&& params, callback_t&& callback);
 
-      return req;
-    }
+    std::shared_ptr<drogon::HttpRequest>
+    get(const std::string& path, parameters_t&& params, callback_t&& callback);
 
-    template <typename F>
-    drogon::HttpRequestPtr post(const std::string& path, parameters_t&& params, F&& callback)
-    {
-      auto req = drogon::HttpRequest::newHttpRequest();
-      req->setMethod(drogon::Post);
-      req->setPath(path);
-      request(req, std::forward<parameters_t>(params), std::forward<F>(callback));
-
-      return req;
-    }
-
-    template <typename F>
-    drogon::HttpRequestPtr get(const std::string& path, parameters_t&& params, F&& callback)
-    {
-      auto req = drogon::HttpRequest::newHttpRequest();
-      req->setMethod(drogon::Get);
-      req->setPath(path);
-      request(req, std::forward<parameters_t>(params), std::forward<F>(callback));
-
-      return req;
-    }
+    std::shared_ptr<drogon::HttpRequest>
+    post(const std::string& path, parameters_t&& params, callback_t&& callback);
 
   private:
-    template <typename F>
-    void request(drogon::HttpRequestPtr& req, parameters_t&& params, F&& callback)
-    {
-      for (const auto& param : params) {
-        req->setParameter(param.first, param.second);
-      }
-      _http_client->sendRequest(req, callback);
-    }
+    void request(
+        std::shared_ptr<drogon::HttpRequest>& req, parameters_t&& params, callback_t&& callback
+    );
 
-    drogon::HttpClientPtr _http_client;
+    std::shared_ptr<drogon::HttpClient> _http_client;
   };
 
   struct HTTPClientFactory {
