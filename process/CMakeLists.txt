@@ -63,20 +63,20 @@ target_link_libraries(
 set_property(TARGET runtime PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
-#target_sources(runtime PUBLIC mypublic.h)
-#get_target_property(MYLIB_PUBLIC_HEADERS mylib INTERFACE_SOURCES)
-#set_target_properties(mylib PROPERTIES PUBLIC_HEADER "${MYLIB_PUBLIC_HEADERS}")
-
-#install(TARGETS runtime cereal spdlog common_library stduuid fmt drogon trantor
-message(${CMAKE_INSTALL_INCLUDEDIR})
-#target_sources(
-#  runtime PUBLIC
-#  FILE_SET public_headers
-#  TYPE HEADERS
-#  BASE_DIRS include
-#  FILES include/foobar.h
-#)
+target_sources(
+  runtime 
+  PUBLIC
+  FILE_SET public_headers
+  TYPE HEADERS
+  BASE_DIRS runtime/include
+  FILES
+    runtime/include/praas/process/runtime/context.hpp
+    runtime/include/praas/process/runtime/invocation.hpp
+    runtime/include/praas/process/runtime/buffer.hpp
+    runtime/include/praas/process/runtime/internal/buffer.hpp
+)
 install(
   TARGETS runtime cereal spdlog stduuid common_library_interface
   EXPORT runtimeTargets
@@ -85,8 +85,8 @@ install(
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
   PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/praas
+  FILE_SET public_headers
 )
-install(DIRECTORY runtime/include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(
   EXPORT runtimeTargets
   FILE runtimeTargets.cmake
@@ -94,7 +94,6 @@ install(
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/praas
 )
 
-include(CMakePackageConfigHelpers)
 set(version 0.1)
 set_property(
   TARGET runtime
