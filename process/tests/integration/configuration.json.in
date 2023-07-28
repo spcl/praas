@@ -130,6 +130,26 @@
           "type": "direct",
           "nargs": 1
         }
+      },
+      "state": {
+        "code": {
+          "module": "@PRAAS_SOURCE_DIRECTORY@/process/tests/integration/examples/python/test.py",
+          "function": "state"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
+      "state_get": {
+        "code": {
+          "module": "@PRAAS_SOURCE_DIRECTORY@/process/tests/integration/examples/python/test.py",
+          "function": "state_get"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
       }
     },
     "cpp": {

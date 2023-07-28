@@ -17,7 +17,7 @@ set(TESTS integration/invocation.cpp
           integration/invocation_many_workers.cpp
           integration/get_put.cpp
           integration/local_invocation.cpp
-          #integration/state.cpp
+          integration/state.cpp
 )
 foreach(test ${TESTS})
 

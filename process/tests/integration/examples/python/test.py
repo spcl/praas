@@ -25,6 +25,11 @@ class Message:
     message: str = ""
     some_data: int = 0
 
+@dataclass
+class StateMessage:
+    first_data: int = 0
+    second_data: int = 0
+
 class EnhancedJSONEncoder(json.JSONEncoder):
     def default(self, o):
         if dataclasses.is_dataclass(o):
@@ -284,3 +289,66 @@ def remote_invocation(invocation, context):
     context.set_output_buffer(out_buf)
 
     return 0
+
+def state(invocation, context):
+
+    MSG_SIZE = 1024
+
+    input_str = invocation.args[0].str()
+    input_data = json.loads(input_str)['input']
+    message_key = input_data['message_key']
+
+    state_buf = context.state(message_key)
+    if state_buf.length > 0:
+        return 1
+
+    msg = StateMessage()
+    msg.first_data = 42
+    msg.second_data = 33
+
+    buf = context.get_buffer(MSG_SIZE)
+    pypraas.serialize(buf, msg)
+
+    # store state 
+    context.state(message_key, buf)
+
+    def state_verification():
+        state_buf = context.state(message_key)
+        if state_buf.length <= 0:
+            return 1
+        msg = pypraas.deserialize(state_buf)
+
+        if type(msg) != StateMessage:
+            return 1
+        if msg.first_data != 42 or msg.second_data != 33:
+            return 1
+
+    # verify data is in state
+    state_verification()
+
+    # verify the state access doesn't errase the data
+    state_verification()
+
+    return 0
+
+def state_get(invocation, context):
+
+    MSG_SIZE = 1024
+
+    input_str = invocation.args[0].str()
+    input_data = json.loads(input_str)['input']
+    message_key = input_data['message_key']
+
+    # verify data is in state
+    state_buf = context.state(message_key)
+    if state_buf.length <= 0:
+        return 1
+    msg = pypraas.deserialize(state_buf)
+
+    if type(msg) != StateMessage:
+        return 1
+    if msg.first_data != 42 or msg.second_data != 33:
+        return 1
+
+    return 0
+
