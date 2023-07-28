@@ -64,6 +64,12 @@ void define_pypraas_function(py::module& m)
           )
       )
       .def("get", &praas::process::runtime::Context::get)
+      .def(
+          "state", py::overload_cast<std::string_view, praas::process::runtime::Buffer>(
+                       &praas::process::runtime::Context::state
+                   )
+      )
+      .def("state", py::overload_cast<std::string_view>(&praas::process::runtime::Context::state))
       .def("invoke", &praas::process::runtime::Context::invoke);
 
   py::class_<praas::process::runtime::Buffer>(m, "Buffer")
