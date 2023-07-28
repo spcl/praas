@@ -1,0 +1,16 @@
+{
+  "functions": {
+    "cpp": {
+      "no_op": {
+        "code": {
+          "module": "@FUNCTIONS_DIRECTORY@/functions/libhello_world.so",
+          "function": "no_op"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      }
+    }
+  }
+}
