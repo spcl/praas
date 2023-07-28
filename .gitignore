@@ -32,3 +32,8 @@
 *.app
 
 .cache
+compile_commands.json
+tags
+
+# Python files
+*.pyc
