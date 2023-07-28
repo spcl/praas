@@ -42,13 +42,6 @@ target_include_directories(
   SYSTEM
   PUBLIC
   $<TARGET_PROPERTY:cereal::cereal,INTERFACE_INCLUDE_DIRECTORIES>
-  $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>
-)
-target_include_directories(
-  runtime
-  SYSTEM
-  PUBLIC
-  $<TARGET_PROPERTY:common_library_interface,INTERFACE_INCLUDE_DIRECTORIES>
 )
 target_link_libraries(
   runtime
@@ -61,6 +54,15 @@ target_link_libraries(
   praas::common
 )
 set_property(TARGET runtime PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+add_library(runtime_internal_interface INTERFACE)
+target_include_directories(
+  runtime_internal_interface
+  INTERFACE
+  $<TARGET_PROPERTY:spdlog::spdlog,INTERFACE_INCLUDE_DIRECTORIES>
+  $<TARGET_PROPERTY:common_library_interface,INTERFACE_INCLUDE_DIRECTORIES>
+)
+#target_link_libraries(runtime PUBLIC runtime_library_interface)
 
 ###
 # Process
@@ -76,6 +78,7 @@ add_library(controller_lib STATIC ${controller_files})
 target_include_directories(controller_lib PUBLIC "controller/include")
 target_include_directories(controller_lib SYSTEM PRIVATE $<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
 target_link_libraries(controller_lib PUBLIC runtime)
+target_link_libraries(controller_lib PUBLIC runtime_internal_interface)
 target_link_libraries(controller_lib PUBLIC common_library)
 target_link_libraries(controller_lib PUBLIC Drogon::Drogon)
 
@@ -90,6 +93,7 @@ target_link_libraries(process_exe PRIVATE controller_lib)
 add_executable(cpp_invoker_exe invoker/cpp/cli.cpp invoker/cpp/opts.cpp invoker/cpp/functions.cpp)
 target_include_directories(cpp_invoker_exe SYSTEM PRIVATE $<TARGET_PROPERTY:cxxopts::cxxopts,INTERFACE_INCLUDE_DIRECTORIES>)
 set_target_properties(cpp_invoker_exe PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
+target_link_libraries(cpp_invoker_exe PRIVATE runtime_internal_interface)
 target_link_libraries(cpp_invoker_exe PRIVATE runtime)
 target_link_libraries(cpp_invoker_exe PRIVATE dl)
 set_target_properties(cpp_invoker_exe PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin/invoker")
@@ -111,6 +115,7 @@ if(Python_FOUND AND pybind11_FOUND)
 
     pybind11_add_module(_pypraas invoker/python/bindings/function.cpp invoker/python/bindings/invoker.cpp)
     target_link_libraries(_pypraas PRIVATE runtime)
+    target_link_libraries(_pypraas PRIVATE runtime_internal_interface)
 
     set_target_properties(_pypraas PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/pypraas)
 
@@ -135,6 +140,7 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 set_target_properties(cpp_invoker_exe PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/praas")
+set_target_properties(process_exe PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/praas")
 
 target_sources(
   runtime 
@@ -149,11 +155,22 @@ target_sources(
     runtime/include/praas/process/runtime/internal/buffer.hpp
 )
 install(
-  TARGETS cpp_invoker_exe runtime cereal spdlog stduuid common_library_interface
+  #TARGETS process_exe runtime cereal spdlog stduuid common_library_interface
+  TARGETS process_exe runtime cereal #spdlog stduuid common_library_interface
   EXPORT runtimeTargets
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/praas
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/praas
+  FILE_SET public_headers
+)
+install(
+  TARGETS cpp_invoker_exe
+  EXPORT runtimeTargets
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/praas
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/invoker
   INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
   PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/praas
   FILE_SET public_headers
@@ -164,6 +181,7 @@ install(
   NAMESPACE praas::
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/praas
 )
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/config/config.json DESTINATION "${CMAKE_INSTALL_PREFIX}/config")
 
 set(version 0.1)
 set_property(
