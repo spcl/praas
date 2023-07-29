@@ -37,7 +37,8 @@ namespace praas::process::remote {
     // Includes results of invocations and put requests.
     virtual void invocation_result(
         RemoteType source, std::optional<std::string_view> remote_process,
-        std::string_view invocation_id, int return_code, runtime::internal::Buffer<char>&& payload
+        std::string_view invocation_id, int return_code,
+        runtime::internal::BufferAccessor<char> payload
     ) = 0;
     virtual void put_message(
         std::string_view process_id, std::string_view name,
@@ -92,7 +93,8 @@ namespace praas::process::remote {
 
     void invocation_result(
         RemoteType source, std::optional<std::string_view> remote_process,
-        std::string_view invocation_id, int return_code, runtime::internal::Buffer<char>&& payload
+        std::string_view invocation_id, int return_code,
+        runtime::internal::BufferAccessor<char> payload
     ) override;
 
     void put_message(

@@ -35,7 +35,7 @@ public:
   MOCK_METHOD(
       void, invocation_result,
       (remote::RemoteType, std::optional<std::string_view>, std::string_view, int,
-       runtime::internal::Buffer<char>&&),
+       runtime::internal::BufferAccessor<char>),
       (override)
   );
   MOCK_METHOD(
@@ -72,7 +72,7 @@ size_t generate_input_json(int arg1, int arg2, const runtime::internal::Buffer<c
 int get_output_binary(const runtime::internal::Buffer<char>& buf)
 {
   Output out;
-  boost::iostreams::stream<boost::iostreams::array_source> stream(buf.data(), buf.size);
+  boost::iostreams::stream<boost::iostreams::array_source> stream(buf.data(), buf.len);
   cereal::BinaryInputArchive archive_in{stream};
   out.load(archive_in);
 
@@ -119,7 +119,7 @@ public:
           process = _process;
           id = _id;
           return_code = _return_code;
-          payload = std::move(_payload);
+          payload = _payload.copy();
           finished.set_value();
         });
   }

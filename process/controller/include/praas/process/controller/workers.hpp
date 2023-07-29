@@ -92,7 +92,7 @@ namespace praas::process {
 
     WorkQueue(runtime::internal::Functions& functions) : _functions(functions) {}
 
-    void add_payload(
+    std::optional<std::string> add_payload(
         const std::string& fname, const std::string& key, runtime::internal::Buffer<char>&& buffer,
         InvocationSource&& source
     );

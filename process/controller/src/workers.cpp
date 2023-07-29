@@ -7,6 +7,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <optional>
 
 #include <cereal/archives/json.hpp>
 #include <spdlog/spdlog.h>
@@ -17,7 +18,7 @@
 
 namespace praas::process {
 
-  void WorkQueue::add_payload(
+  std::optional<std::string> WorkQueue::add_payload(
       const std::string& fname, const std::string& key, runtime::internal::Buffer<char>&& buffer,
       InvocationSource&& source
   )
@@ -34,9 +35,9 @@ namespace praas::process {
 
       const runtime::internal::Trigger* trigger = _functions.get_trigger(fname);
       if (!trigger) {
-        // FIXME: return error to the user
-        spdlog::error("Ignoring invocation of an unknown function {}", fname);
-        return;
+        std::string msg = fmt::format("Ignoring invocation of an unknown function {}", fname);
+        spdlog::error(msg);
+        return msg;
       }
 
       auto [it, inserted] = _active_invocations.emplace(
@@ -45,17 +46,20 @@ namespace praas::process {
       );
 
       if (!inserted) {
-        // FIXME: return error to the user
-        spdlog::error("Failed to insert a new invocation {} for function {}", key, fname);
-      } else {
-        SPDLOG_DEBUG("Inserted a new invocation {} for function {}", key, fname);
+        std::string msg =
+            fmt::format("Failed to insert a new invocation {} for function {}", key, fname);
+        spdlog::error(msg);
+        return msg;
       }
+      SPDLOG_DEBUG("Inserted a new invocation {} for function {}", key, fname);
 
       it->second.payload.push_back(std::move(buffer));
 
       // Now add the function to the queue
       _pending_invocations.push_back(&it->second);
     }
+
+    return std::nullopt;
   }
 
   Invocation* WorkQueue::next()

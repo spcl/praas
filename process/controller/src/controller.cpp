@@ -265,12 +265,22 @@ namespace praas::process {
                   _logger, "Received external invocation request of {}, key {}, inputs {}",
                   req.function_name(), req.invocation_id(), req.payload_size()
               );
-              _work_queue.add_payload(
+              auto res = _work_queue.add_payload(
                   std::string{req.function_name()}, std::string{req.invocation_id()},
                   std::move(msg.payload),
                   (msg.source.has_value() ? InvocationSource::from_process(msg.source.value())
                                           : InvocationSource::from_source(msg.source_type))
               );
+
+              if (res.has_value()) {
+
+                _process_invocation_result(
+                    (msg.source.has_value() ? InvocationSource::from_process(msg.source.value())
+                                            : InvocationSource::from_source(msg.source_type)),
+                    req.invocation_id(), -1,
+                    runtime::internal::BufferAccessor<char>{res.value().data(), res.value().size()}
+                );
+              }
             },
             [&, this](common::message::InvocationResultParsed& req) mutable {
               // Is there are pending message for this message?
@@ -626,8 +636,44 @@ namespace praas::process {
   }
 
   void Controller::_process_invocation_result(
+      const InvocationSource& source, std::string_view invocation_id, int return_code,
+      runtime::internal::BufferAccessor<char> payload
+  )
+  {
+    // FIXME: send to the tcp server
+    // FIXME: check work queue for the source
+    if (source.is_remote()) {
+
+      _server->invocation_result(
+          source.source, source.remote_process, invocation_id, return_code, payload
+      );
+
+    } else {
+
+      std::vector<const FunctionWorker*> pending_workers;
+      _pending_msgs.find_invocation(invocation_id, pending_workers);
+
+      // FIXME: remove this copy, our message types are broken
+      runtime::internal::ipc::InvocationResult result;
+      result.invocation_id(invocation_id);
+      result.return_code(return_code);
+      result.buffer_length(payload.len);
+
+      for (const FunctionWorker* worker : pending_workers) {
+
+        SPDLOG_LOGGER_DEBUG(
+            _logger, "Replying invocation locally with key {}, message len {}",
+            result.invocation_id(), payload.len
+        );
+
+        worker->ipc_write().send(result, payload);
+      }
+    }
+  }
+
+  void Controller::_process_invocation_result(
       FunctionWorker& worker, std::string_view invocation_id, int return_code,
-      runtime::internal::Buffer<char>&& payload
+      runtime::internal::BufferAccessor<char> payload
   )
   {
     SPDLOG_LOGGER_DEBUG(
@@ -637,40 +683,8 @@ namespace praas::process {
 
     std::optional<Invocation> invoc = _work_queue.finish(std::string{invocation_id});
     if (invoc.has_value()) {
-
       Invocation& invocation = invoc.value();
-
-      // FIXME: send to the tcp server
-      // FIXME: check work queue for the source
-      if (invocation.source.is_remote()) {
-
-        _server->invocation_result(
-            invocation.source.source, invocation.source.remote_process, invocation_id, return_code,
-            std::move(payload)
-        );
-
-      } else {
-
-        std::vector<const FunctionWorker*> pending_workers;
-        _pending_msgs.find_invocation(invocation_id, pending_workers);
-
-        // FIXME: remove this copy, our message types are broken
-        runtime::internal::ipc::InvocationResult result;
-        result.invocation_id(invocation_id);
-        result.return_code(return_code);
-        result.buffer_length(payload.len);
-
-        for (const FunctionWorker* worker : pending_workers) {
-
-          SPDLOG_LOGGER_DEBUG(
-              _logger, "Replying invocation locally with key {}, message len {}",
-              result.invocation_id(), payload.len
-          );
-
-          worker->ipc_write().send(result, payload);
-        }
-      }
-
+      _process_invocation_result(invocation.source, invocation_id, return_code, payload);
     } else {
       _logger->error("Could not find invocation for ID {}", invocation_id);
     }

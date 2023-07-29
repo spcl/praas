@@ -8,10 +8,12 @@
 #include <praas/process/runtime/internal/ipc/messages.hpp>
 
 #include "examples/cpp/test.hpp"
+#include "praas/process/runtime/internal/buffer.hpp"
 
 #include <boost/iostreams/device/array.hpp>
 #include <filesystem>
 #include <future>
+#include <string>
 #include <thread>
 
 #include <boost/interprocess/streams/bufferstream.hpp>
@@ -35,7 +37,7 @@ public:
   MOCK_METHOD(
       void, invocation_result,
       (remote::RemoteType, std::optional<std::string_view>, std::string_view, int,
-       runtime::internal::Buffer<char>&&),
+       runtime::internal::BufferAccessor<char>),
       (override)
   );
   MOCK_METHOD(
@@ -72,7 +74,7 @@ size_t generate_input_json(int arg1, int arg2, const runtime::internal::Buffer<c
 int get_output_binary(const runtime::internal::Buffer<char>& buf)
 {
   Output out;
-  boost::iostreams::stream<boost::iostreams::array_source> stream(buf.data(), buf.size);
+  boost::iostreams::stream<boost::iostreams::array_source> stream(buf.data(), buf.len);
   cereal::BinaryInputArchive archive_in{stream};
   out.load(archive_in);
 
@@ -113,11 +115,11 @@ public:
 
     EXPECT_CALL(server, invocation_result)
         .WillRepeatedly([&](remote::RemoteType, auto _process, auto _id, int _return_code,
-                            auto&& _payload) {
+                            auto _payload) {
           process = _process;
           id = _id;
           return_code = _return_code;
-          payload = std::move(_payload);
+          payload = _payload.copy();
           finished.set_value();
         });
   }
@@ -299,6 +301,31 @@ TEST_P(ProcessInvocationTest, ReturnError)
   EXPECT_EQ(id, invocation_id);
   EXPECT_EQ(payload.len, 0);
   EXPECT_EQ(return_code, 1);
+}
+
+TEST_P(ProcessInvocationTest, NonExistingFunction)
+{
+  std::string function_name = "non_existing_function";
+  std::string invocation_id = "first_id";
+
+  praas::common::message::InvocationRequest msg;
+  msg.function_name(function_name);
+  msg.invocation_id(invocation_id);
+
+  auto buf = runtime::internal::Buffer<char>{};
+
+  controller->dataplane_message(std::move(msg), std::move(buf));
+
+  // Wait for the invocation to finish
+  ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(1)));
+
+  // Dataplane message
+  EXPECT_FALSE(process.has_value());
+  EXPECT_EQ(id, invocation_id);
+  EXPECT_EQ(return_code, -1);
+
+  std::string error_msg{payload.data(), payload.len};
+  EXPECT_TRUE(error_msg.find("Ignoring invocation of an unknown") != std::string::npos);
 }
 
 TEST_P(ProcessInvocationTest, LargePayload)

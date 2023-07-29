@@ -33,7 +33,7 @@ public:
   MOCK_METHOD(
       void, invocation_result,
       (remote::RemoteType, std::optional<std::string_view>, std::string_view, int,
-       runtime::internal::Buffer<char>&&),
+       runtime::internal::BufferAccessor<char>),
       (override)
   );
   MOCK_METHOD(
@@ -96,7 +96,7 @@ public:
           saved_results[idx].process = _process;
           saved_results[idx].id = _id;
           saved_results[idx].return_code = _return_code;
-          saved_results[idx].payload = std::move(_payload);
+          saved_results[idx].payload = _payload.copy();
           saved_results[idx].finished.set_value();
 
           saved_results[idx].timestamp = std::chrono::system_clock::now();
@@ -137,7 +137,7 @@ public:
     std::optional<std::string> process;
     std::string id;
     int return_code;
-    runtime::internal::Buffer<char> payload;
+    runtime::internal::BufferAccessor<char> payload;
     timepoint_t timestamp;
   };
   std::array<Result, INVOC_COUNT> saved_results;
@@ -148,7 +148,7 @@ public:
       saved_results[idx].process = std::nullopt;
       saved_results[idx].id.clear();
       saved_results[idx].return_code = -1;
-      saved_results[idx].payload = runtime::internal::Buffer<char>{};
+      saved_results[idx].payload = runtime::internal::BufferAccessor<char>{};
       saved_results[idx].finished = std::promise<void>{};
     }
   }

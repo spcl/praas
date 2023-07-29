@@ -7,6 +7,7 @@
 #include <praas/process/runtime/internal/ipc/messages.hpp>
 
 #include "examples/cpp/test.hpp"
+#include "praas/process/runtime/internal/buffer.hpp"
 
 #include <filesystem>
 #include <future>
@@ -33,7 +34,7 @@ public:
   MOCK_METHOD(
       void, invocation_result,
       (remote::RemoteType, std::optional<std::string_view>, std::string_view, int,
-       runtime::internal::Buffer<char>&&),
+       runtime::internal::BufferAccessor<char>),
       (override)
   );
   MOCK_METHOD(
@@ -73,7 +74,7 @@ size_t generate_input_json(int arg1, int arg2, const runtime::internal::Buffer<c
 int get_output_binary(const runtime::internal::Buffer<char>& buf)
 {
   Output out;
-  boost::iostreams::stream<boost::iostreams::array_source> stream(buf.data(), buf.size);
+  boost::iostreams::stream<boost::iostreams::array_source> stream(buf.data(), buf.len);
   cereal::BinaryInputArchive archive_in{stream};
   out.load(archive_in);
 
@@ -119,7 +120,7 @@ public:
           saved_results[idx].process = _process;
           saved_results[idx].id = _id;
           saved_results[idx].return_code = _return_code;
-          saved_results[idx].payload = std::move(_payload);
+          saved_results[idx].payload = _payload.copy();
           saved_results[idx].finished.set_value();
 
           saved_results[idx].timestamp = std::chrono::system_clock::now();
