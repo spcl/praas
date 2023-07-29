@@ -9,6 +9,9 @@
 namespace praas::process::runtime::internal {
 
   template <typename T>
+  struct Buffer;
+
+  template <typename T>
   struct BufferAccessor {
     T* ptr{};
     size_t len{};
@@ -29,6 +32,17 @@ namespace praas::process::runtime::internal {
     bool null() const
     {
       return ptr == 0;
+    }
+
+    Buffer<T> copy() const
+    {
+      if (null()) {
+        return Buffer<T>{};
+      }
+
+      Buffer<T> buf{new T[this->len], this->len, this->len};
+      std::copy(this->ptr, this->ptr + this->len, buf.ptr.get());
+      return buf;
     }
   };
 
