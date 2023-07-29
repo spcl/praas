@@ -4,13 +4,14 @@
 #include <praas/common/sockets.hpp>
 
 #include <variant>
+#include "praas/common/exceptions.hpp"
 
 namespace praas::sdk {
 
-  Process::Process(const std::string& addr, int port, bool disable_nagle):
-    _disable_nagle(disable_nagle),
-    _addr(addr, port)
-  {}
+  Process::Process(const std::string& addr, int port, bool disable_nagle)
+      : _disable_nagle(disable_nagle), _addr(addr, port)
+  {
+  }
 
   Process::~Process()
   {
@@ -25,10 +26,10 @@ namespace praas::sdk {
   bool Process::connect()
   {
     bool status = _dataplane.connect(_addr);
-    if(!status)
+    if (!status)
       return false;
 
-    if(_disable_nagle) {
+    if (_disable_nagle) {
       common::sockets::disable_nagle(_dataplane.handle());
     }
 
@@ -41,7 +42,7 @@ namespace praas::sdk {
     _dataplane.read_n(response.data.data(), response.BUF_SIZE);
 
     auto parsed_msg = response.parse();
-    if(!std::holds_alternative<praas::common::message::ProcessConnectionParsed>(parsed_msg)) {
+    if (!std::holds_alternative<praas::common::message::ProcessConnectionParsed>(parsed_msg)) {
       return false;
     }
     auto& result = std::get<common::message::ProcessConnectionParsed>(parsed_msg);
@@ -49,15 +50,19 @@ namespace praas::sdk {
     return result.process_name() == "CORRECT";
   }
 
-  InvocationResult Process::invoke(std::string_view function_name, std::string invocation_id, char* ptr, size_t len)
+  InvocationResult
+  Process::invoke(std::string_view function_name, std::string invocation_id, char* ptr, size_t len)
   {
+    if (!_dataplane.is_connected()) {
+      throw common::InvalidProcessState("Not connected!");
+    }
     praas::common::message::InvocationRequest msg;
     msg.function_name(function_name);
     msg.invocation_id(invocation_id);
     msg.payload_size(len);
 
     _dataplane.write_n(msg.bytes(), msg.BUF_SIZE);
-    if(len > 0) {
+    if (len > 0) {
       _dataplane.write_n(ptr, len);
     }
 
@@ -66,7 +71,7 @@ namespace praas::sdk {
     _dataplane.read_n(response.data.data(), response.BUF_SIZE);
 
     auto parsed_msg = response.parse();
-    if(!std::holds_alternative<common::message::InvocationResultParsed>(parsed_msg)) {
+    if (!std::holds_alternative<common::message::InvocationResultParsed>(parsed_msg)) {
       return {1, nullptr, 0};
     }
 
@@ -74,7 +79,7 @@ namespace praas::sdk {
 
     size_t payload_bytes = response.total_length();
     std::unique_ptr<char[]> payload{};
-    if(payload_bytes > 0) {
+    if (payload_bytes > 0) {
       payload.reset(new char[payload_bytes]);
       _dataplane.read_n(payload.get(), payload_bytes);
     }
@@ -82,4 +87,4 @@ namespace praas::sdk {
     return {result.return_code(), std::move(payload), payload_bytes};
   }
 
-};
+}; // namespace praas::sdk
