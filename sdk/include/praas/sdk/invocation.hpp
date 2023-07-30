@@ -14,6 +14,8 @@ namespace praas::sdk {
     std::unique_ptr<char[]> payload;
 
     size_t payload_len;
+
+    std::string error_message{};
   };
 
   struct ControlPlaneInvocationResult {
@@ -25,7 +27,6 @@ namespace praas::sdk {
     std::string response;
   };
 
-
-}
+} // namespace praas::sdk
 
 #endif

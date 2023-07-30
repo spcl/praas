@@ -84,6 +84,11 @@ namespace praas::sdk {
       _dataplane.read_n(payload.get(), payload_bytes);
     }
 
+    if (result.return_code() < 0) {
+      // We failed - the payload contains the error message
+      return {result.return_code() * -1, nullptr, 0, std::string{payload.get(), payload_bytes}};
+    }
+
     return {result.return_code(), std::move(payload), payload_bytes};
   }
 
