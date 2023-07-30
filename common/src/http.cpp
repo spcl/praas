@@ -4,6 +4,7 @@
 #include <drogon/HttpClient.h>
 #include <drogon/HttpRequest.h>
 #include <fmt/format.h>
+#include <json/value.h>
 #include <trantor/net/EventLoop.h>
 #include <trantor/net/EventLoopThreadPool.h>
 
@@ -72,6 +73,24 @@ namespace praas::common::http {
       req->setParameter(param.first, param.second);
     }
     _http_client->sendRequest(req, callback);
+  }
+
+  HTTPClient::response_ptr_t HTTPClient::correct_response(const std::string& reason)
+  {
+    Json::Value json;
+    json["status"] = reason;
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(json);
+    resp->setStatusCode(drogon::k200OK);
+    return resp;
+  }
+
+  HTTPClient::response_ptr_t HTTPClient::failed_response(const std::string& reason)
+  {
+    Json::Value json;
+    json["reason"] = reason;
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(json);
+    resp->setStatusCode(drogon::HttpStatusCode::k500InternalServerError);
+    return resp;
   }
 
   void HTTPClientFactory::initialize(int thread_num)

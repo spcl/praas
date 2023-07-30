@@ -5,10 +5,9 @@
 #include <memory>
 #include <string>
 
-#include <json/value.h>
-
 namespace drogon {
   struct HttpRequest;
+  struct HttpResponse;
   struct HttpResponse;
   enum class ReqResult;
   struct HttpClient;
@@ -19,10 +18,16 @@ namespace trantor {
   struct EventLoopThreadPool;
 } // namespace trantor
 
+namespace Json {
+  struct Value;
+} // namespace Json
+
 namespace praas::common::http {
 
   struct HTTPClient {
 
+    using request_ptr_t = std::shared_ptr<drogon::HttpRequest>;
+    using response_ptr_t = std::shared_ptr<drogon::HttpResponse>;
     using parameters_t = std::initializer_list<std::pair<std::string, std::string>>;
     using callback_t =
         std::function<void(drogon::ReqResult, const std::shared_ptr<drogon::HttpResponse>&)>;
@@ -31,22 +36,21 @@ namespace praas::common::http {
 
     HTTPClient(const std::string& address, trantor::EventLoop* loop);
 
-    std::shared_ptr<drogon::HttpRequest>
-    put(const std::string& path, parameters_t&& params, callback_t&& callback);
+    request_ptr_t put(const std::string& path, parameters_t&& params, callback_t&& callback);
 
-    std::shared_ptr<drogon::HttpRequest>
-    get(const std::string& path, parameters_t&& params, callback_t&& callback);
+    request_ptr_t get(const std::string& path, parameters_t&& params, callback_t&& callback);
 
-    std::shared_ptr<drogon::HttpRequest>
-    post(const std::string& path, parameters_t&& params, callback_t&& callback);
+    request_ptr_t post(const std::string& path, parameters_t&& params, callback_t&& callback);
 
-    std::shared_ptr<drogon::HttpRequest>
+    request_ptr_t
     post(const std::string& path, parameters_t&& params, Json::Value&& body, callback_t&& callback);
 
+    static response_ptr_t correct_response(const std::string& reason);
+
+    static response_ptr_t failed_response(const std::string& reason);
+
   private:
-    void request(
-        std::shared_ptr<drogon::HttpRequest>& req, parameters_t&& params, callback_t&& callback
-    );
+    void request(request_ptr_t& req, parameters_t&& params, callback_t&& callback);
 
     std::shared_ptr<drogon::HttpClient> _http_client;
   };
