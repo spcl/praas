@@ -34,13 +34,14 @@ namespace praas::process::runtime::internal {
       return ptr == 0;
     }
 
-    Buffer<T> copy() const
+    template <typename NewT = std::decay_t<T>>
+    Buffer<NewT> copy() const
     {
       if (null()) {
-        return Buffer<T>{};
+        return Buffer<NewT>{};
       }
 
-      Buffer<T> buf{new T[this->len], this->len, this->len};
+      Buffer<NewT> buf{new NewT[this->len], this->len, this->len};
       std::copy(this->ptr, this->ptr + this->len, buf.ptr.get());
       return buf;
     }
@@ -113,6 +114,12 @@ namespace praas::process::runtime::internal {
     operator BufferAccessor<T>() const
     {
       return BufferAccessor<T>(ptr.get(), len);
+    }
+
+    template <typename = std::enable_if_t<!std::is_const_v<T>>>
+    operator BufferAccessor<const T>() const
+    {
+      return BufferAccessor<const T>(ptr.get(), len);
     }
 
     template <typename U>
