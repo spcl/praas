@@ -1,10 +1,10 @@
 {
   "functions": {
     "cpp": {
-      "no_op": {
+      "hello-world": {
         "code": {
-          "module": "@FUNCTIONS_DIRECTORY@/functions/libhello_world.so",
-          "function": "no_op"
+          "module": "@FUNCTIONS_DIRECTORY@/libhello_world.so",
+          "function": "hello_world"
         },
         "trigger": {
           "type": "direct",

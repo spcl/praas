@@ -17,13 +17,14 @@ struct Result {
   }
 };
 
-extern "C" int
-no_op(praas::process::runtime::Invocation invocation, praas::process::runtime::Context& context)
+extern "C" int hello_world(
+    praas::process::runtime::Invocation invocation, praas::process::runtime::Context& context
+)
 {
   Result res{"Hello, world!"};
   auto& output_buf = context.get_output_buffer(1024);
   output_buf.serialize(res);
   // Return the data
-  context.set_output_buffer(invocation.args[0]);
+  context.set_output_buffer(output_buf);
   return 0;
 }
