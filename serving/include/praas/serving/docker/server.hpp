@@ -62,6 +62,8 @@ namespace praas::serving::docker {
 
     void _configure_ports(Json::Value& body);
 
+    void _kill_all();
+
     int _http_port;
     int _docker_port;
     int _process_port;

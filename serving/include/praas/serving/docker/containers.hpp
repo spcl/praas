@@ -43,6 +43,8 @@ namespace praas::serving::docker {
 
     bool erase(const std::string& id);
 
+    void get_all(std::vector<Process>& processes);
+
   private:
     ConcurrentTable<Process>::table_t _processes;
   };

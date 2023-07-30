@@ -31,4 +31,11 @@ namespace praas::serving::docker {
     return _processes.erase(id);
   }
 
+  void Processes::get_all(std::vector<Process>& processes)
+  {
+    for (auto& proc : _processes) {
+      processes.push_back(std::move(proc.second));
+    }
+  }
+
 } // namespace praas::serving::docker

@@ -1,10 +1,13 @@
 
 #include <praas/common/http.hpp>
 #include <praas/common/util.hpp>
+#include <praas/serving/docker/containers.hpp>
 #include <praas/serving/docker/server.hpp>
 
 #include <drogon/HttpTypes.h>
 #include <drogon/utils/Utilities.h>
+
+#include <latch>
 
 namespace praas::serving::docker {
 
@@ -37,6 +40,7 @@ namespace praas::serving::docker {
       _server_thread.join();
     }
     _logger->info("Stopped HTTP server");
+    _kill_all();
   }
 
   void HttpServer::wait()
@@ -176,6 +180,25 @@ namespace praas::serving::docker {
           }
         }
     );
+  }
+
+  void HttpServer::_kill_all()
+  {
+    std::vector<Process> processes;
+    _processes.get_all(processes);
+
+    std::latch all_killed{processes.size()};
+
+    for (Process& proc : processes) {
+      _http_client.post(
+          fmt::format("/containers/{}/stop", proc.container_id), {{"signal", "SIGINT"}},
+          [&all_killed](drogon::ReqResult, const drogon::HttpResponsePtr& response) {
+            all_killed.count_down();
+          }
+      );
+    }
+
+    all_killed.wait();
   }
 
   void HttpServer::kill(
