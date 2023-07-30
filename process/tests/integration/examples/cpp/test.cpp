@@ -346,3 +346,34 @@ extern "C" int remote_invocation(
 
   return 0;
 }
+
+extern "C" int remote_invocation_unknown(
+    praas::process::runtime::Invocation invocation, praas::process::runtime::Context& context
+)
+{
+  std::string other_process_id;
+  if (context.active_processes()[0] == context.process_id()) {
+    other_process_id = context.active_processes()[1];
+  } else {
+    other_process_id = context.active_processes()[0];
+  }
+
+  Output out{};
+  Input input{};
+  invocation.args[0].deserialize(input);
+
+  auto buf = context.get_buffer(1024);
+  buf.serialize(input);
+  praas::process::runtime::InvocationResult invoc_result =
+      context.invoke(other_process_id, "unknown_function", "second_add", buf);
+
+  if (invoc_result.return_code != -1) {
+    return 1;
+  }
+
+  if (invoc_result.payload.str().find("Ignoring invocation of an unknown") == std::string::npos) {
+    return 1;
+  }
+
+  return 0;
+}

@@ -102,6 +102,7 @@ public:
     cfg.verbose = true;
 
     spdlog::set_pattern("[%H:%M:%S:%f] [%n] [P %P] [T %t] [%l] %v ");
+    spdlog::set_level(spdlog::level::debug);
 
     // Linux specific
     auto path = std::filesystem::canonical("/proc/self/exe").parent_path() / "integration";
@@ -415,6 +416,77 @@ TEST_P(ProcessRemoteServers, RemoteInvocations)
     ASSERT_TRUE(invoc_results[idx].payload_len > 0);
     int res = get_output_add(invoc_results[idx].payload.get(), invoc_results[idx].payload_len);
     EXPECT_EQ(res, results[idx]);
+  }
+
+  for (int i = 0; i < PROC_COUNT; ++i) {
+    processes[i].disconnect();
+  }
+
+  for (int i = 0; i < PROC_COUNT; ++i) {
+    servers[i]->shutdown();
+  }
+}
+
+TEST_P(ProcessRemoteServers, RemoteInvocationsUnknown)
+{
+  SetUp(2);
+
+  const int BUF_LEN = 1024;
+  runtime::internal::BufferQueue<char> buffers(10, 1024);
+
+  std::vector<std::unique_ptr<remote::TCPServer>> servers;
+  for (int i = 0; i < PROC_COUNT; ++i) {
+    cfg.port = 8080 + i;
+    servers.emplace_back(std::make_unique<remote::TCPServer>(*controllers[i].get(), cfg));
+    controllers[i]->set_remote(servers.back().get());
+    servers.back()->poll();
+  }
+
+  std::vector<praas::sdk::Process> processes;
+  for (int i = 0; i < PROC_COUNT; ++i) {
+    processes.emplace_back(std::string{"localhost"}, 8080 + i);
+    ASSERT_TRUE(processes.back().connect());
+  }
+
+  const int COUNT = 2;
+  std::array<std::tuple<int, int>, COUNT> args = {std::make_tuple(42, 4), std::make_tuple(-1, 35)};
+  std::array<int, COUNT> results = {46 * 2, 34 * 2};
+  std::array<praas::sdk::InvocationResult, COUNT> invoc_results;
+  std::array<std::string, COUNT> invocation_id = {"first_id", "second_id"};
+
+  // FIXME: add a way to automatically handle that
+  praas::common::message::ApplicationUpdate msg;
+  msg.status_change(static_cast<int>(praas::common::Application::Status::ACTIVE));
+  msg.process_id(controllers[1]->process_id());
+  msg.ip_address("localhost");
+  msg.port(8080 + 1);
+  processes[0].connection().write_n(msg.bytes(), msg.BUF_SIZE);
+
+  msg.process_id(controllers[0]->process_id());
+  msg.ip_address("localhost");
+  msg.port(8080);
+  processes[1].connection().write_n(msg.bytes(), msg.BUF_SIZE);
+
+  std::vector<std::thread> invoc_threads;
+  for (int idx = 0; idx < COUNT; ++idx) {
+    auto buf = buffers.retrieve_buffer(BUF_LEN);
+    buf.len = generate_input_add(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
+
+    invoc_threads.emplace_back([&, idx, buf = std::move(buf)]() mutable {
+      invoc_results[idx] = processes[idx].invoke(
+          "remote_invocation_unknown", invocation_id[idx], buf.data(), buf.len
+      );
+    });
+  }
+
+  for (int idx = 0; idx < COUNT; ++idx) {
+    invoc_threads[idx].join();
+  }
+
+  for (int idx = 0; idx < COUNT; ++idx) {
+    ASSERT_EQ(invoc_results[idx].return_code, 0);
+    ASSERT_EQ(invoc_results[idx].payload_len, 0);
+    EXPECT_TRUE(invoc_results[idx].error_message.empty());
   }
 
   for (int i = 0; i < PROC_COUNT; ++i) {

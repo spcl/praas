@@ -290,6 +290,40 @@ def remote_invocation(invocation, context):
 
     return 0
 
+def remote_invocation_unknown(invocation, context):
+
+    active_processes = context.active_processes
+    if active_processes[0] == context.process_id:
+        other_process_id = active_processes[1]
+    else:
+        other_process_id = active_processes[0]
+
+    input_str = invocation.args[0].str()
+    input_data = json.loads(input_str)
+
+    MSG_SIZE = 1024
+    buf = context.get_buffer(MSG_SIZE)
+    json.dump(input_data, pypraas.BufferStringWriter(buf), cls = EnhancedJSONEncoder)
+
+    invoc_result = context.invoke(
+        other_process_id,
+        "unknown_function",
+        "second_add2",
+        buf
+    )
+    print(invoc_result.return_code)
+    print(invoc_result.payload.length)
+    if invoc_result.return_code != -1:
+        return 1
+    if invoc_result.payload.length == 0:
+        return 1
+    print(invoc_result.payload.str())
+
+    if "Ignoring invocation of an unknown function" not in invoc_result.payload.str():
+        return 1
+
+    return 0
+
 def state(invocation, context):
 
     MSG_SIZE = 1024

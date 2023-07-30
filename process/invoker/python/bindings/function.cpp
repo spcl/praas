@@ -14,8 +14,7 @@ void define_pypraas_invoker(py::module& m);
 
 void define_pypraas_runtime(py::module& m)
 {
-
-  py::class_<praas::process::runtime::internal::BufferAccessor<char>>(m, "BufferAccessor")
+  py::class_<praas::process::runtime::internal::BufferAccessor<const char>>(m, "BufferAccessor")
       .def(py::init());
 }
 
