@@ -12,7 +12,8 @@ TEST(Messages, ProcessConnectionMsg)
   {
     std::string process_name{"test-name"};
 
-    ProcessConnection req;;
+    ProcessConnection req;
+    ;
     req.process_name(process_name);
 
     EXPECT_EQ(req.process_name(), process_name);
@@ -77,7 +78,6 @@ TEST(Messages, SwapRequestMsg)
     EXPECT_EQ(req.path(), swap_loc);
     EXPECT_EQ(req.path().length(), Message::ID_LENGTH);
   }
-
 }
 
 TEST(Messages, SwapRequestMsgIncorrect)
@@ -98,10 +98,7 @@ TEST(Messages, SwapRequestMsgParse)
   EXPECT_TRUE(std::holds_alternative<SwapRequestParsed>(parsed));
 
   EXPECT_TRUE(std::visit(
-      overloaded{
-          [](SwapRequestParsed&) { return true; },
-          [](auto&) { return false; }},
-      parsed
+      overloaded{[](SwapRequestParsed&) { return true; }, [](auto&) { return false; }}, parsed
   ));
 }
 
@@ -209,8 +206,7 @@ TEST(Messages, InvocationRequestMsgParse)
       overloaded{
           [](InvocationRequestParsed&) { return true; },
           [](SwapConfirmationParsed&) { return false; },
-          [](ProcessConnectionParsed&) { return false; },
-          [](auto&) { return false; }},
+          [](ProcessConnectionParsed&) { return false; }, [](auto&) { return false; }},
       parsed
   ));
 }
@@ -255,11 +251,6 @@ TEST(Messages, InvocationResultMsgIncorrect)
     InvocationResult req;
     EXPECT_THROW(req.invocation_id(invoc_id), praas::common::InvalidArgument);
   }
-
-  {
-    InvocationResult req;
-    EXPECT_THROW(req.return_code(-1), praas::common::InvalidArgument);
-  }
 }
 
 TEST(Messages, InvocationResultMsgParse)
@@ -282,8 +273,7 @@ TEST(Messages, InvocationResultMsgParse)
           [](InvocationResultParsed&) { return true; },
           [](InvocationRequestParsed&) { return false; },
           [](SwapConfirmationParsed&) { return false; },
-          [](ProcessConnectionParsed&) { return false; },
-          [](auto&) { return false; }},
+          [](ProcessConnectionParsed&) { return false; }, [](auto&) { return false; }},
       parsed
   ));
 }
@@ -342,8 +332,7 @@ TEST(Messages, DataPlaneMetricsMsgParse)
           [](InvocationResultParsed&) { return false; },
           [](InvocationRequestParsed&) { return false; },
           [](SwapConfirmationParsed&) { return false; },
-          [](ProcessConnectionParsed&) { return false; },
-          [](auto&) { return false; }},
+          [](ProcessConnectionParsed&) { return false; }, [](auto&) { return false; }},
       parsed
   ));
 }
@@ -366,13 +355,11 @@ TEST(Messages, ProcessClosureMsgParse)
 
   EXPECT_TRUE(std::visit(
       overloaded{
-          [](ProcessClosureParsed&) { return true; },
-          [](DataPlaneMetricsParsed&) { return false; },
+          [](ProcessClosureParsed&) { return true; }, [](DataPlaneMetricsParsed&) { return false; },
           [](InvocationResultParsed&) { return false; },
           [](InvocationRequestParsed&) { return false; },
           [](SwapConfirmationParsed&) { return false; },
-          [](ProcessConnectionParsed&) { return false; },
-          [](auto&) { return false; }},
+          [](ProcessConnectionParsed&) { return false; }, [](auto&) { return false; }},
       parsed
   ));
 }
@@ -448,12 +435,10 @@ TEST(Messages, PutRequestMsgParse)
   EXPECT_TRUE(std::visit(
       overloaded{
           [=](PutMessageParsed& req) {
-
             EXPECT_EQ(req.process_id(), process_id);
             EXPECT_EQ(req.total_length(), payload_size);
             EXPECT_EQ(req.name(), fname);
             return true;
-
           },
           [](auto&) { return false; }},
       parsed

@@ -4,7 +4,7 @@
 
 #include <cstring>
 
-//#include <fmt/format.h>
+// #include <fmt/format.h>
 #include <spdlog/fmt/fmt.h>
 
 namespace praas::common::message {
@@ -140,11 +140,9 @@ namespace praas::common::message {
     }
     std::strncpy(
         // NOLINTNEXTLINE
-        reinterpret_cast<char*>(data.data() + HEADER_OFFSET),
-        path.data(), Message::ID_LENGTH
+        reinterpret_cast<char*>(data.data() + HEADER_OFFSET), path.data(), Message::ID_LENGTH
     );
     path_len = path.length();
-
   }
 
   Message::Type SwapConfirmationParsed::type()
@@ -259,10 +257,6 @@ namespace praas::common::message {
 
   void InvocationResult::return_code(int32_t size)
   {
-    if (size < 0) {
-      throw common::InvalidArgument{fmt::format("Response size too small: {}", size)};
-    }
-
     // NOLINTNEXTLINE
     *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + Message::NAME_LENGTH) = size;
   }
@@ -330,7 +324,9 @@ namespace praas::common::message {
   int32_t ApplicationUpdateParsed::port() const
   {
     // NOLINTNEXTLINE
-    return *reinterpret_cast<const int32_t*>(buf + Message::NAME_LENGTH + Message::ID_LENGTH + sizeof(int32_t));
+    return *reinterpret_cast<const int32_t*>(
+        buf + Message::NAME_LENGTH + Message::ID_LENGTH + sizeof(int32_t)
+    );
   }
 
   std::string_view ApplicationUpdateParsed::process_id() const
@@ -368,7 +364,8 @@ namespace praas::common::message {
 
     std::strncpy(
         // NOLINTNEXTLINE
-        reinterpret_cast<char*>(data.data() + HEADER_OFFSET + Message::NAME_LENGTH), id.data(), Message::ID_LENGTH
+        reinterpret_cast<char*>(data.data() + HEADER_OFFSET + Message::NAME_LENGTH), id.data(),
+        Message::ID_LENGTH
     );
     ip_len = id.length();
   }
@@ -376,13 +373,17 @@ namespace praas::common::message {
   void ApplicationUpdate::status_change(int32_t code)
   {
     // NOLINTNEXTLINE
-    *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + Message::NAME_LENGTH + Message::ID_LENGTH) = code;
+    *reinterpret_cast<int32_t*>(
+        data.data() + HEADER_OFFSET + Message::NAME_LENGTH + Message::ID_LENGTH
+    ) = code;
   }
 
   void ApplicationUpdate::port(int32_t port)
   {
     // NOLINTNEXTLINE
-    *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + Message::NAME_LENGTH + Message::ID_LENGTH + sizeof(int32_t)) = port;
+    *reinterpret_cast<int32_t*>(
+        data.data() + HEADER_OFFSET + Message::NAME_LENGTH + Message::ID_LENGTH + sizeof(int32_t)
+    ) = port;
   }
 
   std::string_view PutMessageParsed::name() const
@@ -397,11 +398,11 @@ namespace praas::common::message {
                             reinterpret_cast<const char*>(buf + Message::NAME_LENGTH), id_len};
   }
 
-  //int32_t PutMessageParsed::payload_size() const
+  // int32_t PutMessageParsed::payload_size() const
   //{
-  //  // NOLINTNEXTLINE
-  //  return *reinterpret_cast<const int32_t*>(buf + 2*Message::NAME_LENGTH);
-  //}
+  //   // NOLINTNEXTLINE
+  //   return *reinterpret_cast<const int32_t*>(buf + 2*Message::NAME_LENGTH);
+  // }
 
   void PutMessage::name(std::string_view name)
   {
@@ -426,7 +427,8 @@ namespace praas::common::message {
 
     std::strncpy(
         // NOLINTNEXTLINE
-        reinterpret_cast<char*>(data.data() + HEADER_OFFSET + Message::NAME_LENGTH), name.data(), Message::NAME_LENGTH
+        reinterpret_cast<char*>(data.data() + HEADER_OFFSET + Message::NAME_LENGTH), name.data(),
+        Message::NAME_LENGTH
     );
     id_len = name.length();
   }
@@ -452,10 +454,10 @@ namespace praas::common::message {
     return *reinterpret_cast<const int32_t*>(buf - 4);
   }
 
-  //void PutMessage::payload_size(int32_t size)
+  // void PutMessage::payload_size(int32_t size)
   //{
-  //  // NOLINTNEXTLINE
-  //  *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + 2*Message::NAME_LENGTH) = size;
-  //}
+  //   // NOLINTNEXTLINE
+  //   *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + 2*Message::NAME_LENGTH) = size;
+  // }
 
 } // namespace praas::common::message
