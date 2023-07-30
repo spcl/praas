@@ -30,8 +30,12 @@ namespace praas::serving::docker {
   void HttpServer::shutdown()
   {
     _logger->info("Stopping HTTP server");
-    drogon::app().getLoop()->queueInLoop([]() { drogon::app().quit(); });
-    _server_thread.join();
+    if (drogon::app().isRunning()) {
+      drogon::app().getLoop()->queueInLoop([]() { drogon::app().quit(); });
+    }
+    if (_server_thread.joinable()) {
+      _server_thread.join();
+    }
     _logger->info("Stopped HTTP server");
   }
 
@@ -58,27 +62,6 @@ namespace praas::serving::docker {
     return substrings;
   }
 
-  drogon::HttpResponsePtr correct_response(const std::string& reason)
-  {
-    Json::Value json;
-    json["status"] = reason;
-    auto resp = drogon::HttpResponse::newHttpJsonResponse(json);
-    resp->setStatusCode(drogon::k200OK);
-    return resp;
-  }
-
-  drogon::HttpResponsePtr failed_response(
-      const std::string& reason,
-      drogon::HttpStatusCode status_code = drogon::HttpStatusCode::k500InternalServerError
-  )
-  {
-    Json::Value json;
-    json["reason"] = reason;
-    auto resp = drogon::HttpResponse::newHttpJsonResponse(json);
-    resp->setStatusCode(status_code);
-    return resp;
-  }
-
   void HttpServer::_start_container(
       const std::string& proc_name, const std::string& container_id,
       std::function<void(const drogon::HttpResponsePtr&)>&& callback
@@ -89,16 +72,19 @@ namespace praas::serving::docker {
         [callback = std::move(callback), container_id, this,
          proc_name](drogon::ReqResult, const drogon::HttpResponsePtr& response) {
           if (response->getStatusCode() == drogon::HttpStatusCode::k404NotFound) {
-            callback(failed_response(fmt::format(
+            callback(common::http::HTTPClient::failed_response(fmt::format(
                 "Failure - container {} for process {} no longer exists", container_id, proc_name
             )));
           } else if (response->getStatusCode() == drogon::HttpStatusCode::k204NoContent) {
 
             _processes.add(proc_name, Process{proc_name, container_id});
             spdlog::debug("Started container {} for process {}.", container_id, proc_name);
-            callback(correct_response(fmt::format("Container for process {} created.", proc_name)));
+            callback(common::http::HTTPClient::correct_response(
+                fmt::format("Container for process {} created.", proc_name)
+            ));
           } else {
-            callback(failed_response(fmt::format("Unknown error! Response: {}", response->getBody())
+            callback(common::http::HTTPClient::failed_response(
+                fmt::format("Unknown error! Response: {}", response->getBody())
             ));
           }
         }
@@ -134,13 +120,13 @@ namespace praas::serving::docker {
   )
   {
     if (process.empty()) {
-      callback(failed_response("Missing arguments!"));
+      callback(common::http::HTTPClient::failed_response("Missing arguments!"));
       return;
     }
 
     auto req_body = request->getJsonObject();
     if (req_body == nullptr) {
-      callback(failed_response("Missing body!"));
+      callback(common::http::HTTPClient::failed_response("Missing body!"));
       return;
     }
 
@@ -148,7 +134,7 @@ namespace praas::serving::docker {
     auto container_name_obj = (*req_body)["container-name"];
     auto controlplane_addr_obj = (*req_body)["controlplane-address"];
     if (container_name_obj.isNull() || controlplane_addr_obj.isNull()) {
-      callback(failed_response("Missing arguments in request body!"));
+      callback(common::http::HTTPClient::failed_response("Missing arguments in request body!"));
       return;
     }
     std::string container_name = container_name_obj.asString();
@@ -175,7 +161,8 @@ namespace praas::serving::docker {
         [callback = std::move(callback), this,
          process](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
           if (response->getStatusCode() == drogon::HttpStatusCode::k409Conflict) {
-            callback(failed_response(fmt::format("Container for process {} already exists", process)
+            callback(common::http::HTTPClient::failed_response(
+                fmt::format("Container for process {} already exists", process)
             ));
           } else if (response->getStatusCode() == drogon::HttpStatusCode::k201Created) {
 
@@ -183,7 +170,8 @@ namespace praas::serving::docker {
             spdlog::debug("Created container {} for process {}.", container_id, process);
             _start_container(process, container_id, std::move(callback));
           } else {
-            callback(failed_response(fmt::format("Unknown error! Response: {}", response->getBody())
+            callback(common::http::HTTPClient::failed_response(
+                fmt::format("Unknown error! Response: {}", response->getBody())
             ));
           }
         }
@@ -200,9 +188,11 @@ namespace praas::serving::docker {
       Processes::rw_acc_t acc;
       _processes.get(process, acc);
       if (acc.empty()) {
-        callback(failed_response(
-            fmt::format("Container for process {} does not exist!", process), drogon::k404NotFound
-        ));
+        auto resp = common::http::HTTPClient::failed_response(
+            fmt::format("Container for process {} does not exist!", process)
+        );
+        resp->setStatusCode(drogon::k404NotFound);
+        callback(resp);
       }
       container_id = acc->second.container_id;
     }
@@ -213,17 +203,20 @@ namespace praas::serving::docker {
          process](drogon::ReqResult, const drogon::HttpResponsePtr& response) {
           if (response->getStatusCode() == drogon::HttpStatusCode::k404NotFound) {
 
-            callback(failed_response(fmt::format(
+            callback(common::http::HTTPClient::failed_response(fmt::format(
                 "Failure - container {} for process {} does not exist", container_id, process
             )));
 
           } else if (response->getStatusCode() == drogon::HttpStatusCode::k204NoContent) {
 
             _processes.erase(process);
-            callback(correct_response(fmt::format("Container for process {} removed.", process)));
+            callback(common::http::HTTPClient::correct_response(
+                fmt::format("Container for process {} removed.", process)
+            ));
 
           } else {
-            callback(failed_response(fmt::format("Unknown error! Response: {}", response->getBody())
+            callback(common::http::HTTPClient::failed_response(
+                fmt::format("Unknown error! Response: {}", response->getBody())
             ));
           }
         }

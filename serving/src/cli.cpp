@@ -32,19 +32,19 @@ int main(int argc, char** argv)
   spdlog::set_pattern("[%H:%M:%S:%f] [P %P] [T %t] [%l] %v ");
   spdlog::info("Executing PraaS serving for Docker!");
 
+  auto server = std::make_shared<praas::serving::docker::HttpServer>(opts);
+  instance = server;
+  server->start();
+
   // Catch SIGINT
   struct sigaction sigIntHandler {};
   sigIntHandler.sa_handler = &signal_handler;
   sigemptyset(&sigIntHandler.sa_mask);
   sigIntHandler.sa_flags = 0;
-  sigaction(SIGINT, &sigIntHandler, nullptr);
-
-  auto server = std::make_shared<praas::serving::docker::HttpServer>(opts);
-  instance = server;
-  server->start();
 
   server->wait();
 
   spdlog::info("Docker serving is closing down");
+  instance->shutdown();
   return 0;
 }
