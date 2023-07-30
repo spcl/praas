@@ -60,9 +60,6 @@ class Functions:
 def invoke(process_id, ipc_mode, ipc_name, code_location, code_config_location):
 
     functions = Functions(code_location, code_config_location)
-    print(functions._func_data)
-    print(functions._modules)
-    print(functions._functions)
 
     # FIXME: ipc mode as string
     invoker = pypraas.invoker.Invoker(process_id, pypraas.invoker.IPCMode.POSIX_MQ, ipc_name)
@@ -99,6 +96,7 @@ def invoke(process_id, ipc_mode, ipc_name, code_location, code_config_location):
         except Exception as e:
 
             error_msg = f"Invocation failed with exception {e}"
+            print(error_msg)
             invoker.finish(context.invocation_id, error_msg)
 
         context.end_invocation()
