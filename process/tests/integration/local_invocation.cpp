@@ -220,6 +220,31 @@ TEST_P(ProcessLocalInvocationTest, SimpleInvocation)
   }
 }
 
+TEST_P(ProcessLocalInvocationTest, UnknownInvocation)
+{
+  const int BUF_LEN = 1024;
+  std::string function_name = "local_invocation_unknown";
+  std::string invocation_id = "first_id";
+
+  reset();
+
+  praas::common::message::InvocationRequest msg;
+  msg.function_name(function_name);
+  msg.invocation_id(invocation_id);
+
+  auto buf = runtime::internal::Buffer<char>{};
+
+  controller->dataplane_message(std::move(msg), std::move(buf));
+
+  // Wait for the invocation to finish
+  ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(1)));
+
+  // Dataplane message
+  EXPECT_FALSE(process.has_value());
+  EXPECT_EQ(id, invocation_id);
+  EXPECT_EQ(return_code, 0);
+}
+
 #if defined(PRAAS_WITH_INVOKER_PYTHON)
 INSTANTIATE_TEST_SUITE_P(
     ProcessLocalInvocationTest, ProcessLocalInvocationTest, testing::Values("cpp", "python")

@@ -171,7 +171,7 @@ namespace praas::process::runtime::internal::ipc {
   {
     if (id.length() > Message::ID_LENGTH) {
       throw common::InvalidArgument{
-          fmt::format("Invocation ID too long: {} > {}", id.length(), Message::ID_LENGTH)};
+          fmt::format("Process ID too long: {} > {}", id.length(), Message::ID_LENGTH)};
     }
 
     std::strncpy(
@@ -188,7 +188,7 @@ namespace praas::process::runtime::internal::ipc {
   {
     if (id.length() > Message::ID_LENGTH) {
       throw common::InvalidArgument{
-          fmt::format("Process ID too long: {} > {}", id.length(), Message::ID_LENGTH)};
+          fmt::format("Invocation ID too long: {} > {}", id.length(), Message::ID_LENGTH)};
     }
 
     std::strncpy(

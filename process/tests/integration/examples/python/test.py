@@ -311,13 +311,33 @@ def remote_invocation_unknown(invocation, context):
         "second_add2",
         buf
     )
-    print(invoc_result.return_code)
-    print(invoc_result.payload.length)
+
     if invoc_result.return_code != -1:
         return 1
     if invoc_result.payload.length == 0:
         return 1
-    print(invoc_result.payload.str())
+
+    if "Ignoring invocation of an unknown function" not in invoc_result.payload.str():
+        return 1
+
+    return 0
+
+def local_invocation_unknown(invocation, context):
+
+    MSG_SIZE = 1024
+    buf = context.get_buffer(MSG_SIZE)
+
+    invoc_result = context.invoke(
+        context.process_id,
+        "unknown_function",
+        "unknown_id",
+        buf
+    )
+
+    if invoc_result.return_code != -1:
+        return 1
+    if invoc_result.payload.length == 0:
+        return 1
 
     if "Ignoring invocation of an unknown function" not in invoc_result.payload.str():
         return 1

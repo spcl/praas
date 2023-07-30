@@ -377,3 +377,22 @@ extern "C" int remote_invocation_unknown(
 
   return 0;
 }
+
+extern "C" int local_invocation_unknown(
+    praas::process::runtime::Invocation invocation, praas::process::runtime::Context& context
+)
+{
+  auto buf = context.get_buffer(1024);
+  praas::process::runtime::InvocationResult invoc_result =
+      context.invoke(context.process_id(), "unknown_function", "unknown_id", buf);
+
+  if (invoc_result.return_code != -1) {
+    return 1;
+  }
+
+  if (invoc_result.payload.str().find("Ignoring invocation of an unknown") == std::string::npos) {
+    return 1;
+  }
+
+  return 0;
+}

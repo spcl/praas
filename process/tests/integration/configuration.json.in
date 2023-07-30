@@ -141,6 +141,16 @@
           "nargs": 1
         }
       },
+      "local_invocation_unknown": {
+        "code": {
+          "module": "@PRAAS_SOURCE_DIRECTORY@/process/tests/integration/examples/python/test.py",
+          "function": "local_invocation_unknown"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
       "state": {
         "code": {
           "module": "@PRAAS_SOURCE_DIRECTORY@/process/tests/integration/examples/python/test.py",
@@ -317,6 +327,16 @@
         "code": {
           "module": "@PRAAS_DIRECTORY@/process/tests/examples/libexample_cpp.so",
           "function": "state_get"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
+      "local_invocation_unknown": {
+        "code": {
+          "module": "@PRAAS_DIRECTORY@/process/tests/examples/libexample_cpp.so",
+          "function": "local_invocation_unknown"
         },
         "trigger": {
           "type": "direct",

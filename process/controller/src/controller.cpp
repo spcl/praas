@@ -557,12 +557,21 @@ namespace praas::process {
         req.function_name(), req.invocation_id(), payload.len
     );
 
+    // Avoid race condition. We need to store a pending invocation locally because processing
+    // a result will depend on it.
+    _pending_msgs.insert_invocation(req.invocation_id(), worker);
     if (req.process_id() == SELF_PROCESS || req.process_id() == _process_id) {
 
-      _work_queue.add_payload(
+      auto res = _work_queue.add_payload(
           std::string{req.function_name()}, std::string{req.invocation_id()}, std::move(payload),
           InvocationSource::from_local()
       );
+      if (res.has_value()) {
+        _process_invocation_result(
+            InvocationSource::from_local(), req.invocation_id(), -1,
+            runtime::internal::BufferAccessor<const char>{res.value().data(), res.value().size()}
+        );
+      }
 
     } else {
 
@@ -570,8 +579,6 @@ namespace praas::process {
           req.process_id(), req.function_name(), req.invocation_id(), std::move(payload)
       );
     }
-
-    _pending_msgs.insert_invocation(req.invocation_id(), worker);
   }
 
   // Store the message data, and check if there is a pending invocation waiting for this result

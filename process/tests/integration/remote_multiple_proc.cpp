@@ -102,7 +102,6 @@ public:
     cfg.verbose = true;
 
     spdlog::set_pattern("[%H:%M:%S:%f] [%n] [P %P] [T %t] [%l] %v ");
-    spdlog::set_level(spdlog::level::debug);
 
     // Linux specific
     auto path = std::filesystem::canonical("/proc/self/exe").parent_path() / "integration";
