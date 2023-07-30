@@ -34,7 +34,7 @@ public:
   MOCK_METHOD(
       void, invocation_result,
       (remote::RemoteType, std::optional<std::string_view>, std::string_view, int,
-       runtime::internal::BufferAccessor<char>),
+       runtime::internal::BufferAccessor<const char>),
       (override)
   );
   MOCK_METHOD(
@@ -138,7 +138,7 @@ public:
     std::optional<std::string> process;
     std::string id;
     int return_code;
-    runtime::internal::BufferAccessor<char> payload;
+    runtime::internal::Buffer<char> payload;
     timepoint_t timestamp;
   };
   std::array<Result, INVOC_COUNT> saved_results;

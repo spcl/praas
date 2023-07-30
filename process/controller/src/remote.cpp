@@ -463,7 +463,7 @@ namespace praas::process::remote {
   void TCPServer::invocation_result(
       RemoteType source, std::optional<std::string_view> remote_process,
       std::string_view invocation_id, int return_code,
-      runtime::internal::BufferAccessor<char> payload
+      runtime::internal::BufferAccessor<const char> payload
   )
   {
     Connection* conn = nullptr;

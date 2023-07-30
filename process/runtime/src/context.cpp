@@ -35,14 +35,14 @@ namespace praas::process::runtime {
     _output_buf_view.len = std::max(_output_buf_view.len, pos + len);
   }
 
-  internal::BufferAccessor<char> Context::as_buffer() const
+  internal::BufferAccessor<const char> Context::as_buffer() const
   {
     // Has the output buffer been overriden?
     if (_output_buf_view.ptr != _output.ptr.get()) {
-      return internal::BufferAccessor<char>{
-          reinterpret_cast<char*>(_output_buf_view.ptr), _output_buf_view.len};
+      return internal::BufferAccessor<const char>{
+          reinterpret_cast<const char*>(_output_buf_view.ptr), _output_buf_view.len};
     } else {
-      auto acc = _output.accessor<char>();
+      auto acc = _output.accessor<const char>();
       // Keep track of length changes that were done by users.
       acc.len = _output_buf_view.len;
       return acc;

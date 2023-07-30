@@ -1,5 +1,6 @@
 #include <praas/process/runtime/internal/invoker.hpp>
 #include <praas/process/runtime/internal/ipc/ipc.hpp>
+#include "praas/process/runtime/internal/buffer.hpp"
 
 #if defined(PRAAS_WITH_INVOKER_PYTHON)
 #include <pybind11/pybind11.h>
@@ -21,7 +22,18 @@ void define_pypraas_invoker(py::module& m)
       ))
       .def("poll", &praas::process::runtime::internal::Invoker::poll)
       .def("create_context", &praas::process::runtime::internal::Invoker::create_context)
-      .def("finish", &praas::process::runtime::internal::Invoker::finish);
+      .def(
+          "finish", py::overload_cast<std::string_view, std::string_view>(
+                        &praas::process::runtime::internal::Invoker::finish
+                    )
+      )
+      .def(
+          "finish",
+          py::overload_cast<
+              std::string_view, praas::process::runtime::internal::BufferAccessor<const char>, int>(
+              &praas::process::runtime::internal::Invoker::finish
+          )
+      );
 }
 
 #endif

@@ -114,10 +114,24 @@ namespace praas::process::runtime::internal {
     return invoc;
   }
 
-  void Invoker::finish(std::string_view invocation_id, BufferAccessor<char> output, int return_code)
+  void Invoker::finish(
+      std::string_view invocation_id, BufferAccessor<const char> output, int return_code
+  )
   {
     ipc::InvocationResult msg;
     msg.return_code(return_code);
+    msg.buffer_length(output.len);
+    msg.invocation_id(invocation_id);
+
+    _ipc_channel_write->send(msg, output);
+  }
+
+  void Invoker::finish(std::string_view invocation_id, std::string_view error_message)
+  {
+    runtime::internal::BufferAccessor<const char> output{
+        error_message.data(), error_message.size()};
+    ipc::InvocationResult msg;
+    msg.return_code(-1);
     msg.buffer_length(output.len);
     msg.invocation_id(invocation_id);
 

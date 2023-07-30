@@ -34,7 +34,7 @@ public:
   MOCK_METHOD(
       void, invocation_result,
       (remote::RemoteType, std::optional<std::string_view>, std::string_view, int,
-       runtime::internal::BufferAccessor<char>),
+       runtime::internal::BufferAccessor<const char>),
       (override)
   );
   MOCK_METHOD(

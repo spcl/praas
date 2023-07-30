@@ -79,7 +79,7 @@ namespace praas::process::runtime {
     const std::vector<std::string>& swapped_processes() const;
 
     // make private
-    internal::BufferAccessor<char> as_buffer() const;
+    internal::BufferAccessor<const char> as_buffer() const;
 
   private:
     // Now we always allocate a buffer - but this can be a shared memory object in future.

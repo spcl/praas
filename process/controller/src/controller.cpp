@@ -273,12 +273,12 @@ namespace praas::process {
               );
 
               if (res.has_value()) {
-
                 _process_invocation_result(
                     (msg.source.has_value() ? InvocationSource::from_process(msg.source.value())
                                             : InvocationSource::from_source(msg.source_type)),
                     req.invocation_id(), -1,
-                    runtime::internal::BufferAccessor<char>{res.value().data(), res.value().size()}
+                    runtime::internal::BufferAccessor<const char>{
+                        res.value().data(), res.value().size()}
                 );
               }
             },
@@ -373,7 +373,7 @@ namespace praas::process {
                   return_req.state(true);
 
                   // Send
-                  worker.ipc_write().send(return_req, buf->accessor<char>());
+                  worker.ipc_write().send(return_req, buf->accessor<const char>());
 
                 } else {
 
@@ -637,7 +637,7 @@ namespace praas::process {
 
   void Controller::_process_invocation_result(
       const InvocationSource& source, std::string_view invocation_id, int return_code,
-      runtime::internal::BufferAccessor<char> payload
+      runtime::internal::BufferAccessor<const char> payload
   )
   {
     // FIXME: send to the tcp server
@@ -673,7 +673,7 @@ namespace praas::process {
 
   void Controller::_process_invocation_result(
       FunctionWorker& worker, std::string_view invocation_id, int return_code,
-      runtime::internal::BufferAccessor<char> payload
+      runtime::internal::BufferAccessor<const char> payload
   )
   {
     SPDLOG_LOGGER_DEBUG(

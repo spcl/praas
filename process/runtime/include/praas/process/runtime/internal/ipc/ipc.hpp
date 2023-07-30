@@ -28,7 +28,7 @@ namespace praas::process::runtime::internal::ipc {
 
     virtual void send(Message& msg, const std::vector<Buffer<char>>& data) = 0;
 
-    virtual void send(Message& msg, BufferAccessor<char> buf) = 0;
+    virtual void send(Message& msg, BufferAccessor<const char> buf) = 0;
 
     virtual void send(Message& msg, BufferAccessor<std::byte> buf) = 0;
 
@@ -43,8 +43,9 @@ namespace praas::process::runtime::internal::ipc {
 
   struct POSIXMQChannel : public IPCChannel {
 
-    static constexpr int MAX_MSGS = 10;
-    static constexpr int MAX_MSG_SIZE = 4 * 1024;
+    // FIXME: there should be a better way to set limits for testing
+    static constexpr int MAX_MSGS = 5;
+    static constexpr int MAX_MSG_SIZE = 1 * 1024;
 
     static constexpr int BUFFER_ELEMS = 5;
     static constexpr int BUFFER_SIZE = 1 * 1024 * 1024;
@@ -67,7 +68,7 @@ namespace praas::process::runtime::internal::ipc {
 
     void send(Message& msg) override;
     void send(Message& msg, const std::vector<Buffer<char>>& data) override;
-    void send(Message& msg, BufferAccessor<char> buf) override;
+    void send(Message& msg, BufferAccessor<const char> buf) override;
     void send(Message& msg, BufferAccessor<std::byte> buf) override;
 
     void shutdown() override;

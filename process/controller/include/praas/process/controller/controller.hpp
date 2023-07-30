@@ -94,12 +94,12 @@ namespace praas::process {
 
     void _process_invocation_result(
         FunctionWorker& worker, std::string_view invocation_id, int return_code,
-        runtime::internal::BufferAccessor<char> payload
+        runtime::internal::BufferAccessor<const char> payload
     );
 
     void _process_invocation_result(
         const InvocationSource& source, std::string_view invocation_id, int return_code,
-        runtime::internal::BufferAccessor<char> payload
+        runtime::internal::BufferAccessor<const char> payload
     );
 
     // Retrieve the pending invocation object.

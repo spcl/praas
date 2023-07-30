@@ -22,7 +22,9 @@ namespace praas::process::runtime::internal {
 
     std::optional<Invocation> poll();
 
-    void finish(std::string_view invocation_id, BufferAccessor<char> output, int return_code);
+    void finish(std::string_view invocation_id, BufferAccessor<const char> output, int return_code);
+
+    void finish(std::string_view invocation_id, std::string_view error_message);
 
     void shutdown();
 

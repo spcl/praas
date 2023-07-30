@@ -121,7 +121,7 @@ namespace praas::process::runtime::internal::ipc {
     _send(msg.bytes(), msg.BUF_SIZE);
   }
 
-  void POSIXMQChannel::send(Message& msg, BufferAccessor<char> buf)
+  void POSIXMQChannel::send(Message& msg, BufferAccessor<const char> buf)
   {
     SPDLOG_DEBUG("Sending message, buffer length {}", buf.len);
     msg.total_length(buf.len);
