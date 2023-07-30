@@ -9,8 +9,8 @@
 namespace praas::serving::docker {
 
   HttpServer::HttpServer(Options& cfg)
-      : _http_port(cfg.http_port), _docker_port(cfg.docker_port), _threads(cfg.threads),
-        _max_processes(cfg.max_processes)
+      : _http_port(cfg.http_port), _docker_port(cfg.docker_port), _process_port(cfg.process_port),
+        _threads(cfg.threads), _max_processes(cfg.max_processes)
   {
     _logger = common::util::create_logger("HttpServer");
   }
@@ -105,6 +105,29 @@ namespace praas::serving::docker {
     );
   }
 
+  void HttpServer::_configure_ports(Json::Value& body)
+  {
+    Json::Value host_port;
+    Json::Value exposed_ports;
+    host_port["HostIp"] = "0.0.0.0";
+    host_port["HostPort"] = "9000";
+    exposed_ports.append(host_port);
+
+    Json::Value port_bindings;
+    port_bindings[fmt::format("{}/tcp", _process_port)] = exposed_ports;
+    Json::Value host_config;
+    host_config["PortBindings"] = port_bindings;
+    body["HostConfig"] = host_config;
+
+    // Docker documentation here is lacking details.
+    // It is not sufficient ot create PortBindings.
+    // We also need ExposedPorts.
+    // Otherwise, ports will not be reachable from host.
+    Json::Value exposed_ports2;
+    exposed_ports2[fmt::format("{}/tcp", _process_port)] = Json::Value{};
+    body["ExposedPorts"] = exposed_ports2;
+  }
+
   void HttpServer::create(
       const drogon::HttpRequestPtr& request,
       std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string& process
@@ -139,9 +162,9 @@ namespace praas::serving::docker {
     // env_data.append(fmt::format("CONTROLPLANE_ADDR={}", controlplane_addr));
     env_data.append(fmt::format("PROCESS_ID={}", process));
     body["Env"] = env_data;
+    _configure_ports(body);
 
     // FIXME: volumes
-    // FIXME: port mapping
 
     _http_client.post(
         "/containers/create",

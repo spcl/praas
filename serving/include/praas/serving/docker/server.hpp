@@ -16,6 +16,7 @@ namespace praas::serving::docker {
     int max_processes;
     int http_port;
     int docker_port;
+    int process_port;
     int threads;
     bool verbose;
   };
@@ -59,8 +60,11 @@ namespace praas::serving::docker {
         std::function<void(const drogon::HttpResponsePtr&)>&& callback
     );
 
+    void _configure_ports(Json::Value& body);
+
     int _http_port;
     int _docker_port;
+    int _process_port;
     int _threads;
     int _max_processes;
 
