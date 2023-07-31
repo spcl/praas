@@ -84,9 +84,12 @@ namespace praas::serving::docker {
 
             _processes.add(proc_name, Process{proc_name, container_id});
             spdlog::debug("Started container {} for process {}.", container_id, proc_name);
-            callback(common::http::HTTPClient::correct_response(
-                fmt::format("Container for process {} created.", proc_name)
-            ));
+
+            Json::Value response;
+            response["status"] = fmt::format("Container for process {} created.", proc_name);
+            response["container-id"] = container_id;
+            response["process-id"] = proc_name;
+            callback(common::http::HTTPClient::correct_response(response));
           } else {
             callback(common::http::HTTPClient::failed_response(
                 fmt::format("Unknown error! Response: {}", response->getBody())
