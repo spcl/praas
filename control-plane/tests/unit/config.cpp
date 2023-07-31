@@ -15,7 +15,8 @@ TEST(Config, BasicConfig)
     {
       "verbose": true,
       "backend-type": "docker",
-      "ip-address": "127.0.0.1"
+      "ip-address": "127.0.0.1",
+      "http-client-io-threads": 1
     }
   )";
 
@@ -46,6 +47,7 @@ TEST(Config, HTTPConfig)
         "verbose": true,
         "backend-type": "docker",
         "ip-address": "127.0.0.1",
+        "http-client-io-threads": 1,
         "http": {
           "threads": 2,
           "port": 1000,
@@ -68,6 +70,7 @@ TEST(Config, HTTPConfig)
         "verbose": true,
         "backend-type": "docker",
         "ip-address": "127.0.0.1",
+        "http-client-io-threads": 1,
         "http": {
           "threads": 2,
           "port": 1000,
@@ -96,6 +99,7 @@ TEST(Config, HTTPConfig)
         "verbose": true,
         "backend-type": "docker",
         "ip-address": "127.0.0.1",
+        "http-client-io-threads": 1,
         "http": {
           "threads": 2,
           "port": 1000,
@@ -117,6 +121,7 @@ TEST(Config, WorkersConfig)
         "verbose": true,
         "backend-type": "docker",
         "ip-address": "127.0.0.1",
+        "http-client-io-threads": 1,
         "workers": {
           "threads": 4
         }
@@ -135,6 +140,7 @@ TEST(Config, WorkersConfig)
         "verbose": true,
         "backend-type": "docker",
         "ip-address": "127.0.0.1",
+        "http-client-io-threads": 1,
         "workers": {
         }
       }
@@ -153,6 +159,7 @@ TEST(Config, DownScalerConfig)
         "verbose": true,
         "backend-type": "docker",
         "ip-address": "127.0.0.1",
+        "http-client-io-threads": 1,
         "downscaler": {
           "polling_interval": 30,
           "swapping_threshold": 60
@@ -173,6 +180,7 @@ TEST(Config, DownScalerConfig)
         "verbose": true,
         "backend-type": "docker",
         "ip-address": "127.0.0.1",
+        "http-client-io-threads": 1,
         "downscaler": {
           "polling_interval": 30
         }
@@ -192,6 +200,7 @@ TEST(Config, TCPServerConfig)
         "verbose": true,
         "backend-type": "docker",
         "ip-address": "127.0.0.1",
+        "http-client-io-threads": 1,
         "tcpserver": {
           "port": 2000,
           "io_threads": 5
@@ -212,6 +221,7 @@ TEST(Config, TCPServerConfig)
         "verbose": true,
         "backend-type": "docker",
         "ip-address": "127.0.0.1",
+        "http-client-io-threads": 1,
         "tcpserver": {
         }
       }
