@@ -1,4 +1,3 @@
-
 #ifndef PRAAS_CONTROL_PLANE_MOCKS_HPP
 #define PRAAS_CONTROL_PLANE_MOCKS_HPP
 
@@ -19,11 +18,19 @@ public:
   MOCK_METHOD(void, delete_swap, (const state::SwapLocation&), (override));
 };
 
+class MockBackendInstance : public backend::ProcessInstance {
+public:
+  MOCK_METHOD(std::string, id, (), (const));
+};
+
 class MockBackend : public backend::Backend {
 public:
   MOCK_METHOD(
-      std::shared_ptr<backend::ProcessInstance>, allocate_process,
-      (process::ProcessPtr, const process::Resources&), ()
+      void, allocate_process,
+      (process::ProcessPtr, const process::Resources&,
+       std::function<
+           void(std::shared_ptr<backend::ProcessInstance>&&, std::optional<std::string>)>&&),
+      ()
   );
   MOCK_METHOD(void, shutdown, (const std::shared_ptr<backend::ProcessInstance>&), ());
   MOCK_METHOD(int, max_memory, (), (const));
@@ -51,6 +58,14 @@ void setup_mocks(MockBackend& backend)
 {
   ON_CALL(backend, max_memory()).WillByDefault(testing::Return(4096));
   ON_CALL(backend, max_vcpus()).WillByDefault(testing::Return(4));
+
+  using callback_t =
+      std::function<void(std::shared_ptr<backend::ProcessInstance>&&, std::optional<std::string>)>;
+
+  ON_CALL(backend, allocate_process(testing::_, testing::_, testing::_))
+      .WillByDefault([&](auto, const auto&, callback_t&& callback) {
+        callback(std::make_shared<MockBackendInstance>(), "");
+      });
 }
 
 #endif

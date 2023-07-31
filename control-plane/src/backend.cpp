@@ -1,22 +1,26 @@
-#include <praas/common/util.hpp>
 #include <praas/control-plane/backend.hpp>
 
-#include <praas/control-plane/config.hpp>
 #include <praas/common/exceptions.hpp>
+#include <praas/common/http.hpp>
+#include <praas/common/util.hpp>
+#include <praas/control-plane/application.hpp>
+#include <praas/control-plane/config.hpp>
 
+#include <fcntl.h>
 #include <sys/signal.h>
 #include <sys/wait.h>
-#include <fcntl.h>
 #include <unistd.h>
 
 namespace praas::control_plane::backend {
 
   Type deserialize(std::string mode)
   {
-    if (mode == "local") {
-      return Type::LOCAL;
+    if (mode == "docker") {
+      return Type::DOCKER;
     } else if (mode == "aws_fargate") {
       return Type::AWS_FARGATE;
+    } else if (mode == "aws_lambda") {
+      return Type::AWS_LAMBDA;
     } else {
       return Type::NONE;
     }
@@ -24,22 +28,23 @@ namespace praas::control_plane::backend {
 
   std::unique_ptr<Backend> Backend::construct(const config::Config& cfg)
   {
-    if(cfg.backend_type == Type::LOCAL) {
-      return std::make_unique<LocalBackend>();
+    if (cfg.backend_type == Type::DOCKER) {
+      return std::make_unique<DockerBackend>(*dynamic_cast<config::BackendDocker*>(cfg.backend.get()
+      ));
     }
     return nullptr;
   }
 
-  LocalBackend::LocalBackend()
+  DockerBackend::DockerBackend(const config::BackendDocker& cfg)
   {
     _logger = common::util::create_logger("LocalBackend");
+
+    _http_client = common::http::HTTPClientFactory::create_client(cfg.address, cfg.port);
   }
 
-  LocalBackend::~LocalBackend()
+  DockerBackend::~DockerBackend()
   {
-    for(auto & instance : _instances) {
-      shutdown(instance);
-    }
+    // FIXME: kill containers
   }
 
   void Backend::configure_tcpserver(const std::string& ip, int port)
@@ -48,86 +53,58 @@ namespace praas::control_plane::backend {
     _tcp_port = port;
   }
 
-  std::shared_ptr<ProcessInstance> LocalBackend::allocate_process(
-    process::ProcessPtr ptr, const process::Resources& resources
+  void DockerBackend::allocate_process(
+      process::ProcessPtr process, const process::Resources& resources,
+      std::function<void(std::shared_ptr<ProcessInstance>&&, std::optional<std::string>)>&& callback
   )
   {
-    int mypid = fork();
-    if (mypid < 0) {
-      throw praas::common::PraaSException{fmt::format(
-        "Fork failed! {}, reason {} {}", mypid, errno, strerror(errno))
-      };
-    }
+    Json::Value body;
+    body["container-name"] = process->application().resources().code_resource_name;
+    body["controlplane-address"] = fmt::format("{}:{}", _tcp_ip, _tcp_port);
 
-    std::string proc_name = ptr->name();
-    std::string control_plane_addr = fmt::format("{}:{}", _tcp_ip, _tcp_port);
-    // FIXME: full path
-    // FIXME: enable again for further testing - make it configurable
-    //std::string code_location = "/work/serverless/2022/praas/code/build_debug/process/tests/integration/";
-    //std::string config_location = "configuration.json";
+    _http_client.post(
+        "/create",
+        {
+            {"process", process->name()},
+        },
+        std::move(body),
+        [callback = std::move(callback), this, process = std::move(process)](
+            drogon::ReqResult result, const drogon::HttpResponsePtr& response
+        ) mutable {
+          if (response->getStatusCode() == drogon::HttpStatusCode::k500InternalServerError) {
 
-    if (mypid == 0) {
+            callback(
+                nullptr,
+                fmt::format(
+                    "Process {} could not be created, reason: {}", process->name(), response->body()
+                )
+            );
 
-      mypid = getpid();
-      auto out_file = ("process_" + std::to_string(mypid));
+          } else if (response->getStatusCode() == drogon::HttpStatusCode::k201Created) {
 
-      spdlog::info("Process begins work on PID {}", mypid);
+            auto container = (*response->jsonObject())["container-id"].asString();
+            callback(std::make_shared<DockerInstance>(container), std::nullopt);
 
-      int fd = open(out_file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-      dup2(fd, 1);
-      dup2(fd, 2);
+          } else {
 
-      setenv("PROCESS_ID", proc_name.c_str(), 1);
-      //setenv("CODE_LOCATION", code_location.c_str(), 1);
-      //setenv("CONFIG_LOCATION", config_location.c_str(), 1);
-      setenv("CONTROLPLANE_ADDR", control_plane_addr.c_str(), 1);
-
-      // FIXME: configure path! now make it work for Docker
-      const char* args[] = {
-        //"/work/serverless/2022/praas/code/build_debug/process/bin/process_exe",
-        "/praas/process/bin/process_exe",
-        nullptr
-      };
-
-      int ret = execvp(args[0], const_cast<char**>(&args[0]));
-      if (ret == -1) {
-        spdlog::error("Invoking process {} failed {}, reason {}", args[0], errno, strerror(errno));
-        close(fd);
-        exit(1);
-      }
-
-    } else {
-      spdlog::info("Started process with PID {}", mypid);
-      _instances.emplace_back(std::make_shared<LocalInstance>(mypid));
-      return _instances.back();
-    }
-
-    return nullptr;
+            callback(nullptr, fmt::format("Unknown error! Response: {}", response->getBody()));
+          }
+        }
+    );
   }
 
-  void LocalBackend::shutdown(const std::shared_ptr<ProcessInstance> & instance)
+  void DockerBackend::shutdown(const std::shared_ptr<ProcessInstance>& instance)
   {
-    auto* ptr = dynamic_cast<LocalInstance*>(instance.get());
-    kill(ptr->pid, SIGINT);
-
-    int status{};
-    waitpid(ptr->pid, &status, 0);
-
-    if (WIFEXITED(status)) {
-      _logger->info("Process instance {} exited with status {}", ptr->pid, WEXITSTATUS(status));
-    } else if (WIFSIGNALED(status)) {
-      _logger->info("Process instance {} killed by signal {}", ptr->pid, WTERMSIG(status));
-    }
-
+    // FIXME: send call to erase
     std::erase(_instances, instance);
   }
 
-  int LocalBackend::max_memory() const
+  int DockerBackend::max_memory() const
   {
     return 1024;
   }
 
-  int LocalBackend::max_vcpus() const
+  int DockerBackend::max_vcpus() const
   {
     return 1;
   }

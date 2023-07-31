@@ -75,8 +75,7 @@ namespace praas::control_plane::worker {
     ////////////////////////////////////////////////////////////////////////////////
     /// @brief Creates a process within an existing application.
     /// This launches process creation in the background that will be resolved later.
-    /// In practice, this means sending an asynchronous HTTP request.
-    /// FIXME: this method should take a callback - work in the background
+    /// In practice, this usually means sending an asynchronous HTTP request.
     ///
     /// This methods requires read-only access to the resources class and write
     /// access to the application class.
@@ -87,7 +86,8 @@ namespace praas::control_plane::worker {
     /// @return true if a process has been created in an application
     ////////////////////////////////////////////////////////////////////////////////
     bool create_process(
-        const std::string& app_name, const std::string& proc_id, process::Resources&& resources
+        const std::string& app_name, const std::string& proc_id, process::Resources&& resources,
+        std::function<void(const std::string&, bool)>&& callback
     );
 
     ////////////////////////////////////////////////////////////////////////////////

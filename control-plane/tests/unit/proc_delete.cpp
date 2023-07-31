@@ -1,5 +1,5 @@
 
-#include "mocks.hpp"
+#include "../mocks.hpp"
 
 #include <praas/common/exceptions.hpp>
 #include <praas/control-plane/config.hpp>
@@ -46,7 +46,12 @@ TEST_F(DeleteProcessTest, DeleteCorrect)
   process::Resources resources{1, 128, resource_name};
 
   {
-    _app_create.add_process(backend, poller, proc_name, std::move(resources));
+    std::promise<bool> p;
+    _app_create.add_process(
+        backend, poller, proc_name, std::move(resources),
+        [&p](std::string msg, bool success) { p.set_value(success); }
+    );
+    ASSERT_TRUE(p.get_future().get());
 
     // Manually change the process to be allocated.
     {
@@ -81,7 +86,12 @@ TEST_F(DeleteProcessTest, DeleteWhileSwapping)
   process::Resources resources{1, 128, resource_name};
 
   {
-    _app_create.add_process(backend, poller, proc_name, std::move(resources));
+    std::promise<bool> p;
+    _app_create.add_process(
+        backend, poller, proc_name, std::move(resources),
+        [&p](std::string msg, bool success) { p.set_value(success); }
+    );
+    ASSERT_TRUE(p.get_future().get());
 
     // Manually change the process to be allocated.
     {

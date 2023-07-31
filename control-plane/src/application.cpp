@@ -7,6 +7,7 @@
 #include <praas/control-plane/process.hpp>
 #include <praas/control-plane/tcpserver.hpp>
 
+#include <optional>
 #include <spdlog/fmt/fmt.h>
 
 namespace praas::control_plane {
@@ -14,6 +15,28 @@ namespace praas::control_plane {
   void Application::add_process(
       backend::Backend& backend, tcpserver::TCPServer& poller, const std::string& name,
       process::Resources&& resources
+  )
+  {
+    std::promise<std::string> p;
+    this->add_process(
+        backend, poller, name, std::move(resources),
+        [&p](const std::string& message, bool success) {
+          if (success) {
+            p.set_value("");
+          } else {
+            p.set_value(message);
+          }
+        }
+    );
+    auto msg = p.get_future().get();
+    if (!msg.empty()) {
+      throw common::FailedAllocationError{msg};
+    }
+  }
+
+  void Application::add_process(
+      backend::Backend& backend, tcpserver::TCPServer& poller, const std::string& name,
+      process::Resources&& resources, std::function<void(std::string, bool)>&& callback
   )
   {
 
@@ -53,20 +76,26 @@ namespace praas::control_plane {
     // process::Process& p = (*iter).second;
     // p.read_lock();
 
-    try {
+    poller.add_process(process);
+    backend.allocate_process(
+        process, resources,
+        [process = std::move(process), callback = std::move(callback), &poller, iter, this](
+            std::shared_ptr<backend::ProcessInstance>&& instance, std::optional<std::string> error
+        ) {
+          if (instance != nullptr) {
 
-      poller.add_process(process);
+            process->set_handle(std::move(instance));
+            callback("Created process!", true);
 
-      // FIXME: non-blocking, callback
-      backend.allocate_process(process, resources);
+          } else {
 
-    } catch (common::FailedAllocationError& err) {
-
-      write_lock_t lock(_active_mutex);
-      poller.remove_process(*process);
-      _active_processes.erase(iter);
-      throw err;
-    }
+            write_lock_t lock(_active_mutex);
+            poller.remove_process(*process);
+            _active_processes.erase(iter);
+            callback(error.value(), false);
+          }
+        }
+    );
   }
 
   std::tuple<process::Process::read_lock_t, process::Process*>
@@ -82,9 +111,9 @@ namespace praas::control_plane {
     }
   }
 
-  std::tuple<process::Process::read_lock_t, process::Process*>
-  Application::get_controlplane_process(
-      backend::Backend& backend, tcpserver::TCPServer& poller, process::Resources&& resources
+  void Application::get_controlplane_process(
+      backend::Backend& backend, tcpserver::TCPServer& poller, process::Resources&& resources,
+      std::function<void(process::ProcessPtr, const std::optional<std::string>& error)>&& callback
   )
   {
     {
@@ -98,7 +127,8 @@ namespace praas::control_plane {
         int active_funcs = proc->active_invocations();
         if (active_funcs < max_funcs_per_process) {
           spdlog::info("Select existing process for invocation {}", proc->name());
-          return std::make_tuple(proc->read_lock(), proc.get());
+          callback(proc, std::nullopt);
+          return;
         }
       }
     }
@@ -110,23 +140,28 @@ namespace praas::control_plane {
 
     spdlog::info("Allocating process for invocation {}", name);
     poller.add_process(process);
-    auto backend_allocate = backend.allocate_process(process, resources);
-    if (!backend_allocate) {
-      // FIXME: error handling
-      // FIXME: remove from poller
-      spdlog::error("Failed to allocate process!");
-      abort();
-    }
+    backend.allocate_process(
+        process, resources,
+        [=, this, callback = std::move(callback)](
+            std::shared_ptr<backend::ProcessInstance>&& instance,
+            const std::optional<std::string>& msg
+        ) {
+          if (instance) {
 
-    process->set_handle(std::move(backend_allocate));
-    spdlog::info("Allocated process {}", name);
+            spdlog::info("Allocated process {}", name);
+            process->set_handle(std::move(instance));
+            {
+              write_lock_t lock(_controlplane_mutex);
+              _controlplane_processes.emplace_back(process);
+            }
+            callback(process, std::nullopt);
+          } else {
 
-    {
-      write_lock_t lock(_controlplane_mutex);
-      _controlplane_processes.emplace_back(process);
-    }
-
-    return std::make_tuple(process->read_lock(), process.get());
+            spdlog::error("Failed to allocate process!");
+            callback(nullptr, msg.value());
+          }
+        }
+    );
   }
 
   std::tuple<process::Process::read_lock_t, process::Process*>

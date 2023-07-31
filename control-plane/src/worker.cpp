@@ -1,15 +1,16 @@
+#include <praas/control-plane/worker.hpp>
 
 #include <praas/common/exceptions.hpp>
 #include <praas/common/messages.hpp>
 #include <praas/common/util.hpp>
-#include <praas/control-plane/process.hpp>
-#include <praas/control-plane/worker.hpp>
-
+#include <praas/control-plane/application.hpp>
 #include <praas/control-plane/backend.hpp>
+#include <praas/control-plane/process.hpp>
 #include <praas/control-plane/resources.hpp>
 #include <praas/control-plane/server.hpp>
 
 #include <charconv>
+#include <drogon/HttpTypes.h>
 #include <thread>
 
 #include <sockpp/tcp_connector.h>
@@ -44,17 +45,24 @@ namespace praas::control_plane::worker {
       return;
     }
 
-    // FIXME: make resources configurable
     common::util::assert_true(_server != nullptr);
 
     {
       // Get a process or allocate one.
-      // FIXME: allocation should be non-blocking (HTTP request?)
-      // FIXME: configure resources
-      auto [lock, proc_ptr] =
-          acc.get()->get_controlplane_process(_backend, *_server, process::Resources{1, 2048, ""});
-
-      proc_ptr->add_invocation(std::move(request), std::move(callback), function_name);
+      // FIXME: make resources configurable
+      acc.get()->get_controlplane_process(
+          _backend, *_server, process::Resources{1, 2048, ""},
+          [&](process::ProcessPtr proc_ptr, const std::optional<std::string>& error_msg) {
+            if (proc_ptr) {
+              proc_ptr->read_lock();
+              proc_ptr->add_invocation(std::move(request), std::move(callback), function_name);
+            } else {
+              callback(
+                  HttpServer::failed_response(error_msg.value(), drogon::k500InternalServerError)
+              );
+            }
+          }
+      );
     }
   }
 
@@ -71,7 +79,7 @@ namespace praas::control_plane::worker {
 
   bool Workers::create_process(
       const std::string& app_name, const std::string& proc_id, // NOLINT
-      process::Resources&& resources
+      process::Resources&& resources, std::function<void(const std::string&, bool)>&& callback
   )
   {
     Resources::RWAccessor acc;
@@ -80,7 +88,9 @@ namespace praas::control_plane::worker {
       return false;
     }
 
-    acc.get()->add_process(this->_backend, *this->_server, proc_id, std::move(resources));
+    acc.get()->add_process(
+        this->_backend, *this->_server, proc_id, std::move(resources), std::move(callback)
+    );
     return true;
   }
 

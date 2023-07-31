@@ -88,8 +88,21 @@ namespace praas::control_plane {
     }
 
     ////////////////////////////////////////////////////////////////////////////////
+    /// @brief Asynchronous version of creaing a new process within an application.
+    ///
+    /// @param[in] backend Cloud backend used to launch the process.
+    /// @param[in] poller TCP server used to receive messages from this process.
+    /// @param[in] name Process name.
+    /// @param[in] resources Process resource specification.
+    /// @param[in] callback Callback to be called on completion.
+    ////////////////////////////////////////////////////////////////////////////////
+    void add_process(
+        backend::Backend& backend, tcpserver::TCPServer& poller, const std::string& name,
+        process::Resources&& resources, std::function<void(std::string, bool)>&& callback
+    );
+
+    ////////////////////////////////////////////////////////////////////////////////
     /// @brief Creates a new process within an application.
-    /// TODO this should take a callback and become a non-blocking operation
     ///
     /// @param[in] backend Cloud backend used to launch the process.
     /// @param[in] poller TCP server used to receive messages from this process.
@@ -131,6 +144,22 @@ namespace praas::control_plane {
     ////////////////////////////////////////////////////////////////////////////////
     std::tuple<process::Process::read_lock_t, process::Process*> get_controlplane_process(
         backend::Backend& backend, tcpserver::TCPServer& poller, process::Resources&& resources
+    );
+
+    ////////////////////////////////////////////////////////////////////////////////
+    /// @brief Obtain a process that can be used for FaaS invocations.
+    /// Finds the first process with a spare capacity. Otherwise, it allocates one.
+    /// Result is passed to a callback due to asynchronous nature of process allocation.
+    ///
+    /// @param[in] backend cloud backend used for allocation
+    /// @param[in] poller tcp server used by the process
+    /// @param[in] resources
+    /// @param[out] callback pass the acquired process instance; nullptr and error
+    /// message if no process is available and no could be allocated
+    ////////////////////////////////////////////////////////////////////////////////
+    void get_controlplane_process(
+        backend::Backend& backend, tcpserver::TCPServer& poller, process::Resources&& resources,
+        std::function<void(process::ProcessPtr, const std::optional<std::string>& error)>&& callback
     );
 
     ////////////////////////////////////////////////////////////////////////////////

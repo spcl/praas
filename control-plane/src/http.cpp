@@ -65,6 +65,7 @@ namespace praas::control_plane {
     std::string cloud_resource_name = request->getParameter("cloud_resource_name");
     if (cloud_resource_name.empty()) {
       callback(failed_response("Missing arguments!"));
+      return;
     }
 
     _logger->info("Create new application {}", app_name);
@@ -72,7 +73,7 @@ namespace praas::control_plane {
       if (_workers.create_application(app_name, ApplicationResources{cloud_resource_name})) {
         callback(correct_response("Created"));
       } else {
-        callback(correct_response("Failed to create"));
+        callback(failed_response("Failed to create"));
       }
     });
   }
@@ -99,29 +100,28 @@ namespace praas::control_plane {
       return;
     }
 
-    _logger->info("Create new process {}", process_name);
-    _workers.add_task([=, this, callback = std::move(callback)]() {
-      if (_workers.create_process(app_name, process_name, process::Resources{vcpus, memory, ""})) {
-        callback(correct_response("Created"));
-      } else {
-        callback(correct_response("Failed to create"));
-      }
-    });
+    _workers.add_task(
+        &worker::Workers::create_process, app_name, process_name,
+        process::Resources{vcpus, memory, ""},
+        [callback = std::move(callback)](std::string message, bool success) {
+          if (success) {
+            callback(correct_response(message));
+          } else {
+            callback(failed_response(message));
+          }
+        }
+    );
   }
 
   void HttpServer::invoke(
       const drogon::HttpRequestPtr& request,
-      std::function<void(const drogon::HttpResponsePtr&)>&& callback, std::string app_id,
-      std::string fname
+      std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string& app_name,
+      const std::string& function_name
   )
   {
-    if (app_id.empty() || fname.empty()) {
-      callback(failed_response("Missing arguments!"));
-    }
-
-    _logger->info("Push new invocation request of {}", fname);
+    _logger->info("Push new invocation request of {}", function_name);
     _workers.add_task(
-        &worker::Workers::handle_invocation, request, std::move(callback), app_id, fname
+        &worker::Workers::handle_invocation, request, std::move(callback), app_name, function_name
     );
   }
 

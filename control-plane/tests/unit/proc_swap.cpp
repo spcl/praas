@@ -1,5 +1,5 @@
 
-#include "mocks.hpp"
+#include "../mocks.hpp"
 
 #include <praas/common/exceptions.hpp>
 #include <praas/control-plane/config.hpp>

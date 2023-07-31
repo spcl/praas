@@ -1,12 +1,14 @@
 #ifndef PRAAS_CONTROLL_PLANE_BACKEND_HPP
 #define PRAAS_CONTROLL_PLANE_BACKEND_HPP
 
+#include <praas/common/http.hpp>
 #include <praas/control-plane/process.hpp>
 
 #include <memory>
 
 namespace praas::control_plane::config {
 
+  struct BackendDocker;
   struct Config;
 
 } // namespace praas::control_plane::config
@@ -19,11 +21,7 @@ namespace praas::control_plane::process {
 
 namespace praas::control_plane::backend {
 
-  enum class Type {
-    NONE = 0,
-    LOCAL,
-    AWS_FARGATE
-  };
+  enum class Type { NONE = 0, DOCKER, AWS_FARGATE, AWS_LAMBDA };
 
   Type deserialize(std::string mode);
 
@@ -42,16 +40,18 @@ namespace praas::control_plane::backend {
 
     /**
      * @brief Launches a new cloud process using the API specified by the cloud provider.
-     * The method will overwrite 
+     * The method will overwrite
      *
      * @param {name} shared pointer to the process instance
      * @param resources [TODO:description]
      */
-    virtual std::shared_ptr<ProcessInstance> allocate_process(
-      process::ProcessPtr, const process::Resources& resources
+    virtual void allocate_process(
+        process::ProcessPtr, const process::Resources& resources,
+        std::function<void(std::shared_ptr<ProcessInstance>&&, std::optional<std::string>)>&&
+            callback
     ) = 0;
 
-    virtual void shutdown(const std::shared_ptr<ProcessInstance> &) = 0;
+    virtual void shutdown(const std::shared_ptr<ProcessInstance>&) = 0;
 
     /**
      * @brief The upper cap on a memory that can be allocated for a process.
@@ -84,28 +84,32 @@ namespace praas::control_plane::backend {
     int _tcp_port;
   };
 
-  struct LocalBackend : Backend {
+  struct DockerBackend : Backend {
 
     // FIXME: static polymorphism?
-    struct LocalInstance : public ProcessInstance {
+    struct DockerInstance : public ProcessInstance {
 
-      LocalInstance(int pid): pid(pid) {}
+      DockerInstance(std::string container_id) : container_id(container_id) {}
 
       std::string id() const override
       {
-        return std::to_string(pid);
+        return container_id;
       }
 
-      int pid;
+      std::string container_id;
     };
 
-    LocalBackend();
+    DockerBackend(const config::BackendDocker& cfg);
 
-    ~LocalBackend();
+    ~DockerBackend() override;
 
-    std::shared_ptr<ProcessInstance> allocate_process(process::ProcessPtr, const process::Resources& resources) override;
+    void allocate_process(
+        process::ProcessPtr, const process::Resources& resources,
+        std::function<void(std::shared_ptr<ProcessInstance>&&, std::optional<std::string>)>&&
+            callback
+    ) override;
 
-    void shutdown(const std::shared_ptr<ProcessInstance> &) override;
+    void shutdown(const std::shared_ptr<ProcessInstance>&) override;
 
     int max_memory() const override;
 
@@ -113,6 +117,8 @@ namespace praas::control_plane::backend {
 
   private:
     std::shared_ptr<spdlog::logger> _logger;
+
+    common::http::HTTPClient _http_client;
 
     std::vector<std::shared_ptr<ProcessInstance>> _instances;
   };
