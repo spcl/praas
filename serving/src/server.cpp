@@ -8,6 +8,7 @@
 #include <drogon/utils/Utilities.h>
 
 #include <latch>
+#include <string>
 
 namespace praas::serving::docker {
 
@@ -98,13 +99,12 @@ namespace praas::serving::docker {
   void HttpServer::_configure_ports(Json::Value& body)
   {
     Json::Value host_port;
-    Json::Value exposed_ports;
+    Json::Value bind_ports;
     host_port["HostIp"] = "0.0.0.0";
-    host_port["HostPort"] = "9000";
-    exposed_ports.append(host_port);
+    bind_ports.append(host_port);
 
     Json::Value port_bindings;
-    port_bindings[fmt::format("{}/tcp", _process_port)] = exposed_ports;
+    port_bindings[fmt::format("{}/tcp", _process_port)] = bind_ports;
     Json::Value host_config;
     host_config["PortBindings"] = port_bindings;
     body["HostConfig"] = host_config;
@@ -113,9 +113,9 @@ namespace praas::serving::docker {
     // It is not sufficient ot create PortBindings.
     // We also need ExposedPorts.
     // Otherwise, ports will not be reachable from host.
-    Json::Value exposed_ports2;
-    exposed_ports2[fmt::format("{}/tcp", _process_port)] = Json::Value{};
-    body["ExposedPorts"] = exposed_ports2;
+    Json::Value exposed_ports;
+    exposed_ports[fmt::format("{}/tcp", _process_port)] = Json::Value{};
+    body["ExposedPorts"] = exposed_ports;
   }
 
   void HttpServer::create(
