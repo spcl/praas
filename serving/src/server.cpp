@@ -107,6 +107,7 @@ namespace praas::serving::docker {
     port_bindings[fmt::format("{}/tcp", _process_port)] = bind_ports;
     Json::Value host_config;
     host_config["PortBindings"] = port_bindings;
+    host_config["AutoRemove"] = true;
     body["HostConfig"] = host_config;
 
     // Docker documentation here is lacking details.
