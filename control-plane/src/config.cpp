@@ -76,6 +76,12 @@ namespace praas::control_plane::config {
     io_threads = 1;
   }
 
+  void BackendDocker::load(cereal::JSONInputArchive& archive)
+  {
+    archive(CEREAL_NVP(address));
+    archive(CEREAL_NVP(port));
+  }
+
   Config Config::deserialize(std::istream& in_stream)
   {
     Config cfg;
@@ -87,7 +93,8 @@ namespace praas::control_plane::config {
   void Config::set_defaults()
   {
     verbose = true;
-    backend_type = backend::Type::LOCAL;
+    backend_type = backend::Type::DOCKER;
+    backend = std::make_unique<BackendDocker>();
     public_ip_address = "127.0.0.1";
 
     http.set_defaults();
@@ -100,8 +107,14 @@ namespace praas::control_plane::config {
   {
     archive(CEREAL_NVP(verbose));
     std::string backend_type;
+
     archive(cereal::make_nvp("backend-type", backend_type));
     this->backend_type = backend::deserialize(backend_type);
+    if (this->backend_type == backend::Type::DOCKER) {
+      auto ptr = std::make_unique<BackendDocker>();
+      archive(cereal::make_nvp("backend", *ptr));
+      this->backend = std::move(ptr);
+    }
 
     archive(cereal::make_nvp("ip-address", public_ip_address));
 
@@ -109,7 +122,6 @@ namespace praas::control_plane::config {
     common::util::cereal_load_optional(archive, "workers", this->workers);
     common::util::cereal_load_optional(archive, "downscaler", this->down_scaler);
     common::util::cereal_load_optional(archive, "tcpserver", this->tcpserver);
-
   }
 
 } // namespace praas::control_plane::config

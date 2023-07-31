@@ -22,7 +22,10 @@ namespace praas::control_plane::config {
     static constexpr int DEFAULT_THREADS_NUMBER = 1;
     static constexpr int DEFAULT_PORT = 8080;
 
-    HTTPServer() { set_defaults(); }
+    HTTPServer()
+    {
+      set_defaults();
+    }
 
     int port;
     int threads;
@@ -59,7 +62,10 @@ namespace praas::control_plane::config {
   struct TCPServer {
     static constexpr int DEFAULT_PORT = 0;
 
-    TCPServer() { set_defaults(); }
+    TCPServer()
+    {
+      set_defaults();
+    }
 
     int port;
     int io_threads;
@@ -69,11 +75,14 @@ namespace praas::control_plane::config {
   };
 
   struct Backend {
-
+    virtual ~Backend() = default;
   };
 
-  struct BackendLocal : Backend {
+  struct BackendDocker : Backend {
+    std::string address;
+    int port;
 
+    void load(cereal::JSONInputArchive& archive);
   };
 
   struct Deployment {};
