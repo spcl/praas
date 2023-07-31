@@ -37,6 +37,7 @@ namespace praas::control_plane {
 
     void run();
     void shutdown();
+    void wait();
 
     void create_app(
         const drogon::HttpRequestPtr& request,

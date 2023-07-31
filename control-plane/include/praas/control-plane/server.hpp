@@ -11,6 +11,12 @@
 
 namespace praas::control_plane {
 
+  struct Options {
+    std::string config;
+    bool verbose;
+  };
+  Options opts(int, char**);
+
   struct Server {
 
     Server(config::Config& cfg);
@@ -18,6 +24,8 @@ namespace praas::control_plane {
     void run();
 
     void shutdown();
+
+    void wait();
 
     int http_port() const
     {

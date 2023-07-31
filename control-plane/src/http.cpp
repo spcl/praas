@@ -33,9 +33,18 @@ namespace praas::control_plane {
   void HttpServer::shutdown()
   {
     _logger->info("Stopping HTTP server");
-    drogon::app().getLoop()->queueInLoop([]() { drogon::app().quit(); });
-    _server_thread.join();
+    if (drogon::app().isRunning()) {
+      drogon::app().getLoop()->queueInLoop([]() { drogon::app().quit(); });
+    }
+    if (_server_thread.joinable()) {
+      _server_thread.join();
+    }
     _logger->info("Stopped HTTP server");
+  }
+
+  void HttpServer::wait()
+  {
+    _server_thread.join();
   }
 
   drogon::HttpResponsePtr HttpServer::correct_response(const std::string& reason)
