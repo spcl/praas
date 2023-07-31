@@ -1,5 +1,6 @@
-
 #include <praas/common/http.hpp>
+
+#include <praas/common/exceptions.hpp>
 
 #include <drogon/HttpClient.h>
 #include <drogon/HttpRequest.h>
@@ -10,8 +11,8 @@
 
 namespace praas::common::http {
 
-  std::unique_ptr<trantor::EventLoopThreadPool> HTTPClientFactory::_pool;
-  trantor::EventLoop* HTTPClientFactory::_default_loop;
+  std::unique_ptr<trantor::EventLoopThreadPool> HTTPClientFactory::_pool = nullptr;
+  trantor::EventLoop* HTTPClientFactory::_default_loop = nullptr;
 
   HTTPClient::HTTPClient() : _http_client(nullptr) {}
 
@@ -114,6 +115,10 @@ namespace praas::common::http {
 
   HTTPClient HTTPClientFactory::create_client(std::string address, int port)
   {
+    if (!_pool) {
+      throw common::PraaSException("Uninitialized HTTPClientFactory!");
+    }
+
     if (port != -1) {
       return HTTPClient{fmt::format("{}:{}", address, port), _pool->getNextLoop()};
     } else {
@@ -123,6 +128,10 @@ namespace praas::common::http {
 
   HTTPClient HTTPClientFactory::create_client_shared(std::string address, int port)
   {
+    if (!_default_loop) {
+      throw common::PraaSException("Uninitialized HTTPClientFactory!");
+    }
+
     if (port != -1) {
       return HTTPClient{fmt::format("{}:{}", address, port), _default_loop};
     } else {
