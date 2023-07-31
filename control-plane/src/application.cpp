@@ -266,6 +266,11 @@ namespace praas::control_plane {
     return this->_name;
   }
 
+  const ApplicationResources& Application::resources() const
+  {
+    return this->_resources;
+  }
+
   void Application::get_processes(std::vector<std::string>& results) const
   {
     read_lock_t application_lock(_active_mutex);
