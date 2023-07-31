@@ -101,6 +101,7 @@ namespace praas::control_plane::config {
     std::unique_ptr<Backend> backend;
 
     std::string public_ip_address;
+    int http_client_io_threads;
 
     bool verbose;
 
@@ -108,7 +109,8 @@ namespace praas::control_plane::config {
 
     void load(cereal::JSONInputArchive& archive);
 
-    static Config deserialize(std::istream& in_stream);
+    static Config deserialize(int argc, char** argv);
+    static Config deserialize(std::istream& in);
   };
 
 } // namespace praas::control_plane::config

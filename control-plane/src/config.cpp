@@ -1,16 +1,19 @@
+#include <praas/control-plane/config.hpp>
+
 #include <praas/common/exceptions.hpp>
 #include <praas/common/util.hpp>
 #include <praas/control-plane/backend.hpp>
-#include <praas/control-plane/config.hpp>
 
 #include <optional>
-#include <spdlog/common.h>
 #include <stdexcept>
 
 #include <cereal/archives/json.hpp>
 #include <cereal/details/helpers.hpp>
 #include <cereal/types/optional.hpp>
+#include <cxxopts.hpp>
 #include <fmt/core.h>
+#include <fstream>
+#include <spdlog/common.h>
 
 namespace praas::control_plane::config {
 
@@ -96,11 +99,38 @@ namespace praas::control_plane::config {
     return cfg;
   }
 
+  Config Config::deserialize(int argc, char** argv)
+  {
+    cxxopts::Options options("praas-control-plane", "Executes PraaS control plane.");
+    options.add_options()("c,config", "JSON config.", cxxopts::value<std::string>());
+    auto parsed_options = options.parse(argc, argv);
+
+    std::string config_file{parsed_options["config"].as<std::string>()};
+
+    Config cfg;
+    if (config_file.length() > 0) {
+      std::ifstream in_stream{config_file};
+      if (!in_stream.is_open()) {
+        spdlog::error("Could not open config file {}", config_file);
+        exit(1);
+      }
+
+      cereal::JSONInputArchive archive_in(in_stream);
+      cfg.load(archive_in);
+    } else {
+
+      cfg.set_defaults();
+    }
+
+    return cfg;
+  }
+
   void Config::set_defaults()
   {
     backend_type = backend::Type::DOCKER;
     backend = std::make_unique<BackendDocker>();
     public_ip_address = "127.0.0.1";
+    http_client_io_threads = 1;
 
     http.set_defaults();
     workers.set_defaults();
@@ -122,6 +152,7 @@ namespace praas::control_plane::config {
     }
 
     archive(cereal::make_nvp("ip-address", public_ip_address));
+    archive(cereal::make_nvp("http-client-io-threads", http_client_io_threads));
 
     common::util::cereal_load_optional(archive, "http", this->http);
     common::util::cereal_load_optional(archive, "workers", this->workers);
