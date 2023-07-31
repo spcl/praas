@@ -104,9 +104,6 @@ namespace praas::control_plane::worker {
     std::optional<std::string>
     delete_process(const std::string& app_name, const std::string& proc_id);
 
-    // Starts the swap operation.
-    // Requires a write operation to process to lock all future invocations.
-
     ////////////////////////////////////////////////////////////////////////////////
     /// @brief Starts a swap operation by telling the process to swap out. Applies only
     /// to processes that are active and have been allocated.
@@ -125,6 +122,13 @@ namespace praas::control_plane::worker {
     swap_process(const std::string& app_name, const std::string& proc_id);
     // const process::ProcessPtr& ptr, state::SwapLocation& swap_loc);
 
+    ////////////////////////////////////////////////////////////////////////////////
+    /// @brief Return list of active and swapped out processes.
+    ///
+    /// @param[in] app_name application name
+    /// @param[out] active_processes vector to be filled with process names
+    /// @param[out] swapped_processes vector to be filled with process names
+    ////////////////////////////////////////////////////////////////////////////////
     std::optional<std::string> list_processes(
         const std::string& app_name, std::vector<std::string>& active_processes,
         std::vector<std::string>& swapped_processes
