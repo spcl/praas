@@ -45,7 +45,9 @@ namespace praas::common::http {
     request_ptr_t
     post(const std::string& path, parameters_t&& params, Json::Value&& body, callback_t&& callback);
 
-    static response_ptr_t correct_response(const std::string& reason);
+    static response_ptr_t correct_response(const std::string& response);
+
+    static response_ptr_t correct_response(const Json::Value& response);
 
     static response_ptr_t failed_response(const std::string& reason);
 

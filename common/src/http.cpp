@@ -84,6 +84,13 @@ namespace praas::common::http {
     return resp;
   }
 
+  HTTPClient::response_ptr_t HTTPClient::correct_response(const Json::Value& response)
+  {
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(response);
+    resp->setStatusCode(drogon::k200OK);
+    return resp;
+  }
+
   HTTPClient::response_ptr_t HTTPClient::failed_response(const std::string& reason)
   {
     Json::Value json;
