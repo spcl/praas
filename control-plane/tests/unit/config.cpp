@@ -1,7 +1,7 @@
 
 #include <praas/common/exceptions.hpp>
-#include <praas/control-plane/config.hpp>
 #include <praas/control-plane/backend.hpp>
+#include <praas/control-plane/config.hpp>
 
 #include <sstream>
 
@@ -14,7 +14,7 @@ TEST(Config, BasicConfig)
   std::string config = R"(
     {
       "verbose": true,
-      "backend-type": "local",
+      "backend-type": "docker",
       "ip-address": "127.0.0.1"
     }
   )";
@@ -23,7 +23,7 @@ TEST(Config, BasicConfig)
   Config cfg = Config::deserialize(stream);
 
   EXPECT_EQ(cfg.verbose, true);
-  EXPECT_EQ(cfg.backend_type, praas::control_plane::backend::Type::LOCAL);
+  EXPECT_EQ(cfg.backend_type, praas::control_plane::backend::Type::DOCKER);
 
   EXPECT_EQ(cfg.http.port, HTTPServer::DEFAULT_PORT);
   EXPECT_EQ(cfg.http.threads, HTTPServer::DEFAULT_THREADS_NUMBER);
@@ -44,7 +44,7 @@ TEST(Config, HTTPConfig)
     std::string config = R"(
       {
         "verbose": true,
-        "backend-type": "local",
+        "backend-type": "docker",
         "ip-address": "127.0.0.1",
         "http": {
           "threads": 2,
@@ -66,7 +66,7 @@ TEST(Config, HTTPConfig)
     std::string config = R"(
       {
         "verbose": true,
-        "backend-type": "local",
+        "backend-type": "docker",
         "ip-address": "127.0.0.1",
         "http": {
           "threads": 2,
@@ -94,7 +94,7 @@ TEST(Config, HTTPConfig)
     std::string config = R"(
       {
         "verbose": true,
-        "backend-type": "local",
+        "backend-type": "docker",
         "ip-address": "127.0.0.1",
         "http": {
           "threads": 2,
@@ -115,7 +115,7 @@ TEST(Config, WorkersConfig)
     std::string config = R"(
       {
         "verbose": true,
-        "backend-type": "local",
+        "backend-type": "docker",
         "ip-address": "127.0.0.1",
         "workers": {
           "threads": 4
@@ -133,7 +133,7 @@ TEST(Config, WorkersConfig)
     std::string config = R"(
       {
         "verbose": true,
-        "backend-type": "local",
+        "backend-type": "docker",
         "ip-address": "127.0.0.1",
         "workers": {
         }
@@ -151,7 +151,7 @@ TEST(Config, DownScalerConfig)
     std::string config = R"(
       {
         "verbose": true,
-        "backend-type": "local",
+        "backend-type": "docker",
         "ip-address": "127.0.0.1",
         "downscaler": {
           "polling_interval": 30,
@@ -171,7 +171,7 @@ TEST(Config, DownScalerConfig)
     std::string config = R"(
       {
         "verbose": true,
-        "backend-type": "local",
+        "backend-type": "docker",
         "ip-address": "127.0.0.1",
         "downscaler": {
           "polling_interval": 30
@@ -190,7 +190,7 @@ TEST(Config, TCPServerConfig)
     std::string config = R"(
       {
         "verbose": true,
-        "backend-type": "local",
+        "backend-type": "docker",
         "ip-address": "127.0.0.1",
         "tcpserver": {
           "port": 2000,
@@ -210,7 +210,7 @@ TEST(Config, TCPServerConfig)
     std::string config = R"(
       {
         "verbose": true,
-        "backend-type": "local",
+        "backend-type": "docker",
         "ip-address": "127.0.0.1",
         "tcpserver": {
         }

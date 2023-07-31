@@ -83,6 +83,7 @@ namespace praas::control_plane::config {
     int port;
 
     void load(cereal::JSONInputArchive& archive);
+    void set_defaults();
   };
 
   struct Deployment {};

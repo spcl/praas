@@ -82,6 +82,12 @@ namespace praas::control_plane::config {
     archive(CEREAL_NVP(port));
   }
 
+  void BackendDocker::set_defaults()
+  {
+    address = "127.0.0.1";
+    port = 8080;
+  }
+
   Config Config::deserialize(std::istream& in_stream)
   {
     Config cfg;
@@ -92,7 +98,6 @@ namespace praas::control_plane::config {
 
   void Config::set_defaults()
   {
-    verbose = true;
     backend_type = backend::Type::DOCKER;
     backend = std::make_unique<BackendDocker>();
     public_ip_address = "127.0.0.1";
@@ -112,7 +117,7 @@ namespace praas::control_plane::config {
     this->backend_type = backend::deserialize(backend_type);
     if (this->backend_type == backend::Type::DOCKER) {
       auto ptr = std::make_unique<BackendDocker>();
-      archive(cereal::make_nvp("backend", *ptr));
+      common::util::cereal_load_optional(archive, "backend", *ptr);
       this->backend = std::move(ptr);
     }
 
