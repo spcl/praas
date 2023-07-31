@@ -1,6 +1,11 @@
 #ifndef PRAAS_COMMON_MESSAGES_HPP
 #define PRAAS_COMMON_MESSAGES_HPP
 
+#include <praas/common/exceptions.hpp>
+
+#include <spdlog/fmt/bundled/core.h>
+
+#include <array>
 #include <cstring>
 #include <memory>
 #include <string>
@@ -15,398 +20,772 @@ namespace praas::common::message {
   template <class... Ts>
   overloaded(Ts...) -> overloaded<Ts...>;
 
-  struct ProcessConnectionParsed;
-  struct SwapRequestParsed;
-  struct SwapConfirmationParsed;
-  struct InvocationRequestParsed;
-  struct InvocationResultParsed;
-  struct DataPlaneMetricsParsed;
-  struct ProcessClosureParsed;
-  struct ApplicationUpdateParsed;
-  struct PutMessageParsed;
+  // struct ProcessConnectionParsed;
+  // struct SwapRequestParsed;
+  // struct SwapConfirmationParsed;
+  // struct InvocationRequestParsed;
+  // struct InvocationResultParsed;
+  // struct DataPlaneMetricsParsed;
+  // struct ProcessClosureParsed;
+  // struct ApplicationUpdateParsed;
+  // struct PutMessageParsed;
 
-  struct Message {
+  // Connection Headers
 
-    enum class Type : int16_t {
-      GENERIC_HEADER = 0,
-      PROCESS_CONNECTION = 1,
-      SWAP_REQUEST,
-      SWAP_CONFIRMATION,
-      INVOCATION_REQUEST,
-      INVOCATION_RESULT,
-      DATAPLANE_METRICS,
-      PROCESS_CLOSURE,
-      APPLICATION_UPDATE,
-      PUT_MESSAGE,
-      END_FLAG
-    };
+  // Process connection
+  // 2 bytes of identifier: 1
+  // 32 bytes of process name
+  // 34 bytes
 
-    // Connection Headers
+  // Swap request message
+  // 2 bytes of identiifer
+  // 4 bytes of length of swap path
+  // Message is followed by the swap path
 
-    // Process connection
-    // 2 bytes of identifier: 1
-    // 32 bytes of process name
-    // 34 bytes
+  // Swap confirmation
+  // 2 bytes of identifier: 2
+  // 4 bytes of swap size
+  // 6 bytes
 
-    // Swap request message
-    // 2 bytes of identiifer
-    // 4 bytes of length of swap path
-    // Message is followed by the swap path
+  // Invocation request
+  // 2 bytes of identifier: 3
+  // 16 bytes of invocation id
+  // 32 bytes of function name
+  // 8 bytes payload length
+  // 58 bytes
 
-    // Swap confirmation
-    // 2 bytes of identifier: 2
-    // 4 bytes of swap size
-    // 6 bytes
+  // Invocation response
+  // 2 bytes of identifier: 4
+  // 32 bytes of invocation id
+  // 8 bytes response size
+  // 42 bytes
 
-    // Invocation request
-    // 2 bytes of identifier: 3
-    // 16 bytes of invocation id
-    // 32 bytes of function name
-    // 8 bytes payload length
-    // 58 bytes
+  // Data plane metrics
+  // 2 bytes of identifier: 5
+  // 4 bytes of invocations
+  // 4 bytes of computation time
+  // 8 bytes last invocation
+  // 18 bytes
 
-    // Invocation response
-    // 2 bytes of identifier: 4
-    // 32 bytes of invocation id
-    // 8 bytes response size
-    // 42 bytes
+  // Closure of process
+  // 2 bytes of identifier: 6
+  // 2 bytes
 
-    // Data plane metrics
-    // 2 bytes of identifier: 5
-    // 4 bytes of invocations
-    // 4 bytes of computation time
-    // 8 bytes last invocation
-    // 18 bytes
-
-    // Closure of process
-    // 2 bytes of identifier: 6
-    // 2 bytes
-
+  struct MessageConfig {
+    static constexpr uint16_t BUF_SIZE = 70;
     static constexpr uint16_t HEADER_OFFSET = 6;
     static constexpr uint16_t NAME_LENGTH = 32;
     static constexpr uint16_t ID_LENGTH = 16;
-    static constexpr uint16_t BUF_SIZE = 70;
-    std::array<int8_t, BUF_SIZE> data{};
+  };
 
-    Message(Type type = Type::GENERIC_HEADER)
+  struct MessageData {
+    std::array<int8_t, MessageConfig::BUF_SIZE> buf{};
+
+    int8_t* data()
     {
-      // NOLINTNEXTLINE
-      *reinterpret_cast<int16_t*>(data.data()) = static_cast<int16_t>(type);
+      return buf.data();
     }
 
-    Type type() const;
+    const int8_t* data() const
+    {
+      return buf.data();
+    }
+  };
 
-    int32_t total_length() const;
+  struct MessagePtr {
+    const int8_t* ptr{};
 
-    void total_length(int32_t);
+    const int8_t* data() const
+    {
+      return ptr;
+    }
+  };
+
+  enum class MessageType : int16_t {
+    GENERIC_HEADER = 0,
+    PROCESS_CONNECTION = 1,
+    SWAP_REQUEST,
+    SWAP_CONFIRMATION,
+    INVOCATION_REQUEST,
+    INVOCATION_RESULT,
+    DATAPLANE_METRICS,
+    PROCESS_CLOSURE,
+    APPLICATION_UPDATE,
+    PUT_MESSAGE,
+    END_FLAG
+  };
+
+  template <typename Data, template <class> typename CRTPMessageType>
+  struct Message {
+
+    static constexpr uint16_t BUF_SIZE = MessageConfig::BUF_SIZE;
+
+    Data msg_data;
+
+    Message(Data&& data, MessageType type = MessageType::GENERIC_HEADER) : msg_data(data)
+    {
+      if constexpr (std::is_same_v<Data, MessageData>) {
+        // NOLINTNEXTLINE
+        *reinterpret_cast<int16_t*>(bytes()) = static_cast<int16_t>(type);
+      }
+    }
+
+    MessageType type() const
+    {
+      int16_t type = *reinterpret_cast<const int16_t*>(bytes());
+
+      if (type >= static_cast<int16_t>(MessageType::END_FLAG) ||
+          type < static_cast<int16_t>(MessageType::GENERIC_HEADER)) {
+        throw common::InvalidMessage{fmt::format("Invalid type value for Message: {}", type)};
+      }
+
+      return static_cast<MessageType>(type);
+    }
+
+    void type(MessageType msg_type) {}
+
+    int32_t total_length() const
+    {
+      // NOLINTNEXTLINE
+      return *reinterpret_cast<const int32_t*>(bytes() + 2);
+    }
+
+    void total_length(int32_t len)
+    {
+      // NOLINTNEXTLINE
+      *reinterpret_cast<int32_t*>(bytes() + 2) = len;
+    }
 
     const int8_t* bytes() const
     {
-      return data.data();
+      return msg_data.data();
     }
 
-    using MessageVariants = std::variant<
-        std::monostate, ProcessConnectionParsed, SwapRequestParsed, SwapConfirmationParsed,
-        InvocationRequestParsed, InvocationResultParsed, DataPlaneMetricsParsed,
-        ProcessClosureParsed, ApplicationUpdateParsed, PutMessageParsed>;
+    template <typename D = Data, typename = std::enable_if_t<std::is_same_v<D, MessageData>>>
+    int8_t* bytes()
+    {
+      return msg_data.data();
+    }
 
-    MessageVariants parse();
-    static MessageVariants parse_message(const int8_t* data);
-    static MessageVariants parse_message(const char* data);
+    template <typename D = Data, typename = std::enable_if_t<std::is_same_v<D, MessageData>>>
+    int8_t* data()
+    {
+      return msg_data.data() + MessageConfig::HEADER_OFFSET;
+    }
+
+    const int8_t* data() const
+    {
+      return msg_data.data() + MessageConfig::HEADER_OFFSET;
+    }
+
+    MessagePtr ptr() const
+    {
+      return MessagePtr{bytes()};
+    }
+
+    CRTPMessageType<MessageData> copy()
+    {
+      CRTPMessageType<MessageData> copy{MessageData{}, type()};
+      std::copy(bytes(), bytes() + BUF_SIZE, copy.bytes());
+      return copy;
+    }
   };
 
-  struct ProcessConnectionParsed {
-    static constexpr uint16_t EXPECTED_LENGTH = 34;
-    const int8_t* buf{};
+  template <typename Data>
+  struct ProcessConnection : Message<Data, ProcessConnection> {
+
+    using Parent = Message<Data, ProcessConnection>;
+    using Parent::data;
+    using Parent::Parent;
+
     size_t process_name_len;
 
-    ProcessConnectionParsed(const int8_t* buf)
+    ProcessConnection(Data&& data = Data())
         // NOLINTNEXTLINE
-        : buf(buf),
-          process_name_len(strnlen(reinterpret_cast<const char*>(buf), Message::NAME_LENGTH))
-    {
-    }
-
-    std::string_view process_name() const;
-
-    static Message::Type type();
-  };
-
-  struct ProcessConnection : Message, ProcessConnectionParsed {
-    static constexpr uint16_t EXPECTED_LENGTH = 34;
-
-    ProcessConnection()
-        : Message(Type::PROCESS_CONNECTION),
-          ProcessConnectionParsed(this->data.data() + HEADER_OFFSET)
-    {
-      static_assert(EXPECTED_LENGTH <= BUF_SIZE);
-    }
-
-    using ProcessConnectionParsed::process_name;
-    void process_name(std::string_view name);
-
-    using ProcessConnectionParsed::type;
-  };
-
-  struct SwapRequestParsed {
-    const int8_t* buf;
-    size_t path_len;
-
-    SwapRequestParsed(const int8_t* buf)
-        : buf(buf),
-          // NOLINTNEXTLINE
-          path_len(strnlen(reinterpret_cast<const char*>(buf), Message::ID_LENGTH))
-    {
-    }
-
-    std::string_view path() const;
-
-    static Message::Type type();
-  };
-
-  struct SwapRequest : Message, SwapRequestParsed {
-
-    SwapRequest()
-        : Message(Type::SWAP_REQUEST), SwapRequestParsed(this->data.data() + HEADER_OFFSET)
-    {
-    }
-
-    using SwapRequestParsed::path;
-    using SwapRequestParsed::type;
-
-    void path(const std::string& function_name);
-    void path(std::string_view function_name);
-  };
-
-  struct SwapConfirmationParsed {
-    const int8_t* buf;
-
-    SwapConfirmationParsed(const int8_t* buf) : buf(buf) {}
-
-    int32_t swap_size() const;
-
-    static Message::Type type();
-  };
-
-  struct SwapConfirmation : Message, SwapConfirmationParsed {
-
-    SwapConfirmation()
-        : Message(Type::SWAP_CONFIRMATION),
-          SwapConfirmationParsed(this->data.data() + HEADER_OFFSET)
-    {
-    }
-
-    using SwapConfirmationParsed::swap_size;
-    using SwapConfirmationParsed::type;
-
-    void swap_size(int32_t);
-  };
-
-  struct InvocationRequestParsed {
-    const int8_t* buf;
-    size_t fname_len;
-    size_t invocation_id_len;
-
-    InvocationRequestParsed(const int8_t* buf)
-        // NOLINTNEXTLINE
-        : buf(buf),
-          fname_len(strnlen(reinterpret_cast<const char*>(buf + 4), Message::NAME_LENGTH)),
-          invocation_id_len(strnlen(
-              reinterpret_cast<const char*>(buf + Message::NAME_LENGTH + 4), Message::ID_LENGTH
-          ))
-    {
-    }
-
-    std::string_view invocation_id() const;
-    std::string_view function_name() const;
-    int32_t payload_size() const;
-    int32_t total_length() const;
-
-    static Message::Type type();
-  };
-
-  struct InvocationRequest : Message, InvocationRequestParsed {
-    static constexpr uint16_t EXPECTED_LENGTH = 58;
-
-    InvocationRequest()
-        : Message(Type::INVOCATION_REQUEST),
-          InvocationRequestParsed(this->data.data() + HEADER_OFFSET)
-    {
-      static_assert(EXPECTED_LENGTH <= BUF_SIZE);
-    }
-
-    using InvocationRequestParsed::function_name;
-    using InvocationRequestParsed::invocation_id;
-    using InvocationRequestParsed::payload_size;
-    using InvocationRequestParsed::type;
-    using Message::total_length;
-
-    void invocation_id(std::string_view invocation_id);
-    void function_name(std::string_view function_name);
-    void payload_size(int32_t);
-  };
-
-  struct InvocationResultParsed {
-    const int8_t* buf;
-    size_t invocation_id_len;
-
-    InvocationResultParsed(const int8_t* buf)
-        // NOLINTNEXTLINE
-        : buf(buf),
-          invocation_id_len(strnlen(reinterpret_cast<const char*>(buf), Message::ID_LENGTH))
-    {
-    }
-
-    std::string_view invocation_id() const;
-    int32_t return_code() const;
-    // FIXME: common parent
-    int32_t total_length() const;
-    static Message::Type type();
-  };
-
-  struct InvocationResult : Message, InvocationResultParsed {
-    static constexpr uint16_t EXPECTED_LENGTH = 42;
-
-    InvocationResult()
-        : Message(Type::INVOCATION_RESULT),
-          InvocationResultParsed(this->data.data() + HEADER_OFFSET)
-    {
-      static_assert(EXPECTED_LENGTH <= BUF_SIZE);
-    }
-
-    using InvocationResultParsed::invocation_id;
-    using InvocationResultParsed::return_code;
-    using InvocationResultParsed::type;
-    using Message::total_length;
-
-    void invocation_id(std::string_view invocation_id);
-    void return_code(int32_t);
-  };
-
-  struct DataPlaneMetricsParsed {
-    const int8_t* buf;
-
-    DataPlaneMetricsParsed(const int8_t* buf) : buf(buf) {}
-
-    // 4 bytes of invocations
-    // 4 bytes of computation time
-    // 8 bytes last invocation
-    int32_t invocations() const;
-    int32_t computation_time() const;
-    uint64_t last_invocation_timestamp() const;
-    static Message::Type type();
-  };
-
-  struct DataPlaneMetrics : Message, DataPlaneMetricsParsed {
-    static constexpr uint16_t EXPECTED_LENGTH = 18;
-
-    DataPlaneMetrics()
-        : Message(Type::DATAPLANE_METRICS),
-          DataPlaneMetricsParsed(this->data.data() + HEADER_OFFSET)
-    {
-      static_assert(EXPECTED_LENGTH <= BUF_SIZE);
-    }
-
-    using DataPlaneMetricsParsed::computation_time;
-    using DataPlaneMetricsParsed::invocations;
-    using DataPlaneMetricsParsed::last_invocation_timestamp;
-    using DataPlaneMetricsParsed::type;
-
-    void invocations(int32_t);
-    void computation_time(int32_t);
-    void last_invocation_timestamp(uint64_t);
-  };
-
-  struct ProcessClosureParsed {
-
-    ProcessClosureParsed(const int8_t* /* unused */ = nullptr) {}
-
-    static Message::Type type();
-  };
-
-  struct ProcessClosure : Message, ProcessClosureParsed {
-
-    ProcessClosure() : Message(Type::PROCESS_CLOSURE) {}
-
-    using ProcessClosureParsed::type;
-  };
-
-  struct ApplicationUpdateParsed {
-    const int8_t* buf;
-    size_t id_len;
-    size_t ip_len;
-
-    ApplicationUpdateParsed(const int8_t* buf)
-        : buf(buf),
-          // NOLINTNEXTLINE
-          id_len(strnlen(reinterpret_cast<const char*>(buf), Message::NAME_LENGTH)),
-          ip_len(
-              strnlen(reinterpret_cast<const char*>(buf + Message::NAME_LENGTH), Message::ID_LENGTH)
+        : Parent(std::forward<Data>(data), MessageType::PROCESS_CONNECTION),
+          process_name_len(
+              strnlen(reinterpret_cast<const char*>(this->data()), MessageConfig::NAME_LENGTH)
           )
     {
     }
 
-    std::string_view process_id() const;
-    std::string_view ip_address() const;
-    int32_t status_change() const;
-    int32_t port() const;
+    std::string_view process_name() const
+    {
+      // NOLINTNEXTLINE
+      return std::string_view{reinterpret_cast<const char*>(data()), process_name_len};
+    }
+
+    template <typename D = Data, typename = std::enable_if_t<std::is_same_v<D, MessageData>>>
+    void process_name(std::string_view name)
+    {
+      if (name.length() > MessageConfig::NAME_LENGTH) {
+        throw common::InvalidArgument{fmt::format(
+            "Process name too long: {} > {}", name.length(), MessageConfig::NAME_LENGTH
+        )};
+      }
+      std::strncpy(
+          // NOLINTNEXTLINE
+          reinterpret_cast<char*>(data()), name.data(), MessageConfig::NAME_LENGTH
+      );
+      process_name_len = name.length();
+    }
+
+    static MessageType type()
+    {
+      return MessageType::PROCESS_CONNECTION;
+    }
   };
 
-  struct ApplicationUpdate : Message, ApplicationUpdateParsed {
+  template <typename Data>
+  struct SwapRequest : Message<Data, SwapRequest> {
 
-    ApplicationUpdate()
-        : Message(Type::APPLICATION_UPDATE),
-          ApplicationUpdateParsed(this->data.data() + HEADER_OFFSET)
+    using Parent = Message<Data, SwapRequest>;
+    using Parent::data;
+
+    size_t path_len;
+
+    SwapRequest(Data&& data = Data())
+        // NOLINTNEXTLINE
+        : Parent(std::forward<Data>(data), MessageType::SWAP_REQUEST),
+          path_len(strnlen(reinterpret_cast<const char*>(this->data()), MessageConfig::NAME_LENGTH))
     {
     }
 
-    using ApplicationUpdateParsed::ip_address;
-    using ApplicationUpdateParsed::port;
-    using ApplicationUpdateParsed::process_id;
-    using ApplicationUpdateParsed::status_change;
+    std::string_view path() const
+    {
+      // NOLINTNEXTLINE
+      return std::string_view{reinterpret_cast<const char*>(data()), path_len};
+    }
 
-    void process_id(std::string_view id);
-    void ip_address(std::string_view id);
-    void status_change(int32_t code);
-    void port(int32_t code);
+    void path(const std::string& path)
+    {
+      this->path(std::string_view{path});
+    }
+
+    void path(std::string_view path)
+    {
+      if (path.length() > MessageConfig::ID_LENGTH) {
+        throw common::InvalidArgument{fmt::format(
+            "Swap location ID too long: {} > {}", path.length(), MessageConfig::ID_LENGTH
+        )};
+      }
+      std::strncpy(
+          // NOLINTNEXTLINE
+          reinterpret_cast<char*>(data()), path.data(), MessageConfig::ID_LENGTH
+      );
+      path_len = path.length();
+    }
+
+    static MessageType type()
+    {
+      return MessageType::SWAP_REQUEST;
+    }
   };
 
-  struct PutMessageParsed {
-    const int8_t* buf;
-    size_t name_len;
-    size_t id_len;
+  template <typename Data>
+  struct SwapConfirmation : Message<Data, SwapConfirmation> {
 
-    PutMessageParsed(const int8_t* buf)
-        : buf(buf),
-          // NOLINTNEXTLINE
-          name_len(strnlen(reinterpret_cast<const char*>(buf), Message::NAME_LENGTH)),
-          id_len(strnlen(
-              reinterpret_cast<const char*>(buf + Message::NAME_LENGTH), Message::NAME_LENGTH
+    using Parent = Message<Data, SwapConfirmation>;
+    using Parent::data;
+
+    SwapConfirmation(Data&& data = Data())
+        // NOLINTNEXTLINE
+        : Parent(std::forward<Data>(data), MessageType::SWAP_CONFIRMATION)
+    {
+    }
+
+    int32_t swap_size() const
+    {
+      // NOLINTNEXTLINE
+      return *reinterpret_cast<const int32_t*>(data());
+    }
+
+    void swap_size(int32_t size)
+    {
+      // NOLINTNEXTLINE
+      *reinterpret_cast<int32_t*>(data()) = size;
+    }
+
+    static MessageType type()
+    {
+      return MessageType::SWAP_CONFIRMATION;
+    }
+  };
+
+  template <typename Data>
+  struct InvocationRequest : Message<Data, InvocationRequest> {
+
+    using Parent = Message<Data, InvocationRequest>;
+    using Parent::data;
+
+    size_t fname_len;
+    size_t invocation_id_len;
+
+    InvocationRequest(Data&& data = Data())
+        // NOLINTNEXTLINE
+        : Parent(std::forward<Data>(data), MessageType::INVOCATION_REQUEST),
+          fname_len(strnlen(reinterpret_cast<const char*>(this->data()), MessageConfig::NAME_LENGTH)
+          ),
+          invocation_id_len(strnlen(
+              reinterpret_cast<const char*>(this->data() + MessageConfig::NAME_LENGTH + 4),
+              MessageConfig::ID_LENGTH
           ))
     {
     }
 
-    std::string_view name() const;
-    std::string_view process_id() const;
-    // int32_t payload_size() const;
-    //  FIXME: common parent
-    int32_t total_length() const;
+    void invocation_id(std::string_view name)
+    {
+      if (name.length() > MessageConfig::ID_LENGTH) {
+        throw common::InvalidArgument{fmt::format(
+            "Invocation ID too long: {} > {}", name.length(), MessageConfig::ID_LENGTH
+        )};
+      }
+      std::strncpy(
+          // NOLINTNEXTLINE
+          reinterpret_cast<char*>(data() + MessageConfig::NAME_LENGTH + 4), name.data(),
+          MessageConfig::ID_LENGTH
+      );
+      invocation_id_len = name.length();
+    }
+
+    std::string_view invocation_id() const
+    {
+      return std::string_view{
+          // NOLINTNEXTLINE
+          reinterpret_cast<const char*>(data() + MessageConfig::NAME_LENGTH + 4),
+          invocation_id_len};
+    }
+
+    std::string_view function_name() const
+    {
+      // NOLINTNEXTLINE
+      return std::string_view{reinterpret_cast<const char*>(data() + 4), fname_len};
+    }
+
+    void function_name(std::string_view name)
+    {
+      if (name.length() > MessageConfig::NAME_LENGTH) {
+        throw common::InvalidArgument{fmt::format(
+            "Function name too long: {} > {}", name.length(), MessageConfig::NAME_LENGTH
+        )};
+      }
+      std::strncpy(
+          // NOLINTNEXTLINE
+          reinterpret_cast<char*>(data() + 4), name.data(), MessageConfig::NAME_LENGTH
+      );
+      fname_len = name.length();
+    }
+
+    int32_t payload_size() const
+    {
+      // NOLINTNEXTLINE
+      return *reinterpret_cast<const int32_t*>(data());
+    }
+
+    void payload_size(int32_t size)
+    {
+      if (size < 0) {
+        throw common::InvalidArgument{fmt::format("Payload size too small: {}", size)};
+      }
+
+      // NOLINTNEXTLINE
+      *reinterpret_cast<int32_t*>(data()) = size;
+    }
+
+    static MessageType type()
+    {
+      return MessageType::INVOCATION_REQUEST;
+    }
   };
 
-  struct PutMessage : Message, PutMessageParsed {
+  template <typename Data>
+  struct InvocationResult : Message<Data, InvocationResult> {
 
-    PutMessage() : Message(Type::PUT_MESSAGE), PutMessageParsed(this->data.data() + HEADER_OFFSET)
+    using Parent = Message<Data, InvocationResult>;
+    using Parent::data;
+
+    size_t invocation_id_len;
+
+    InvocationResult(Data&& data = Data())
+        // NOLINTNEXTLINE
+        : Parent(std::forward<Data>(data), MessageType::INVOCATION_RESULT),
+          invocation_id_len(strnlen(
+              reinterpret_cast<const char*>(this->data() + MessageConfig::NAME_LENGTH + 4),
+              MessageConfig::ID_LENGTH
+          ))
     {
     }
 
-    using PutMessageParsed::name;
-    // using PutMessageParsed::payload_size;
-    using Message::total_length;
-    using PutMessageParsed::process_id;
+    void invocation_id(std::string_view name)
+    {
+      if (name.length() > MessageConfig::ID_LENGTH) {
+        throw common::InvalidArgument{fmt::format(
+            "Invocation ID too long: {} > {}", name.length(), MessageConfig::ID_LENGTH
+        )};
+      }
+      std::strncpy(
+          // NOLINTNEXTLINE
+          reinterpret_cast<char*>(data() + MessageConfig::NAME_LENGTH + 4), name.data(),
+          MessageConfig::ID_LENGTH
+      );
+      invocation_id_len = name.length();
+    }
 
-    void name(std::string_view id);
-    void process_id(std::string_view id);
-    // void payload_size(int32_t);
+    std::string_view invocation_id() const
+    {
+      return std::string_view{
+          // NOLINTNEXTLINE
+          reinterpret_cast<const char*>(data() + MessageConfig::NAME_LENGTH + 4),
+          invocation_id_len};
+    }
+
+    int32_t return_code() const
+    {
+      // NOLINTNEXTLINE
+      return *reinterpret_cast<const int32_t*>(data());
+    }
+
+    void return_code(int32_t size)
+    {
+      if (size < 0) {
+        throw common::InvalidArgument{fmt::format("Payload size too small: {}", size)};
+      }
+
+      // NOLINTNEXTLINE
+      *reinterpret_cast<int32_t*>(data()) = size;
+    }
+
+    static MessageType type()
+    {
+      return MessageType::INVOCATION_RESULT;
+    }
+  };
+
+  template <typename Data>
+  struct DataPlaneMetrics : Message<Data, DataPlaneMetrics> {
+
+    using Parent = Message<Data, DataPlaneMetrics>;
+    using Parent::data;
+
+    DataPlaneMetrics(Data&& data = Data())
+        // NOLINTNEXTLINE
+        : Parent(std::forward<Data>(data), MessageType::DATAPLANE_METRICS)
+    {
+    }
+
+    int32_t invocations() const
+    {
+      // NOLINTNEXTLINE
+      return *reinterpret_cast<const int32_t*>(data());
+    }
+
+    void invocations(int32_t invocations)
+    {
+      if (invocations < 0) {
+        throw common::InvalidArgument{
+            fmt::format("Incorrect number of invocations {}", invocations)};
+      }
+
+      // NOLINTNEXTLINE
+      *reinterpret_cast<int32_t*>(data()) = invocations;
+    }
+
+    uint64_t last_invocation_timestamp() const
+    {
+      // NOLINTNEXTLINE
+      return *reinterpret_cast<const uint64_t*>(data() + 8);
+    }
+
+    void last_invocation_timestamp(uint64_t timestamp)
+    {
+      // NOLINTNEXTLINE
+      *reinterpret_cast<uint64_t*>(data() + 8) = timestamp;
+    }
+
+    int32_t computation_time() const
+    {
+      // NOLINTNEXTLINE
+      return *reinterpret_cast<const int32_t*>(data() + 4);
+    }
+
+    void computation_time(int32_t time)
+    {
+      if (time < 0) {
+        throw common::InvalidArgument{fmt::format("Incorrect computation time {}", time)};
+      }
+
+      // NOLINTNEXTLINE
+      *reinterpret_cast<int32_t*>(data() + 4) = time;
+    }
+
+    static MessageType type()
+    {
+      return MessageType::DATAPLANE_METRICS;
+    }
+  };
+
+  template <typename Data>
+  struct ProcessClosure : Message<Data, ProcessClosure> {
+
+    using Parent = Message<Data, ProcessClosure>;
+    using Parent::data;
+
+    ProcessClosure(Data&& data = Data())
+        // NOLINTNEXTLINE
+        : Parent(std::forward<Data>(data), MessageType::PROCESS_CLOSURE)
+    {
+    }
+
+    static MessageType type()
+    {
+      return MessageType::PROCESS_CLOSURE;
+    }
+  };
+
+  template <typename Data>
+  struct ApplicationUpdate : Message<Data, ApplicationUpdate> {
+
+    using Parent = Message<Data, ApplicationUpdate>;
+    using Parent::data;
+
+    size_t id_len;
+    size_t ip_len;
+
+    ApplicationUpdate(Data&& data = Data())
+        // NOLINTNEXTLINE
+        : Parent(std::forward<Data>(data), MessageType::APPLICATION_UPDATE),
+          // NOLINTNEXTLINE
+          id_len(strnlen(reinterpret_cast<const char*>(this->data()), MessageConfig::NAME_LENGTH)),
+          ip_len(strnlen(
+              reinterpret_cast<const char*>(this->data() + MessageConfig::NAME_LENGTH),
+              MessageConfig::ID_LENGTH
+          ))
+    {
+    }
+
+    std::string_view process_id() const
+    {
+      // NOLINTNEXTLINE
+      return std::string_view{reinterpret_cast<const char*>(data()), id_len};
+    }
+
+    void process_id(std::string_view id)
+    {
+      if (id.length() > MessageConfig::NAME_LENGTH) {
+        throw common::InvalidArgument{
+            fmt::format("Process ID too long: {} > {}", id.length(), MessageConfig::NAME_LENGTH)};
+      }
+
+      std::strncpy(
+          // NOLINTNEXTLINE
+          reinterpret_cast<char*>(data()), id.data(), MessageConfig::NAME_LENGTH
+      );
+      id_len = id.length();
+    }
+
+    void ip_address(std::string_view ip_addr)
+    {
+      if (ip_addr.length() > MessageConfig::ID_LENGTH) {
+        throw common::InvalidArgument{fmt::format(
+            "Process ID too long: {} > {}", ip_addr.length(), MessageConfig::ID_LENGTH
+        )};
+      }
+
+      std::strncpy(
+          // NOLINTNEXTLINE
+          reinterpret_cast<char*>(data() + MessageConfig::NAME_LENGTH), ip_addr.data(),
+          MessageConfig::ID_LENGTH
+      );
+      ip_len = ip_addr.length();
+    }
+
+    std::string_view ip_address() const
+    {
+      return std::string_view{// NOLINTNEXTLINE
+                              reinterpret_cast<const char*>(data() + MessageConfig::NAME_LENGTH),
+                              ip_len};
+    }
+
+    int32_t status_change() const
+    {
+      // NOLINTNEXTLINE
+      return *reinterpret_cast<const int32_t*>(
+          data() + MessageConfig::NAME_LENGTH + MessageConfig::ID_LENGTH
+      );
+    }
+
+    void status_change(int32_t status)
+    {
+      // NOLINTNEXTLINE
+      *reinterpret_cast<int32_t*>(data() + MessageConfig::NAME_LENGTH + MessageConfig::ID_LENGTH) =
+          status;
+    }
+
+    int32_t port() const
+    {
+      // NOLINTNEXTLINE
+      return *reinterpret_cast<const int32_t*>(
+          data() + MessageConfig::NAME_LENGTH + MessageConfig::ID_LENGTH + sizeof(int32_t)
+      );
+    }
+
+    void port(int32_t port)
+    {
+      // NOLINTNEXTLINE
+      *reinterpret_cast<int32_t*>(
+          data() + MessageConfig::NAME_LENGTH + MessageConfig::ID_LENGTH + sizeof(int32_t)
+      ) = port;
+    }
+
+    static MessageType type()
+    {
+      return MessageType::APPLICATION_UPDATE;
+    }
+  };
+
+  template <typename Data>
+  struct PutMessage : Message<Data, PutMessage> {
+
+    using Parent = Message<Data, PutMessage>;
+    using Parent::data;
+
+    size_t name_len;
+    size_t id_len;
+
+    PutMessage(Data&& data = Data())
+        // NOLINTNEXTLINE
+        : Parent(std::forward<Data>(data), MessageType::PUT_MESSAGE),
+          // NOLINTNEXTLINE
+          name_len(strnlen(reinterpret_cast<const char*>(this->data()), MessageConfig::NAME_LENGTH)
+          ),
+          id_len(strnlen(
+              reinterpret_cast<const char*>(this->data() + MessageConfig::NAME_LENGTH),
+              MessageConfig::NAME_LENGTH
+          ))
+    {
+    }
+
+    void name(std::string_view name)
+    {
+      if (name.length() > MessageConfig::NAME_LENGTH) {
+        throw common::InvalidArgument{fmt::format(
+            "Message name too long: {} > {}", name.length(), MessageConfig::NAME_LENGTH
+        )};
+      }
+      std::strncpy(
+          // NOLINTNEXTLINE
+          reinterpret_cast<char*>(data()), name.data(), MessageConfig::NAME_LENGTH
+      );
+      name_len = name.length();
+    }
+
+    std::string_view name() const
+    {
+      return std::string_view{// NOLINTNEXTLINE
+                              reinterpret_cast<const char*>(data()), name_len};
+    }
+
+    void process_id(std::string_view name)
+    {
+      if (name.length() > MessageConfig::NAME_LENGTH) {
+        throw common::InvalidArgument{fmt::format(
+            "Invocation ID too long: {} > {}", name.length(), MessageConfig::NAME_LENGTH
+        )};
+      }
+      std::strncpy(
+          // NOLINTNEXTLINE
+          reinterpret_cast<char*>(data() + MessageConfig::NAME_LENGTH), name.data(),
+          MessageConfig::NAME_LENGTH
+      );
+      id_len = name.length();
+    }
+
+    std::string_view process_id() const
+    {
+      return std::string_view{// NOLINTNEXTLINE
+                              reinterpret_cast<const char*>(data() + MessageConfig::NAME_LENGTH),
+                              id_len};
+    }
+
+    static MessageType type()
+    {
+      return MessageType::PUT_MESSAGE;
+    }
+  };
+
+  using ProcessConnectionData = ProcessConnection<MessageData>;
+  using SwapRequestData = SwapRequest<MessageData>;
+  using SwapConfirmationData = SwapConfirmation<MessageData>;
+  using InvocationRequestData = InvocationRequest<MessageData>;
+  using InvocationResultData = InvocationResult<MessageData>;
+  using DataPlaneMetricsData = DataPlaneMetrics<MessageData>;
+  using ProcessClosureData = ProcessClosure<MessageData>;
+  using ApplicationUpdateData = ApplicationUpdate<MessageData>;
+  using PutMessageData = PutMessage<MessageData>;
+  using ProcessConnectionPtr = ProcessConnection<MessagePtr>;
+  using SwapRequestPtr = SwapRequest<MessagePtr>;
+  using SwapConfirmationPtr = SwapConfirmation<MessagePtr>;
+  using InvocationRequestPtr = InvocationRequest<MessagePtr>;
+  using InvocationResultPtr = InvocationResult<MessagePtr>;
+  using DataPlaneMetricsPtr = DataPlaneMetrics<MessagePtr>;
+  using ProcessClosurePtr = ProcessClosure<MessagePtr>;
+  using ApplicationUpdatePtr = ApplicationUpdate<MessagePtr>;
+  using PutMessagePtr = PutMessage<MessagePtr>;
+
+  struct MessageParser {
+
+    using MessageVariants = std::variant<
+        std::monostate, ProcessConnectionPtr, SwapRequestPtr, SwapConfirmationPtr,
+        InvocationRequestPtr, InvocationResultPtr, DataPlaneMetricsPtr, ProcessClosurePtr,
+        ApplicationUpdatePtr, PutMessagePtr>;
+
+    static MessageVariants parse(MessagePtr data)
+    {
+      int16_t type_val = *reinterpret_cast<const int16_t*>(data.ptr);
+      if (type_val >= static_cast<int16_t>(MessageType::END_FLAG) ||
+          type_val < static_cast<int16_t>(MessageType::GENERIC_HEADER)) {
+        throw common::InvalidMessage{fmt::format("Invalid type value for Message: {}", type_val)};
+      }
+      MessageType type = static_cast<MessageType>(type_val);
+
+      if (type == MessageType::PROCESS_CONNECTION) {
+        return MessageVariants{ProcessConnection<MessagePtr>(std::move(data))};
+      }
+
+      if (type == MessageType::SWAP_REQUEST) {
+        return MessageVariants{SwapRequestPtr(std::move(data))};
+      }
+
+      if (type == MessageType::SWAP_CONFIRMATION) {
+        return MessageVariants{SwapConfirmationPtr(std::move(data))};
+      }
+
+      if (type == MessageType::INVOCATION_REQUEST) {
+        return MessageVariants{InvocationRequestPtr(std::move(data))};
+      }
+
+      if (type == MessageType::INVOCATION_RESULT) {
+        return MessageVariants{InvocationResultPtr(std::move(data))};
+      }
+
+      if (type == MessageType::DATAPLANE_METRICS) {
+        return MessageVariants{DataPlaneMetricsPtr(std::move(data))};
+      }
+
+      if (type == MessageType::PROCESS_CLOSURE) {
+        return MessageVariants{ProcessClosurePtr(std::move(data))};
+      }
+
+      if (type == MessageType::APPLICATION_UPDATE) {
+        return MessageVariants{ApplicationUpdatePtr(std::move(data))};
+      }
+
+      if (type == MessageType::PUT_MESSAGE) {
+        return MessageVariants{PutMessagePtr(std::move(data))};
+      }
+
+      throw common::NotImplementedError{};
+    }
   };
 
 } // namespace praas::common::message
