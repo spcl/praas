@@ -21,7 +21,7 @@ namespace praas::serving::docker {
 
   void HttpServer::start()
   {
-    _logger->info("Starting HTTP server");
+    _logger->info("Starting HTTP server at port {}", _http_port);
     drogon::app().registerController(shared_from_this());
     drogon::app().setThreadNum(_threads);
 
