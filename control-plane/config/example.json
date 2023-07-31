@@ -1,0 +1,15 @@
+{
+  "verbose": true,
+  "backend-type": "docker",
+  "ip-address": "127.0.0.1",
+  "http-client-io-threads": 1,
+  "http": {
+    "threads": 2,
+    "port": 8000,
+    "enable_ssl": false
+  },
+  "tcpserver": {
+    "port": 2000,
+    "io_threads": 5
+  }
+}
