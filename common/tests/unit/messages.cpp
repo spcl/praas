@@ -44,7 +44,7 @@ TEST(Messages, ProcessConnectionMsgParse)
   ProcessConnection<MessageData> req;
   req.process_name(process_name);
 
-  auto parsed = MessageParser::parse(req.ptr());
+  auto parsed = MessageParser::parse(req.to_ptr());
 
   EXPECT_TRUE(std::holds_alternative<ProcessConnectionPtr>(parsed));
 
@@ -90,7 +90,7 @@ TEST(Messages, SwapRequestMsgParse)
 {
   SwapRequest<MessageData> req;
 
-  auto parsed = MessageParser::parse(req.ptr());
+  auto parsed = MessageParser::parse(req.to_ptr());
 
   EXPECT_TRUE(std::holds_alternative<SwapRequestPtr>(parsed));
 
@@ -98,7 +98,6 @@ TEST(Messages, SwapRequestMsgParse)
       overloaded{[](SwapRequestPtr&) { return true; }, [](auto&) { return false; }}, parsed
   ));
 }
-
 
 TEST(Messages, SwapConfirmationMsg)
 {
@@ -115,18 +114,14 @@ TEST(Messages, SwapConfirmationMsgParse)
 {
   SwapConfirmation<MessageData> req;
 
-  auto parsed = MessageParser::parse(req.ptr());
+  auto parsed = MessageParser::parse(req.to_ptr());
 
   EXPECT_TRUE(std::holds_alternative<SwapConfirmationPtr>(parsed));
 
   EXPECT_TRUE(std::visit(
-      overloaded{
-          [](SwapConfirmationPtr&) { return true; },
-          [](auto&) { return false; }},
-      parsed
+      overloaded{[](SwapConfirmationPtr&) { return true; }, [](auto&) { return false; }}, parsed
   ));
 }
-
 
 TEST(Messages, InvocationRequestMsg)
 {
@@ -195,15 +190,12 @@ TEST(Messages, InvocationRequestMsgParse)
   req.payload_size(payload_size);
   req.function_name(fname);
 
-  auto parsed = MessageParser::parse(req.ptr());
+  auto parsed = MessageParser::parse(req.to_ptr());
 
   EXPECT_TRUE(std::holds_alternative<InvocationRequestPtr>(parsed));
 
   EXPECT_TRUE(std::visit(
-      overloaded{
-          [](InvocationRequestPtr&) { return true; },
-          [](auto&) { return false; }},
-      parsed
+      overloaded{[](InvocationRequestPtr&) { return true; }, [](auto&) { return false; }}, parsed
   ));
 }
 
@@ -259,15 +251,12 @@ TEST(Messages, InvocationResultMsgParse)
   req.total_length(payload_size);
   req.return_code(0);
 
-  auto parsed = MessageParser::parse(req.ptr());
+  auto parsed = MessageParser::parse(req.to_ptr());
 
   EXPECT_TRUE(std::holds_alternative<InvocationResultPtr>(parsed));
 
   EXPECT_TRUE(std::visit(
-      overloaded{
-          [](InvocationResultPtr&) { return true; },
-          [](auto&) { return false; }},
-      parsed
+      overloaded{[](InvocationResultPtr&) { return true; }, [](auto&) { return false; }}, parsed
   ));
 }
 
@@ -314,15 +303,12 @@ TEST(Messages, DataPlaneMetricsMsgParse)
   req.computation_time(computation_time);
   req.last_invocation_timestamp(timestamp);
 
-  auto parsed = MessageParser::parse(req.ptr());
+  auto parsed = MessageParser::parse(req.to_ptr());
 
   EXPECT_TRUE(std::holds_alternative<DataPlaneMetricsPtr>(parsed));
 
   EXPECT_TRUE(std::visit(
-      overloaded{
-          [](DataPlaneMetricsPtr&) { return true; },
-          [](auto&) { return false; }},
-      parsed
+      overloaded{[](DataPlaneMetricsPtr&) { return true; }, [](auto&) { return false; }}, parsed
   ));
 }
 
@@ -337,15 +323,12 @@ TEST(Messages, ProcessClosureMsgParse)
 {
   ProcessClosureData req;
 
-  auto parsed = MessageParser::parse(req.ptr());
+  auto parsed = MessageParser::parse(req.to_ptr());
 
   EXPECT_TRUE(std::holds_alternative<ProcessClosurePtr>(parsed));
 
   EXPECT_TRUE(std::visit(
-      overloaded{
-          [](ProcessClosurePtr&) { return true; },
-          [](auto&) { return false; }},
-      parsed
+      overloaded{[](ProcessClosurePtr&) { return true; }, [](auto&) { return false; }}, parsed
   ));
 }
 
@@ -412,7 +395,7 @@ TEST(Messages, PutRequestMsgParse)
   req.name(fname);
   req.total_length(payload_size);
 
-  auto parsed = MessageParser::parse(req.ptr());
+  auto parsed = MessageParser::parse(req.to_ptr());
 
   EXPECT_TRUE(std::holds_alternative<PutMessagePtr>(parsed));
 

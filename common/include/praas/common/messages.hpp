@@ -78,8 +78,40 @@ namespace praas::common::message {
     static constexpr uint16_t ID_LENGTH = 16;
   };
 
+  struct MessagePtr {
+    const int8_t* ptr{};
+
+    MessagePtr(const int8_t* ptr) : ptr(ptr) {}
+
+    MessagePtr(const char* ptr)
+    {
+      // NOLINTNEXTLINE
+      this->ptr = reinterpret_cast<const int8_t*>(ptr);
+    }
+
+    const int8_t* data() const
+    {
+      return ptr;
+    }
+  };
+
   struct MessageData {
     std::array<int8_t, MessageConfig::BUF_SIZE> buf{};
+
+    MessageData& operator=(const MessagePtr& obj)
+    {
+      // NOLINTNEXTLINE
+      std::copy(obj.data(), obj.data() + MessageConfig::BUF_SIZE, buf.data());
+      return *this;
+    }
+
+    template <typename Message>
+    MessageData& operator=(const Message& obj)
+    {
+      // NOLINTNEXTLINE
+      std::copy(obj.bytes(), obj.bytes() + MessageConfig::BUF_SIZE, buf.data());
+      return *this;
+    }
 
     int8_t* data()
     {
@@ -89,15 +121,6 @@ namespace praas::common::message {
     const int8_t* data() const
     {
       return buf.data();
-    }
-  };
-
-  struct MessagePtr {
-    const int8_t* ptr{};
-
-    const int8_t* data() const
-    {
-      return ptr;
     }
   };
 
@@ -178,9 +201,14 @@ namespace praas::common::message {
       return msg_data.data() + MessageConfig::HEADER_OFFSET;
     }
 
-    MessagePtr ptr() const
+    MessagePtr to_ptr() const
     {
       return MessagePtr{bytes()};
+    }
+
+    Data& data_buffer()
+    {
+      return msg_data;
     }
 
     CRTPMessageType<MessageData> copy()
@@ -196,6 +224,7 @@ namespace praas::common::message {
 
     using Parent = Message<Data, ProcessConnection>;
     using Parent::data;
+    using Parent::data_buffer;
     using Parent::Parent;
 
     size_t process_name_len;
@@ -241,6 +270,7 @@ namespace praas::common::message {
 
     using Parent = Message<Data, SwapRequest>;
     using Parent::data;
+    using Parent::data_buffer;
 
     size_t path_len;
 
@@ -287,6 +317,7 @@ namespace praas::common::message {
 
     using Parent = Message<Data, SwapConfirmation>;
     using Parent::data;
+    using Parent::data_buffer;
 
     SwapConfirmation(Data&& data = Data())
         // NOLINTNEXTLINE
@@ -317,6 +348,7 @@ namespace praas::common::message {
 
     using Parent = Message<Data, InvocationRequest>;
     using Parent::data;
+    using Parent::data_buffer;
 
     size_t fname_len;
     size_t invocation_id_len;
@@ -324,7 +356,8 @@ namespace praas::common::message {
     InvocationRequest(Data&& data = Data())
         // NOLINTNEXTLINE
         : Parent(std::forward<Data>(data), MessageType::INVOCATION_REQUEST),
-          fname_len(strnlen(reinterpret_cast<const char*>(this->data()), MessageConfig::NAME_LENGTH)
+          fname_len(
+              strnlen(reinterpret_cast<const char*>(this->data() + 4), MessageConfig::NAME_LENGTH)
           ),
           invocation_id_len(strnlen(
               reinterpret_cast<const char*>(this->data() + MessageConfig::NAME_LENGTH + 4),
@@ -403,16 +436,16 @@ namespace praas::common::message {
 
     using Parent = Message<Data, InvocationResult>;
     using Parent::data;
+    using Parent::data_buffer;
 
     size_t invocation_id_len;
 
     InvocationResult(Data&& data = Data())
         // NOLINTNEXTLINE
         : Parent(std::forward<Data>(data), MessageType::INVOCATION_RESULT),
-          invocation_id_len(strnlen(
-              reinterpret_cast<const char*>(this->data() + MessageConfig::NAME_LENGTH + 4),
-              MessageConfig::ID_LENGTH
-          ))
+          invocation_id_len(
+              strnlen(reinterpret_cast<const char*>(this->data() + 4), MessageConfig::ID_LENGTH)
+          )
     {
     }
 
@@ -425,18 +458,15 @@ namespace praas::common::message {
       }
       std::strncpy(
           // NOLINTNEXTLINE
-          reinterpret_cast<char*>(data() + MessageConfig::NAME_LENGTH + 4), name.data(),
-          MessageConfig::ID_LENGTH
+          reinterpret_cast<char*>(data() + 4), name.data(), MessageConfig::ID_LENGTH
       );
       invocation_id_len = name.length();
     }
 
     std::string_view invocation_id() const
     {
-      return std::string_view{
-          // NOLINTNEXTLINE
-          reinterpret_cast<const char*>(data() + MessageConfig::NAME_LENGTH + 4),
-          invocation_id_len};
+      return std::string_view{// NOLINTNEXTLINE
+                              reinterpret_cast<const char*>(data() + 4), invocation_id_len};
     }
 
     int32_t return_code() const
@@ -447,10 +477,6 @@ namespace praas::common::message {
 
     void return_code(int32_t size)
     {
-      if (size < 0) {
-        throw common::InvalidArgument{fmt::format("Payload size too small: {}", size)};
-      }
-
       // NOLINTNEXTLINE
       *reinterpret_cast<int32_t*>(data()) = size;
     }
@@ -466,6 +492,7 @@ namespace praas::common::message {
 
     using Parent = Message<Data, DataPlaneMetrics>;
     using Parent::data;
+    using Parent::data_buffer;
 
     DataPlaneMetrics(Data&& data = Data())
         // NOLINTNEXTLINE
@@ -547,6 +574,7 @@ namespace praas::common::message {
 
     using Parent = Message<Data, ApplicationUpdate>;
     using Parent::data;
+    using Parent::data_buffer;
 
     size_t id_len;
     size_t ip_len;
@@ -648,6 +676,7 @@ namespace praas::common::message {
 
     using Parent = Message<Data, PutMessage>;
     using Parent::data;
+    using Parent::data_buffer;
 
     size_t name_len;
     size_t id_len;
@@ -732,12 +761,17 @@ namespace praas::common::message {
   using ApplicationUpdatePtr = ApplicationUpdate<MessagePtr>;
   using PutMessagePtr = PutMessage<MessagePtr>;
 
+  using MessageVariants = std::variant<
+      std::monostate, ProcessConnectionPtr, SwapRequestPtr, SwapConfirmationPtr,
+      InvocationRequestPtr, InvocationResultPtr, DataPlaneMetricsPtr, ProcessClosurePtr,
+      ApplicationUpdatePtr, PutMessagePtr>;
+
   struct MessageParser {
 
-    using MessageVariants = std::variant<
-        std::monostate, ProcessConnectionPtr, SwapRequestPtr, SwapConfirmationPtr,
-        InvocationRequestPtr, InvocationResultPtr, DataPlaneMetricsPtr, ProcessClosurePtr,
-        ApplicationUpdatePtr, PutMessagePtr>;
+    static MessageVariants parse(const MessageData& data)
+    {
+      return parse(MessagePtr{data.data()});
+    }
 
     static MessageVariants parse(MessagePtr data)
     {
@@ -746,7 +780,7 @@ namespace praas::common::message {
           type_val < static_cast<int16_t>(MessageType::GENERIC_HEADER)) {
         throw common::InvalidMessage{fmt::format("Invalid type value for Message: {}", type_val)};
       }
-      MessageType type = static_cast<MessageType>(type_val);
+      auto type = static_cast<MessageType>(type_val);
 
       if (type == MessageType::PROCESS_CONNECTION) {
         return MessageVariants{ProcessConnection<MessagePtr>(std::move(data))};
