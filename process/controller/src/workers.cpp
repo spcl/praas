@@ -107,6 +107,17 @@ namespace praas::process {
       int ipc_msg_size, char** envp
   )
   {
+
+    // IPC channels must be created before we fork - avoid race condition.
+    if (mode == runtime::internal::ipc::IPCMode::POSIX_MQ) {
+      _ipc_read = std::make_unique<runtime::internal::ipc::POSIXMQChannel>(
+          ipc_name + "_read", runtime::internal::ipc::IPCDirection::READ, true, true, ipc_msg_size
+      );
+      _ipc_write = std::make_unique<runtime::internal::ipc::POSIXMQChannel>(
+          ipc_name + "_write", runtime::internal::ipc::IPCDirection::WRITE, true, true, ipc_msg_size
+      );
+    }
+
     int mypid = fork();
     if (mypid < 0) {
       throw praas::common::PraaSException{
@@ -141,15 +152,6 @@ namespace praas::process {
     }
 
     _pid = mypid;
-
-    if (mode == runtime::internal::ipc::IPCMode::POSIX_MQ) {
-      _ipc_read = std::make_unique<runtime::internal::ipc::POSIXMQChannel>(
-          ipc_name + "_read", runtime::internal::ipc::IPCDirection::READ, true, true, ipc_msg_size
-      );
-      _ipc_write = std::make_unique<runtime::internal::ipc::POSIXMQChannel>(
-          ipc_name + "_write", runtime::internal::ipc::IPCDirection::WRITE, true, true, ipc_msg_size
-      );
-    }
 
     _busy = false;
   }
