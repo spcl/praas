@@ -64,7 +64,7 @@ namespace praas::control_plane::tcpserver {
 
     int num_registered_processes() const;
 
-  protected:
+  private:
     struct ConnectionData {
       ConnectionData(process::ProcessPtr ptr) : process(ptr) {}
 
@@ -137,7 +137,8 @@ namespace praas::control_plane::tcpserver {
 
     std::shared_ptr<spdlog::logger> _logger;
 
-    bool _is_running;
+    // The value is shared between I/O threads
+    std::atomic<bool> _is_running;
 
     // There are following requirements on the data structures
     // (1) We need to support adding handles before connections are made to link new connection

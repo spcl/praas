@@ -30,7 +30,11 @@ namespace praas::control_plane::tcpserver {
         _logger->info("Connected new process from {}", connPtr.get()->peerAddr().toIpPort());
         _num_connected_processes++;
       } else if (connPtr->disconnected()) {
-        _logger->debug("Closing a process at {}", connPtr->peerAddr().toIpPort());
+
+        // Avoid errors on closure of the server.
+        if (!this->_is_running) {
+          return;
+        }
         _logger->info("Closing a process at {}", connPtr->peerAddr().toIpPort());
         handle_disconnection(connPtr);
       }
@@ -50,17 +54,18 @@ namespace praas::control_plane::tcpserver {
 
   TCPServer::~TCPServer()
   {
-    if (_is_running)
+    if (_is_running) {
       shutdown();
+    }
   }
 
   void TCPServer::shutdown()
   {
+    _is_running = false;
+
     _server.stop();
     _loop_thread.getLoop()->quit();
     _loop_thread.wait();
-
-    _is_running = false;
   }
 
   void TCPServer::add_process(const process::ProcessPtr& ptr)
