@@ -152,8 +152,7 @@ namespace praas::serving::docker {
     body["Image"] = container_name;
 
     Json::Value env_data;
-    // FIXME: reenable once Docker is enabled to handle empty strings for addr
-    // env_data.append(fmt::format("CONTROLPLANE_ADDR={}", controlplane_addr));
+    env_data.append(fmt::format("CONTROLPLANE_ADDR={}", controlplane_addr));
     env_data.append(fmt::format("PROCESS_ID={}", process));
     body["Env"] = env_data;
     _configure_ports(body);
