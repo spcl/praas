@@ -171,7 +171,6 @@ namespace praas::control_plane::process {
       std::string invocation_id, int return_code, const char* buf, size_t len
   )
   {
-    std::cerr << invocation_id << " " << invocation_id.length() << std::endl;
     // FIXME: we should be submitting the byte representation, not string - optimize comparison
     auto iter = std::find_if(_invocations.begin(), _invocations.end(), [&](auto& obj) -> bool {
       // FIXME: store and compare byte representation

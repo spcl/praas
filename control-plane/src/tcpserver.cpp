@@ -101,8 +101,6 @@ namespace praas::control_plane::tcpserver {
 
     if (buffer->readableBytes() >= data.bytes_to_read) {
 
-      std::cerr << buffer->readableBytes() << std::endl;
-
       {
         data.process->write_lock();
         data.process->finish_invocation(
