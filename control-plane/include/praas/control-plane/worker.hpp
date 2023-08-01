@@ -37,11 +37,6 @@ namespace praas::control_plane::worker {
       _server = &server;
     }
 
-    void add_task(process::ProcessObserver* process, praas::common::message::Message&& message)
-    {
-      _pool.push_task(Workers::handle_message, process, message);
-    }
-
     template <typename F, typename... Args>
     void add_task(F&& func, Args&&... args)
     {
@@ -138,7 +133,7 @@ namespace praas::control_plane::worker {
     // Looks up the associated invocation in a process and calls the callback.
     // Requires a read access to the list of invocations.
     static void
-    handle_invocation_result(const process::ProcessPtr& ptr, const praas::common::message::InvocationResultParsed&);
+    handle_invocation_result(const process::ProcessPtr& ptr, const praas::common::message::InvocationResultPtr&);
 
     // Calls to process to finish and swap.
     // Needs to call the application to handle the change of process state.
@@ -147,7 +142,7 @@ namespace praas::control_plane::worker {
     // Update data plane metrics of a process
     // Requires write access to this process component.
     static void
-    handle_data_metrics(const process::ProcessPtr& ptr, const praas::common::message::DataPlaneMetricsParsed&);
+    handle_data_metrics(const process::ProcessPtr& ptr, const praas::common::message::DataPlaneMetricsPtr&);
 
     // Close down a process.
     // Requires write access to the application.
@@ -157,10 +152,7 @@ namespace praas::control_plane::worker {
     // Requires write access to list of invocations.
     // Requires write access to the socket.
     static void
-    invoke(const process::ProcessPtr& ptr, const praas::common::message::InvocationRequestParsed&);
-
-    // Generic message processing
-    static void handle_message(process::ProcessObserver* process, praas::common::message::Message);
+    invoke(const process::ProcessPtr& ptr, const praas::common::message::InvocationRequestPtr&);
 
     BS::thread_pool _pool;
 

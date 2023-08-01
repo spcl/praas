@@ -6,10 +6,13 @@
 #include <praas/control-plane/application.hpp>
 #include <praas/control-plane/config.hpp>
 
+#include <drogon/HttpTypes.h>
 #include <fcntl.h>
 #include <sys/signal.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#include <drogon/drogon.h>
 
 namespace praas::control_plane::backend {
 
@@ -39,7 +42,9 @@ namespace praas::control_plane::backend {
   {
     _logger = common::util::create_logger("LocalBackend");
 
-    _http_client = common::http::HTTPClientFactory::create_client(cfg.address, cfg.port);
+    _http_client = common::http::HTTPClientFactory::create_client(
+        fmt::format("http://{}", cfg.address), cfg.port
+    );
   }
 
   DockerBackend::~DockerBackend()
@@ -68,11 +73,13 @@ namespace praas::control_plane::backend {
             {"process", process->name()},
         },
         std::move(body),
-        [callback = std::move(callback), this, process = std::move(process)](
-            drogon::ReqResult result, const drogon::HttpResponsePtr& response
-        ) mutable {
+        [callback = std::move(callback), process,
+         this](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
+          if (result != drogon::ReqResult::Ok) {
+            callback(nullptr, fmt::format("Unknown error!"));
+            return;
+          }
           if (response->getStatusCode() == drogon::HttpStatusCode::k500InternalServerError) {
-
             callback(
                 nullptr,
                 fmt::format(
@@ -80,13 +87,11 @@ namespace praas::control_plane::backend {
                 )
             );
 
-          } else if (response->getStatusCode() == drogon::HttpStatusCode::k201Created) {
-
+          } else if (response->getStatusCode() == drogon::HttpStatusCode::k200OK) {
             auto container = (*response->jsonObject())["container-id"].asString();
             callback(std::make_shared<DockerInstance>(container), std::nullopt);
 
           } else {
-
             callback(nullptr, fmt::format("Unknown error! Response: {}", response->getBody()));
           }
         }

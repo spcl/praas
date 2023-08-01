@@ -18,20 +18,6 @@
 
 namespace praas::control_plane::worker {
 
-  void
-  Workers::handle_message(process::ProcessObserver* process, praas::common::message::Message msg)
-  {
-    auto parsed = msg.parse();
-    auto ptr = process->lock();
-
-    if (!ptr) {
-      spdlog::error(
-          "Could not acquire pointer access to a process {} - deleted?", fmt::ptr(process)
-      );
-      return;
-    }
-  }
-
   void Workers::handle_invocation(
       HttpServer::request_t request, HttpServer::callback_t&& callback, const std::string& app_id,
       std::string function_name
@@ -147,21 +133,21 @@ namespace praas::control_plane::worker {
   }
 
   void Workers::
-      handle_invocation_result(const process::ProcessPtr& ptr, const praas::common::message::InvocationResultParsed&)
+      handle_invocation_result(const process::ProcessPtr& ptr, const praas::common::message::InvocationResultPtr&)
   {
   }
 
   void Workers::handle_swap(const process::ProcessPtr& ptr) {}
 
   void Workers::
-      handle_data_metrics(const process::ProcessPtr& ptr, const praas::common::message::DataPlaneMetricsParsed&)
+      handle_data_metrics(const process::ProcessPtr& ptr, const praas::common::message::DataPlaneMetricsPtr&)
   {
   }
 
   void Workers::handle_closure(const process::ProcessPtr& ptr) {}
 
   void Workers::
-      invoke(const process::ProcessPtr& ptr, const praas::common::message::InvocationRequestParsed&)
+      invoke(const process::ProcessPtr& ptr, const praas::common::message::InvocationRequestPtr&)
   {
   }
 

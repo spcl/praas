@@ -68,7 +68,6 @@ TEST_F(HttpServerTest, CreateApp)
         [&p](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
           EXPECT_EQ(result, drogon::ReqResult::Ok);
           EXPECT_EQ(response.get()->getStatusCode(), drogon::k200OK);
-          std::cerr << response.get()->getBody() << std::endl;
           p.set_value();
         }
     );
@@ -111,7 +110,6 @@ TEST_F(HttpServerTest, CreateProcess)
         [&promise_proc](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
           EXPECT_EQ(result, drogon::ReqResult::Ok);
           EXPECT_EQ(response.get()->getStatusCode(), drogon::k200OK);
-          std::cerr << response.get()->getBody() << std::endl;
           promise_proc.set_value();
         }
     );

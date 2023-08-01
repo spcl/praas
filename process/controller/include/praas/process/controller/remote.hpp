@@ -16,7 +16,7 @@
 
 namespace praas::process {
   struct Controller;
-}
+} // namespace praas::process
 
 namespace praas::process::remote {
 
@@ -68,15 +68,19 @@ namespace praas::process::remote {
 
     int port{};
 
-    common::message::Message cur_msg;
+    common::message::MessageData cur_msg;
+
+    common::message::MessageVariants parsed_msg;
 
     std::size_t bytes_to_read{};
 
     std::shared_ptr<trantor::TcpClient> client{};
 
     // FIXME: optimize - we need one message type
-    std::vector<
-        std::tuple<std::unique_ptr<common::message::Message>, runtime::internal::Buffer<char>>>
+    // std::vector<
+    //    std::tuple<std::unique_ptr<common::message::Message>, runtime::internal::Buffer<char>>>
+    //    pendings_msgs;
+    std::vector<std::tuple<common::message::MessageData, runtime::internal::Buffer<char>>>
         pendings_msgs;
   };
 
@@ -115,28 +119,24 @@ namespace praas::process::remote {
     void _connect(Connection* conn);
 
     bool _handle_connection(
-        const trantor::TcpConnectionPtr& connectionPtr,
-        const common::message::ProcessConnectionParsed& msg
+        const trantor::TcpConnectionPtr& connectionPtr, common::message::ProcessConnectionPtr msg
     );
 
     bool _handle_app_update(
-        const trantor::TcpConnectionPtr& connectionPtr,
-        const common::message::ApplicationUpdateParsed& msg
+        const trantor::TcpConnectionPtr& connectionPtr, common::message::ApplicationUpdatePtr msg
     );
 
     bool _handle_invocation(
-        Connection& connection, const common::message::InvocationRequestParsed& msg,
+        Connection& connection, common::message::InvocationRequestPtr msg,
         trantor::MsgBuffer* buffer
     );
 
     bool _handle_invocation_result(
-        Connection& connection, const common::message::InvocationResultParsed& msg,
-        trantor::MsgBuffer* buffer
+        Connection& connection, common::message::InvocationResultPtr msg, trantor::MsgBuffer* buffer
     );
 
     bool _handle_put_message(
-        Connection& connection, const common::message::PutMessageParsed& msg,
-        trantor::MsgBuffer* buffer
+        Connection& connection, common::message::PutMessagePtr msg, trantor::MsgBuffer* buffer
     );
 
     void

@@ -37,7 +37,7 @@ namespace praas::control_plane::process {
     return *_handle;
   }
 
-  void Process::set_handle(std::shared_ptr<backend::ProcessInstance> && handle)
+  void Process::set_handle(std::shared_ptr<backend::ProcessInstance>&& handle)
   {
     _handle = std::move(handle);
   }
@@ -110,55 +110,53 @@ namespace praas::control_plane::process {
 
   void Process::swap()
   {
-    if(!_connection) {
+    if (!_connection) {
       return;
     }
 
     std::string_view swap_path = _state.swap->root_path();
-    praas::common::message::SwapRequest msg;
+    praas::common::message::SwapRequestData msg;
     msg.path(swap_path);
 
     _connection->send(msg.bytes(), decltype(msg)::BUF_SIZE);
   }
 
   void Process::add_invocation(
-    HttpServer::request_t request,
-    HttpServer::callback_t && callback,
-    const std::string& function_name
+      HttpServer::request_t request, HttpServer::callback_t&& callback,
+      const std::string& function_name
   )
   {
     // FIXME: send immediately if the process is already allocated
-    _invocations.emplace_back(request, std::move(callback), function_name, _uuid_generator.generate());
+    _invocations.emplace_back(
+        request, std::move(callback), function_name, _uuid_generator.generate()
+    );
     // Count also pending invocations
     _active_invocations++;
-    if(_status == Status::ALLOCATED) {
+    if (_status == Status::ALLOCATED) {
       _send_invocation(_invocations.back());
     }
   }
 
   void Process::send_invocations()
   {
-    for(auto & invoc : _invocations) {
+    for (auto& invoc : _invocations) {
       _send_invocation(invoc);
     }
   }
 
-  void Process::_send_invocation(Invocation & invoc)
+  void Process::_send_invocation(Invocation& invoc)
   {
 
     std::string_view payload = invoc.request->getBody();
 
-    praas::common::message::InvocationRequest req;
+    praas::common::message::InvocationRequestData req;
     req.function_name(invoc.function_name);
     // FIXME: we have 36 chars but we only need to send 16 bytes
     req.invocation_id(common::UUID::str(invoc.invocation_id).substr(0, 16));
     req.payload_size(payload.length());
     req.total_length(payload.length());
 
-    spdlog::info(
-      "Submitting invocation {} to {}",
-      req.invocation_id(), name()
-    );
+    spdlog::info("Submitting invocation {} to {}", req.invocation_id(), name());
 
     _connection->send(req.bytes(), req.BUF_SIZE);
     _connection->send(payload.data(), payload.length());
@@ -169,19 +167,19 @@ namespace praas::control_plane::process {
     return _active_invocations;
   }
 
-  void Process::finish_invocation(std::string invocation_id, int return_code, const char* buf, size_t len)
+  void Process::finish_invocation(
+      std::string invocation_id, int return_code, const char* buf, size_t len
+  )
   {
+    std::cerr << invocation_id << " " << invocation_id.length() << std::endl;
     // FIXME: we should be submitting the byte representation, not string - optimize comparison
-    auto iter = std::find_if(
-      _invocations.begin(), _invocations.end(),
-      [&](auto & obj) -> bool {
-        // FIXME: store and compare byte representation
-        return common::UUID::str(obj.invocation_id).substr(0, 16) == invocation_id;
-      }
-    );
+    auto iter = std::find_if(_invocations.begin(), _invocations.end(), [&](auto& obj) -> bool {
+      // FIXME: store and compare byte representation
+      return common::UUID::str(obj.invocation_id).substr(0, 16) == invocation_id;
+    });
 
     // FIXME: hide details in the HTTP server
-    if(iter != _invocations.end()) {
+    if (iter != _invocations.end()) {
 
       --_active_invocations;
 

@@ -23,13 +23,13 @@ namespace praas::control_plane::config {
 
   class TCPServer;
 
-}
+} // namespace praas::control_plane::config
 
 namespace praas::control_plane::worker {
 
   class Workers;
 
-}
+} // namespace praas::control_plane::worker
 
 namespace praas::control_plane::tcpserver {
 
@@ -65,37 +65,30 @@ namespace praas::control_plane::tcpserver {
     int num_registered_processes() const;
 
   protected:
-
-    struct ConnectionData
-    {
-      ConnectionData(process::ProcessPtr ptr):
-        process(ptr)
-      {}
+    struct ConnectionData {
+      ConnectionData(process::ProcessPtr ptr) : process(ptr) {}
 
       process::ProcessPtr process;
 
-      // FIXME: improved message definitions
-      //common::message::Message::MessageVariants cur_msg;
-      common::message::Message cur_msg;
+      common::message::MessageData cur_msg;
 
       std::size_t bytes_to_read{};
     };
     std::unordered_map<std::string, std::shared_ptr<ConnectionData>> _processes;
 
-
     void handle_disconnection(const trantor::TcpConnectionPtr& connPtr);
 
-    void handle_message(const trantor::TcpConnectionPtr &connectionPtr, trantor::MsgBuffer *buffer);
+    void handle_message(const trantor::TcpConnectionPtr& connectionPtr, trantor::MsgBuffer* buffer);
     bool handle_message(
-      const trantor::TcpConnectionPtr& connectionPtr, trantor::MsgBuffer* buffer,
-      ConnectionData & data, const praas::common::message::Message::MessageVariants & msg
+        const trantor::TcpConnectionPtr& connectionPtr, trantor::MsgBuffer* buffer,
+        ConnectionData& data, const praas::common::message::MessageVariants& msg
     );
 
     // Looks up the associated invocation in a process and calls the callback.
     // Requires a read/write access to the list of invocations.
     bool handle_invocation_result(
-      ConnectionData & data, trantor::MsgBuffer* buffer,
-      const praas::common::message::InvocationResultParsed& req
+        ConnectionData& data, trantor::MsgBuffer* buffer,
+        const praas::common::message::InvocationResultPtr& req
     );
 
     // Calls to process to finish and swap.
@@ -105,13 +98,15 @@ namespace praas::control_plane::tcpserver {
     // Update data plane metrics of a process
     // Requires write access to this process component.
     void
-    handle_data_metrics(const process::ProcessPtr& ptr, const praas::common::message::DataPlaneMetricsParsed&);
+    handle_data_metrics(const process::ProcessPtr& ptr, const praas::common::message::DataPlaneMetricsPtr&);
 
     // Close down a process.
     // Requires write access to the application.
     void handle_closure(const trantor::TcpConnectionPtr&);
 
-    void handle_connection(const trantor::TcpConnectionPtr&, const common::message::ProcessConnectionParsed & msg);
+    void handle_connection(
+        const trantor::TcpConnectionPtr&, const common::message::ProcessConnectionPtr& msg
+    );
 
     //
     //    void handle_message(process::ProcessObserver* process, praas::common::message::Message&&

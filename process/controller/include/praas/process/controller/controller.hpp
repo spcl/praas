@@ -29,7 +29,7 @@ namespace praas::process {
       // No value? Source is data or control plane.
       // Value? Process id.
       std::optional<std::string> source;
-      praas::common::message::Message msg;
+      praas::common::message::MessageData msg;
       runtime::internal::Buffer<char> payload;
     };
 
@@ -54,12 +54,15 @@ namespace praas::process {
     // FIXME: this is only required because of the split between message and parsed message
     // There should be one type only!
     void remote_message(
-        praas::common::message::Message&&, runtime::internal::Buffer<char>&&, std::string process_id
+        praas::common::message::MessageData&&, runtime::internal::Buffer<char>&&,
+        std::string process_id
     );
 
-    void dataplane_message(praas::common::message::Message&&, runtime::internal::Buffer<char>&&);
+    void
+    dataplane_message(praas::common::message::MessageData&&, runtime::internal::Buffer<char>&&);
 
-    void controlplane_message(praas::common::message::Message&&, runtime::internal::Buffer<char>&&);
+    void
+    controlplane_message(praas::common::message::MessageData&&, runtime::internal::Buffer<char>&&);
 
     void update_application(common::Application::Status status, std::string_view process);
 

@@ -234,7 +234,7 @@ TEST_P(ProcessRemoteServers, GetPutCommunication)
   std::array<std::string, COUNT> invocation_id = {
       "first_id", "second_id", "third_id", "another_id"};
 
-  praas::common::message::ApplicationUpdate msg;
+  praas::common::message::ApplicationUpdateData msg;
   msg.status_change(static_cast<int>(praas::common::Application::Status::ACTIVE));
   msg.process_id(controllers[1]->process_id());
   msg.ip_address("localhost");
@@ -311,7 +311,7 @@ TEST_P(ProcessRemoteServers, SimultaenousMessaging)
   std::array<std::string, COUNT> invocation_id = {
       "first_id", "second_id", "third_id", "another_id"};
 
-  praas::common::message::ApplicationUpdate msg;
+  praas::common::message::ApplicationUpdateData msg;
   msg.status_change(static_cast<int>(praas::common::Application::Status::ACTIVE));
   msg.process_id(controllers[1]->process_id());
   msg.ip_address("localhost");
@@ -382,7 +382,7 @@ TEST_P(ProcessRemoteServers, RemoteInvocations)
   std::array<praas::sdk::InvocationResult, COUNT> invoc_results;
   std::array<std::string, COUNT> invocation_id = {"first_id", "second_id"};
 
-  praas::common::message::ApplicationUpdate msg;
+  praas::common::message::ApplicationUpdateData msg;
   msg.status_change(static_cast<int>(praas::common::Application::Status::ACTIVE));
   msg.process_id(controllers[1]->process_id());
   msg.ip_address("localhost");
@@ -454,7 +454,7 @@ TEST_P(ProcessRemoteServers, RemoteInvocationsUnknown)
   std::array<std::string, COUNT> invocation_id = {"first_id", "second_id"};
 
   // FIXME: add a way to automatically handle that
-  praas::common::message::ApplicationUpdate msg;
+  praas::common::message::ApplicationUpdateData msg;
   msg.status_change(static_cast<int>(praas::common::Application::Status::ACTIVE));
   msg.process_id(controllers[1]->process_id());
   msg.ip_address("localhost");

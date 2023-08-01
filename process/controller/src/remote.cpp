@@ -82,6 +82,7 @@ namespace praas::process::remote {
     _server.start();
 
     if (!control_plane_address.has_value()) {
+      spdlog::warn("Missing control plane address!");
       return;
     }
 
@@ -110,7 +111,7 @@ namespace praas::process::remote {
 
             // Send my name
             _logger->info("Connected to control plane, sending my registration");
-            praas::common::message::ProcessConnection req;
+            praas::common::message::ProcessConnectionData req;
             req.process_name(_controller.process_id());
             connectionPtr->send(req.bytes(), req.BUF_SIZE);
 
@@ -168,18 +169,18 @@ namespace praas::process::remote {
     // Registration of the connection
     if (!conn) {
 
-      if (buffer->readableBytes() < praas::common::message::Message::BUF_SIZE) {
+      if (buffer->readableBytes() < praas::common::message::MessageConfig::BUF_SIZE) {
         return;
       }
 
-      auto msg = praas::common::message::Message::parse_message(buffer->peek());
+      auto msg = praas::common::message::MessageParser::parse(buffer->peek());
 
-      if (std::holds_alternative<common::message::ProcessConnectionParsed>(msg)) {
-        _handle_connection(connectionPtr, std::get<common::message::ProcessConnectionParsed>(msg));
+      if (std::holds_alternative<common::message::ProcessConnectionPtr>(msg)) {
+        _handle_connection(connectionPtr, std::get<common::message::ProcessConnectionPtr>(msg));
       } else {
         _logger->error("Ignoring message from an unknown receipient");
       }
-      buffer->retrieve(praas::common::message::Message::BUF_SIZE);
+      buffer->retrieve(praas::common::message::MessageConfig::BUF_SIZE);
 
       if (buffer->readableBytes() > 0) {
         _handle_message(connectionPtr, buffer);
@@ -198,56 +199,54 @@ namespace praas::process::remote {
       // Three types of messages require long payloads:
       // invoke
       // put
-      auto msg = conn->cur_msg.parse();
-      consumed = std::visit(
+      std::visit(
           common::message::overloaded{
-              [this, buffer, conn = conn.get()](common::message::InvocationRequestParsed& invoc
+              [this, buffer, conn = conn.get()](common::message::InvocationRequestPtr& invoc
               ) mutable -> bool { return _handle_invocation(*conn, invoc, buffer); },
-              [this, buffer, conn = conn.get()](common::message::PutMessageParsed& req
+              [this, buffer, conn = conn.get()](common::message::PutMessagePtr& req
               ) mutable -> bool { return _handle_put_message(*conn, req, buffer); },
-              [this, buffer, conn = conn.get()](common::message::InvocationResultParsed& invoc
+              [this, buffer, conn = conn.get()](common::message::InvocationResultPtr& invoc
               ) mutable -> bool { return _handle_invocation_result(*conn, invoc, buffer); },
               [](auto&) mutable -> bool { return false; }},
-          // FIXME: we should store an already parsed variant
-          msg
+          conn->parsed_msg
       );
 
     } else {
 
-      if (buffer->readableBytes() < praas::common::message::Message::BUF_SIZE)
+      if (buffer->readableBytes() < praas::common::message::MessageConfig::BUF_SIZE)
         return;
 
-      // FIXME: improve message handling - one variant type
-      auto msg = praas::common::message::Message::parse_message(buffer->peek());
+      conn->cur_msg = praas::common::message::MessagePtr{buffer->peek()};
+      conn->parsed_msg = praas::common::message::MessageParser::parse(conn->cur_msg);
 
       // FIXME: swap request
       consumed = std::visit(
           common::message::overloaded{
-              [this, buffer, conn = conn.get()](common::message::InvocationRequestParsed& invoc
+              [this, buffer, conn = conn.get()](common::message::InvocationRequestPtr& invoc
               ) mutable -> bool { return _handle_invocation(*conn, invoc, buffer); },
-              [this, buffer, conn = conn.get()](common::message::InvocationResultParsed& invoc
+              [this, buffer, conn = conn.get()](common::message::InvocationResultPtr& invoc
               ) mutable -> bool { return _handle_invocation_result(*conn, invoc, buffer); },
-              [this, buffer, conn = conn.get()](common::message::PutMessageParsed& req
+              [this, buffer, conn = conn.get()](common::message::PutMessagePtr& req
               ) mutable -> bool { return _handle_put_message(*conn, req, buffer); },
-              [this, connectionPtr,
-               buffer](common::message::ProcessConnectionParsed& msg) mutable -> bool {
+              [connectionPtr, this,
+               buffer](common::message::ProcessConnectionPtr& msg) mutable -> bool {
                 // Connection always consumed a message
                 SPDLOG_LOGGER_DEBUG(_logger, "Confirmation of registration {}", msg.process_name());
-                buffer->retrieve(praas::common::message::Message::BUF_SIZE);
+                buffer->retrieve(praas::common::message::MessageConfig::BUF_SIZE);
                 return true;
               },
               [this, connectionPtr,
-               buffer](common::message::ApplicationUpdateParsed& msg) mutable -> bool {
+               buffer](common::message::ApplicationUpdatePtr& msg) mutable -> bool {
                 _handle_app_update(connectionPtr, msg);
-                buffer->retrieve(praas::common::message::Message::BUF_SIZE);
+                buffer->retrieve(praas::common::message::MessageConfig::BUF_SIZE);
                 return true;
               },
-              [this, buffer, msg](auto&) mutable -> bool {
+              [this, buffer](auto&) mutable -> bool {
                 _logger->error("Unsupported message type!");
-                buffer->retrieve(praas::common::message::Message::BUF_SIZE);
+                buffer->retrieve(praas::common::message::MessageConfig::BUF_SIZE);
                 return true;
               }},
-          msg
+          conn->parsed_msg
       );
     }
 
@@ -262,22 +261,15 @@ namespace praas::process::remote {
   }
 
   bool TCPServer::_handle_invocation(
-      Connection& connection, const common::message::InvocationRequestParsed& msg,
-      trantor::MsgBuffer* buffer
+      Connection& connection, common::message::InvocationRequestPtr msg, trantor::MsgBuffer* buffer
   )
   {
     // We just started
     if (connection.bytes_to_read == 0) {
 
       connection.bytes_to_read = msg.payload_size();
-      common::message::InvocationRequest req;
-      req.invocation_id(msg.invocation_id());
-      req.function_name(msg.function_name());
-      req.payload_size(msg.payload_size());
-      // FIXME: avoid copy here - just store the actual variant
-      connection.cur_msg = std::move(req);
 
-      buffer->retrieve(praas::common::message::Message::BUF_SIZE);
+      buffer->retrieve(praas::common::message::MessageConfig::BUF_SIZE);
     }
 
     // Check that we have the payload
@@ -314,21 +306,15 @@ namespace praas::process::remote {
   }
 
   bool TCPServer::_handle_invocation_result(
-      Connection& connection, const common::message::InvocationResultParsed& msg,
-      trantor::MsgBuffer* buffer
+      Connection& connection, common::message::InvocationResultPtr msg, trantor::MsgBuffer* buffer
   )
   {
     // We just started
     if (connection.bytes_to_read == 0) {
 
       connection.bytes_to_read = msg.total_length();
-      common::message::InvocationResult req;
-      req.invocation_id(msg.invocation_id());
-      req.return_code(msg.return_code());
-      // FIXME: avoid copy here - just store the actual variant
-      connection.cur_msg = std::move(req);
 
-      buffer->retrieve(praas::common::message::Message::BUF_SIZE);
+      buffer->retrieve(praas::common::message::MessageConfig::BUF_SIZE);
     }
 
     // Check that we have the payload
@@ -359,21 +345,15 @@ namespace praas::process::remote {
   }
 
   bool TCPServer::_handle_put_message(
-      Connection& connection, const common::message::PutMessageParsed& msg,
-      trantor::MsgBuffer* buffer
+      Connection& connection, common::message::PutMessagePtr msg, trantor::MsgBuffer* buffer
   )
   {
     // We just started
     if (connection.bytes_to_read == 0) {
 
       connection.bytes_to_read = msg.total_length();
-      // FIXME: avoid copy here - just store the actual variant
-      common::message::PutMessage req;
-      req.name(msg.name());
-      req.process_id(msg.process_id());
-      connection.cur_msg = std::move(req);
 
-      buffer->retrieve(praas::common::message::Message::BUF_SIZE);
+      buffer->retrieve(praas::common::message::MessageConfig::BUF_SIZE);
     }
 
     // Check that we have the payload
@@ -400,8 +380,7 @@ namespace praas::process::remote {
   }
 
   bool TCPServer::_handle_connection(
-      const trantor::TcpConnectionPtr& connectionPtr,
-      const common::message::ProcessConnectionParsed& msg
+      const trantor::TcpConnectionPtr& connectionPtr, common::message::ProcessConnectionPtr msg
   )
   {
     std::shared_ptr<Connection> conn;
@@ -453,7 +432,7 @@ namespace praas::process::remote {
       }
     }
 
-    praas::common::message::ProcessConnection req;
+    praas::common::message::ProcessConnectionData req;
     req.process_name("CORRECT");
     connectionPtr->send(req.bytes(), req.BUF_SIZE);
 
@@ -487,10 +466,9 @@ namespace praas::process::remote {
       }
     }
 
-    //_logger->info("Submit invocation result of {}", invocation_id);
-    praas::common::message::InvocationResult req;
+    _logger->info("Submit invocation result of {}", invocation_id);
+    praas::common::message::InvocationResultData req;
     req.invocation_id(invocation_id);
-    // FIXME: eliminate that
     req.return_code(return_code);
     req.total_length(payload.len);
 
@@ -501,7 +479,7 @@ namespace praas::process::remote {
   }
 
   bool TCPServer::_handle_app_update(
-      const trantor::TcpConnectionPtr&, const common::message::ApplicationUpdateParsed& msg
+      const trantor::TcpConnectionPtr& /*unused*/, common::message::ApplicationUpdatePtr msg
   )
   {
     _controller.update_application(
@@ -517,10 +495,10 @@ namespace praas::process::remote {
     } else {
 
       _connection_data.emplace(
-          process_id, std::move(std::make_shared<Connection>(
+          process_id, std::make_shared<Connection>(
                           Connection::Status::DISCONNECTED, RemoteType::PROCESS, process_id,
                           nullptr, std::string{msg.ip_address()}, msg.port()
-                      ))
+                      )
       );
     }
 
@@ -545,26 +523,26 @@ namespace praas::process::remote {
     if (!conn->conn) {
 
       // FIXME: is it only for put message?
-      auto put_req = std::make_unique<praas::common::message::PutMessage>();
-      put_req->name(name);
-      put_req->process_id(_controller.process_id());
-      put_req->total_length(payload.len);
+      praas::common::message::PutMessageData put_req;
+      put_req.name(name);
+      put_req.process_id(_controller.process_id());
+      put_req.total_length(payload.len);
 
       SPDLOG_LOGGER_DEBUG(_logger, "Store pending message of size {}", payload.len);
-      conn->pendings_msgs.emplace_back(std::move(put_req), std::move(payload));
+      conn->pendings_msgs.emplace_back(std::move(put_req.data_buffer()), std::move(payload));
 
       if (conn->status == Connection::Status::DISCONNECTED) {
         _connect(conn);
       }
     } else {
 
-      praas::common::message::PutMessage put_req;
+      praas::common::message::PutMessageData put_req;
       put_req.name(name);
       put_req.process_id(_controller.process_id());
       put_req.total_length(payload.len);
       SPDLOG_LOGGER_DEBUG(_logger, "Send PUT message {} with payload len {}", name, payload.len);
 
-      conn->conn->send(put_req.bytes(), put_req.BUF_SIZE);
+      conn->conn->send(put_req.bytes(), praas::common::message::MessageConfig::BUF_SIZE);
       conn->conn->send(payload.data(), payload.len);
     }
   }
@@ -588,16 +566,16 @@ namespace praas::process::remote {
     if (!conn->conn) {
 
       // FIXME: is it only for put message?
-      auto req = std::make_unique<praas::common::message::InvocationRequest>();
-      req->invocation_id(invocation_id);
-      req->function_name(function_name);
-      req->payload_size(payload.len);
-      req->total_length(payload.len);
+      praas::common::message::InvocationRequestData req;
+      req.invocation_id(invocation_id);
+      req.function_name(function_name);
+      req.payload_size(payload.len);
+      req.total_length(payload.len);
 
       SPDLOG_LOGGER_DEBUG(
           _logger, "Store pending invocation request of {} of size {}", function_name, payload.len
       );
-      conn->pendings_msgs.emplace_back(std::move(req), std::move(payload));
+      conn->pendings_msgs.emplace_back(std::move(req.data_buffer()), std::move(payload));
 
       if (conn->status == Connection::Status::DISCONNECTED) {
         _connect(conn);
@@ -605,7 +583,7 @@ namespace praas::process::remote {
 
     } else {
 
-      praas::common::message::InvocationRequest req;
+      praas::common::message::InvocationRequestData req;
       req.invocation_id(invocation_id);
       req.function_name(function_name);
       req.payload_size(payload.len);
@@ -614,7 +592,7 @@ namespace praas::process::remote {
           _logger, "Send invocation request message with payload len {}", payload.len
       );
 
-      conn->conn->send(req.bytes(), req.BUF_SIZE);
+      conn->conn->send(req.bytes(), praas::common::message::MessageConfig::BUF_SIZE);
       conn->conn->send(payload.data(), payload.len);
     }
   }
@@ -633,9 +611,9 @@ namespace praas::process::remote {
           if (conn->connected()) {
 
             connection->status = Connection::Status::CONNECTED;
-            praas::common::message::ProcessConnection req;
+            praas::common::message::ProcessConnectionData req;
             req.process_name(_controller.process_id());
-            conn->send(req.bytes(), req.BUF_SIZE);
+            conn->send(req.bytes(), praas::common::message::MessageConfig::BUF_SIZE);
 
             // FIXME: make it configurable
             conn->setTcpNoDelay(true);
@@ -646,7 +624,7 @@ namespace praas::process::remote {
 
               auto& msg = std::get<0>(pending_msg);
               auto& buf = std::get<1>(pending_msg);
-              conn->send(msg->bytes(), msg->BUF_SIZE);
+              conn->send(msg.data(), praas::common::message::MessageConfig::BUF_SIZE);
               if (buf.len > 0) {
                 conn->send(buf.data(), buf.len);
               }

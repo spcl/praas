@@ -25,6 +25,8 @@ namespace praas::sdk {
     int return_code;
 
     std::string response;
+
+    std::string error_message{};
   };
 
 } // namespace praas::sdk

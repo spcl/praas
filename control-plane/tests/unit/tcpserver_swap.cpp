@@ -60,7 +60,7 @@ TEST_F(TCPServerTest, SwapProcess)
   ASSERT_TRUE(process_socket.connect(sockpp::inet_address("localhost", port)));
 
   // Correct registration
-  praas::common::message::ProcessConnection msg;
+  praas::common::message::ProcessConnectionData msg;
   msg.process_name(process_name);
   process_socket.write_n(msg.bytes(), decltype(msg)::BUF_SIZE);
 
@@ -71,13 +71,12 @@ TEST_F(TCPServerTest, SwapProcess)
   app.swap_process(process_name, deployment);
 
   //// Now verify it is received
-  praas::common::message::Message recv_msg;
-  process_socket.read_n(recv_msg.data.data(), decltype(msg)::BUF_SIZE);
+  praas::common::message::MessageData recv_msg;
+  process_socket.read_n(recv_msg.data(), decltype(msg)::BUF_SIZE);
 
-  auto received_msg = recv_msg.parse();
-
-  ASSERT_TRUE(std::holds_alternative<praas::common::message::SwapRequestParsed>(received_msg));
-  auto parsed_msg = std::get<praas::common::message::SwapRequestParsed>(received_msg);
+  auto received_msg = praas::common::message::MessageParser::parse(recv_msg);
+  ASSERT_TRUE(std::holds_alternative<praas::common::message::SwapRequestPtr>(received_msg));
+  auto parsed_msg = std::get<praas::common::message::SwapRequestPtr>(received_msg);
   EXPECT_EQ(swap_loc, parsed_msg.path());
 
   process_socket.close();
@@ -106,7 +105,7 @@ TEST_F(TCPServerTest, SwapProcessAndConfirm)
   ASSERT_TRUE(process_socket.connect(sockpp::inet_address("localhost", port)));
 
   // Correct registration
-  praas::common::message::ProcessConnection msg;
+  praas::common::message::ProcessConnectionData msg;
   msg.process_name(process_name);
   process_socket.write_n(msg.bytes(), decltype(msg)::BUF_SIZE);
 
@@ -117,14 +116,14 @@ TEST_F(TCPServerTest, SwapProcessAndConfirm)
   app.swap_process(process_name, deployment);
 
   //// Now verify it is received
-  praas::common::message::Message recv_msg;
-  process_socket.read_n(recv_msg.data.data(), decltype(msg)::BUF_SIZE);
+  praas::common::message::MessageData recv_msg;
+  process_socket.read_n(recv_msg.data(), decltype(msg)::BUF_SIZE);
 
-  auto received_msg = recv_msg.parse();
-  ASSERT_TRUE(std::holds_alternative<praas::common::message::SwapRequestParsed>(received_msg));
+  auto received_msg = praas::common::message::MessageParser::parse(recv_msg);
+  ASSERT_TRUE(std::holds_alternative<praas::common::message::SwapRequestPtr>(received_msg));
 
   //// Reply to the system that we swapped
-  praas::common::message::SwapConfirmation conf_msg;
+  praas::common::message::SwapConfirmationData conf_msg;
   conf_msg.swap_size(swap_size);
   process_socket.write_n(conf_msg.bytes(), decltype(msg)::BUF_SIZE);
 

@@ -183,14 +183,14 @@ TEST_P(ProcessStateTest, StateOneWorker)
   // First invocation
   {
     int idx = 0;
-    praas::common::message::InvocationRequest msg;
+    praas::common::message::InvocationRequestData msg;
     msg.function_name(put_function_name);
     msg.invocation_id(invocation_id[idx]);
 
     auto buf = buffers.retrieve_buffer(BUF_LEN);
     buf.len = generate_input("msg_key", buf);
 
-    controller->dataplane_message(std::move(msg), std::move(buf));
+    controller->dataplane_message(std::move(msg.data_buffer()), std::move(buf));
 
     // Wait for the invocation to finish
     ASSERT_EQ(
@@ -209,14 +209,14 @@ TEST_P(ProcessStateTest, StateOneWorker)
   // Second invocation
   {
     int idx = 1;
-    praas::common::message::InvocationRequest msg;
+    praas::common::message::InvocationRequestData msg;
     msg.function_name(get_function_name);
     msg.invocation_id(invocation_id[idx]);
 
     auto buf = buffers.retrieve_buffer(BUF_LEN);
     buf.len = generate_input("msg_key", buf);
 
-    controller->remote_message(std::move(msg), std::move(buf), process_id);
+    controller->remote_message(std::move(msg.data_buffer()), std::move(buf), process_id);
 
     // Wait for the invocation to finish
     ASSERT_EQ(

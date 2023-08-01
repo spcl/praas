@@ -91,7 +91,7 @@ TEST_F(TCPServerTest, RegisterProcess)
   ASSERT_TRUE(process_socket.connect(sockpp::inet_address("localhost", port)));
 
   // Correct registration
-  praas::common::message::ProcessConnection msg;
+  praas::common::message::ProcessConnectionData msg;
   msg.process_name(process_name);
   process_socket.write_n(msg.bytes(), decltype(msg)::BUF_SIZE);
 
@@ -128,7 +128,7 @@ TEST_F(TCPServerTest, RegisterProcessIncorrect)
   sockpp::tcp_connector process_socket;
   ASSERT_TRUE(process_socket.connect(sockpp::inet_address("localhost", port)));
 
-  praas::common::message::ProcessConnection msg;
+  praas::common::message::ProcessConnectionData msg;
   msg.process_name("");
   process_socket.write_n(msg.bytes(), decltype(msg)::BUF_SIZE);
 
@@ -162,7 +162,7 @@ TEST_F(TCPServerTest, RegisterProcessPartial)
   ASSERT_TRUE(process_socket.connect(sockpp::inet_address("localhost", port)));
 
   // Register
-  praas::common::message::ProcessConnection msg;
+  praas::common::message::ProcessConnectionData msg;
   msg.process_name(process_name);
   process_socket.write_n(msg.bytes(), 8);
 
@@ -203,12 +203,12 @@ TEST_F(TCPServerTest, DeregisterProcess)
   ASSERT_TRUE(process_socket.connect(sockpp::inet_address("localhost", port)));
 
   // Register
-  praas::common::message::ProcessConnection msg;
+  praas::common::message::ProcessConnectionData msg;
   msg.process_name(process_name);
   process_socket.write_n(msg.bytes(), decltype(msg)::BUF_SIZE);
 
   // Deregister
-  praas::common::message::ProcessClosure close_msg;
+  praas::common::message::ProcessClosureData close_msg;
   process_socket.write_n(close_msg.bytes(), decltype(msg)::BUF_SIZE);
 
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -245,7 +245,7 @@ TEST_F(TCPServerTest, ClosedProcess)
   ASSERT_TRUE(process_socket.connect(sockpp::inet_address("localhost", port)));
 
   // Register
-  praas::common::message::ProcessConnection msg;
+  praas::common::message::ProcessConnectionData msg;
   msg.process_name(process_name);
   process_socket.write_n(msg.bytes(), decltype(msg)::BUF_SIZE);
 

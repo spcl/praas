@@ -209,7 +209,7 @@ TEST_P(ProcessManyWorkersInvocationTest, SubsequentInvocations)
   // Submit
   for (int idx = 0; idx < COUNT; ++idx) {
 
-    praas::common::message::InvocationRequest msg;
+    praas::common::message::InvocationRequestData msg;
     msg.function_name(function_name);
     msg.invocation_id(invocation_id[idx]);
 
@@ -218,7 +218,7 @@ TEST_P(ProcessManyWorkersInvocationTest, SubsequentInvocations)
     // Send more data than needed - check that it still works
     msg.payload_size(buf.len);
 
-    controller->dataplane_message(std::move(msg), std::move(buf));
+    controller->dataplane_message(std::move(msg.data_buffer()), std::move(buf));
   }
 
   // wait
@@ -268,7 +268,7 @@ TEST_P(ProcessManyWorkersInvocationTest, ConcurrentInvocations)
   // Submit
   for (int idx = 0; idx < COUNT; ++idx) {
 
-    praas::common::message::InvocationRequest msg;
+    praas::common::message::InvocationRequestData msg;
     msg.function_name(function_name);
     msg.invocation_id(invocation_id[idx]);
 
@@ -277,7 +277,7 @@ TEST_P(ProcessManyWorkersInvocationTest, ConcurrentInvocations)
     // Send more data than needed - check that it still works
     msg.payload_size(buf.len + 64);
 
-    controller->dataplane_message(std::move(msg), std::move(buf));
+    controller->dataplane_message(std::move(msg.data_buffer()), std::move(buf));
   }
 
   // wait

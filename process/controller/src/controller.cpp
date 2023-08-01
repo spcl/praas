@@ -182,7 +182,7 @@ namespace praas::process {
   }
 
   void Controller::remote_message(
-      praas::common::message::Message&& msg, runtime::internal::Buffer<char>&& payload,
+      praas::common::message::MessageData&& msg, runtime::internal::Buffer<char>&& payload,
       std::string process_id
   )
   {
@@ -197,7 +197,7 @@ namespace praas::process {
   }
 
   void Controller::dataplane_message(
-      praas::common::message::Message&& msg, runtime::internal::Buffer<char>&& payload
+      praas::common::message::MessageData&& msg, runtime::internal::Buffer<char>&& payload
   )
   {
     {
@@ -211,7 +211,7 @@ namespace praas::process {
   }
 
   void Controller::controlplane_message(
-      praas::common::message::Message&& msg, runtime::internal::Buffer<char>&& payload
+      praas::common::message::MessageData&& msg, runtime::internal::Buffer<char>&& payload
   )
   {
     {
@@ -256,11 +256,11 @@ namespace praas::process {
 
   void Controller::_process_external_message(ExternalMessage& msg)
   {
-    auto parsed_msg = msg.msg.parse();
+    auto parsed_msg = praas::common::message::MessageParser::parse(msg.msg);
 
     std::visit(
         runtime::internal::ipc::overloaded{
-            [&, this](common::message::InvocationRequestParsed& req) mutable {
+            [&, this](common::message::InvocationRequestPtr& req) mutable {
               SPDLOG_LOGGER_DEBUG(
                   _logger, "Received external invocation request of {}, key {}, inputs {}",
                   req.function_name(), req.invocation_id(), req.payload_size()
@@ -282,12 +282,12 @@ namespace praas::process {
                 );
               }
             },
-            [&, this](common::message::InvocationResultParsed& req) mutable {
+            [&, this](common::message::InvocationResultPtr& req) mutable {
               // Is there are pending message for this message?
               std::vector<const FunctionWorker*> pending_workers;
               _pending_msgs.find_invocation(std::string{req.invocation_id()}, pending_workers);
 
-              // FIXME: remove this copy, our message types are broken
+              // FIXME: remove this double message type, our message types are broken
               runtime::internal::ipc::InvocationResult result;
               result.invocation_id(req.invocation_id());
               result.return_code(req.return_code());
@@ -303,7 +303,7 @@ namespace praas::process {
                 worker->ipc_write().send(result, msg.payload);
               }
             },
-            [&, this](common::message::PutMessageParsed& req) mutable {
+            [&, this](common::message::PutMessagePtr& req) mutable {
               // Is there are pending message for this message?
               const FunctionWorker* pending_worker =
                   _pending_msgs.find_get(std::string{req.name()}, std::string{req.process_id()});
@@ -348,7 +348,6 @@ namespace praas::process {
   {
     auto parsed_msg = msg.parse();
 
-    // FIXME: invocation request
     std::visit(
         runtime::internal::ipc::overloaded{
             [&, this](runtime::internal::ipc::InvocationResultParsed& req) mutable {
@@ -410,20 +409,6 @@ namespace praas::process {
                       _logger, "Stored pending message for key {}, source {}", req.name(),
                       req.process_id()
                   );
-                  // if(!succ) {
-                  //   _logger->error("Could not store a pending get request, with key {} and source
-                  //   {}",
-                  //       req.name(), req.process_id()
-                  //   );
-
-                  //  runtime::internal::ipc::GetRequest req;
-                  //  req.process_id(req.process_id());
-                  //  req.name(req.name());
-                  //  req.data_len(-1);
-
-                  //  worker.ipc_write().send(req, runtime::BufferAccessor<char>{});
-                  //} else {
-                  //}
                 }
               }
             },
@@ -660,7 +645,7 @@ namespace praas::process {
       std::vector<const FunctionWorker*> pending_workers;
       _pending_msgs.find_invocation(invocation_id, pending_workers);
 
-      // FIXME: remove this copy, our message types are broken
+      // FIXME: remove this double message, our message types are broken
       runtime::internal::ipc::InvocationResult result;
       result.invocation_id(invocation_id);
       result.return_code(return_code);

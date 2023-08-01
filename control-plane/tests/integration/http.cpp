@@ -179,26 +179,27 @@ TEST_F(HttpTCPIntegration, Invoke)
     ASSERT_TRUE(process_socket.connect(sockpp::inet_address("localhost", server.port())));
 
     // Registration
-    praas::common::message::ProcessConnection msg;
+    praas::common::message::ProcessConnectionData msg;
     msg.process_name(process_name);
     process_socket.write_n(msg.bytes(), decltype(msg)::BUF_SIZE);
 
     // Ensure that we receive the invocation requests
-    praas::common::message::Message recv_msg;
-    process_socket.read_n(recv_msg.data.data(), decltype(msg)::BUF_SIZE);
+    praas::common::message::MessageData recv_msg;
+    process_socket.read_n(recv_msg.data(), decltype(msg)::BUF_SIZE);
 
     // Receive invocation data
-    auto parsed_msg = recv_msg.parse();
-    ASSERT_TRUE(std::holds_alternative<praas::common::message::InvocationRequestParsed>(parsed_msg)
-    );
-    auto invoc_msg = std::get<praas::common::message::InvocationRequestParsed>(parsed_msg);
+    auto ptr = praas::common::message::MessagePtr{recv_msg.data()};
+    auto parsed_msg = praas::common::message::MessageParser::parse(ptr);
+    ASSERT_TRUE(std::holds_alternative<praas::common::message::InvocationRequestPtr>(parsed_msg));
+
+    auto invoc_msg = std::get<praas::common::message::InvocationRequestPtr>(parsed_msg);
     ASSERT_EQ(invocation_data.length(), invoc_msg.total_length());
 
     std::unique_ptr<char[]> buf{new char[invoc_msg.total_length()]};
     process_socket.read_n(buf.get(), invoc_msg.total_length());
 
     // Reply with response
-    praas::common::message::InvocationResult result;
+    praas::common::message::InvocationResultData result;
     result.invocation_id(invoc_msg.invocation_id());
     result.return_code(0);
     result.total_length(func_response.length());
@@ -235,13 +236,13 @@ TEST_F(HttpTCPIntegration, Invoke)
     );
 
     // Receive invocation data
-    recv_msg = praas::common::message::Message{};
-    process_socket.read_n(recv_msg.data.data(), decltype(msg)::BUF_SIZE);
+    recv_msg = praas::common::message::MessageData{};
+    process_socket.read_n(recv_msg.data(), decltype(msg)::BUF_SIZE);
 
-    parsed_msg = recv_msg.parse();
-    ASSERT_TRUE(std::holds_alternative<praas::common::message::InvocationRequestParsed>(parsed_msg)
-    );
-    invoc_msg = std::get<praas::common::message::InvocationRequestParsed>(parsed_msg);
+    ptr = praas::common::message::MessagePtr{recv_msg.data()};
+    parsed_msg = praas::common::message::MessageParser::parse(ptr);
+    ASSERT_TRUE(std::holds_alternative<praas::common::message::InvocationRequestPtr>(parsed_msg));
+    invoc_msg = std::get<praas::common::message::InvocationRequestPtr>(parsed_msg);
     ASSERT_EQ(invocation_data.length(), invoc_msg.total_length());
 
     buf.reset(new char[invoc_msg.total_length()]);
@@ -286,13 +287,13 @@ TEST_F(HttpTCPIntegration, Invoke)
     );
 
     // Receive invocation data
-    recv_msg = praas::common::message::Message{};
-    process_socket.read_n(recv_msg.data.data(), decltype(msg)::BUF_SIZE);
+    recv_msg = praas::common::message::MessageData{};
+    process_socket.read_n(recv_msg.data(), decltype(msg)::BUF_SIZE);
 
-    parsed_msg = recv_msg.parse();
-    ASSERT_TRUE(std::holds_alternative<praas::common::message::InvocationRequestParsed>(parsed_msg)
-    );
-    invoc_msg = std::get<praas::common::message::InvocationRequestParsed>(parsed_msg);
+    ptr = praas::common::message::MessagePtr{recv_msg.data()};
+    parsed_msg = praas::common::message::MessageParser::parse(ptr);
+    ASSERT_TRUE(std::holds_alternative<praas::common::message::InvocationRequestPtr>(parsed_msg));
+    invoc_msg = std::get<praas::common::message::InvocationRequestPtr>(parsed_msg);
     ASSERT_EQ(invocation_data.length(), invoc_msg.total_length());
 
     buf.reset(new char[invoc_msg.total_length()]);

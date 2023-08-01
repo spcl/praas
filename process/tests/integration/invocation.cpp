@@ -202,7 +202,7 @@ TEST_P(ProcessInvocationTest, SimpleInvocation)
   // First invocation
   {
     int idx = 0;
-    praas::common::message::InvocationRequest msg;
+    praas::common::message::InvocationRequestData msg;
     msg.function_name(function_name);
     msg.invocation_id(invocation_id[idx]);
 
@@ -211,7 +211,7 @@ TEST_P(ProcessInvocationTest, SimpleInvocation)
     // Send more data than needed - check that it still works
     msg.payload_size(buf.len + 64);
 
-    controller->dataplane_message(std::move(msg), std::move(buf));
+    controller->dataplane_message(std::move(msg.data_buffer()), std::move(buf));
 
     // Wait for the invocation to finish
     ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(1)));
@@ -231,7 +231,7 @@ TEST_P(ProcessInvocationTest, SimpleInvocation)
   // Second invocation
   {
     int idx = 1;
-    praas::common::message::InvocationRequest msg;
+    praas::common::message::InvocationRequestData msg;
     msg.function_name(function_name);
     msg.invocation_id(invocation_id[idx]);
 
@@ -239,7 +239,7 @@ TEST_P(ProcessInvocationTest, SimpleInvocation)
     buf.len = generate_input(std::get<0>(args[idx]), std::get<1>(args[idx]), buf);
     msg.payload_size(buf.len);
 
-    controller->remote_message(std::move(msg), std::move(buf), process_id);
+    controller->remote_message(std::move(msg.data_buffer()), std::move(buf), process_id);
 
     // Wait for the invocation to finish
     ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(1)));
@@ -261,13 +261,13 @@ TEST_P(ProcessInvocationTest, ZeroPayloadOutput)
   std::string function_name = "zero_return";
   std::string invocation_id = "first_id";
 
-  praas::common::message::InvocationRequest msg;
+  praas::common::message::InvocationRequestData msg;
   msg.function_name(function_name);
   msg.invocation_id(invocation_id);
 
   auto buf = runtime::internal::Buffer<char>{};
 
-  controller->dataplane_message(std::move(msg), std::move(buf));
+  controller->dataplane_message(std::move(msg.data_buffer()), std::move(buf));
 
   // Wait for the invocation to finish
   ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(1)));
@@ -285,13 +285,13 @@ TEST_P(ProcessInvocationTest, ReturnError)
   std::string function_name = "error_function";
   std::string invocation_id = "first_id";
 
-  praas::common::message::InvocationRequest msg;
+  praas::common::message::InvocationRequestData msg;
   msg.function_name(function_name);
   msg.invocation_id(invocation_id);
 
   auto buf = runtime::internal::Buffer<char>{};
 
-  controller->dataplane_message(std::move(msg), std::move(buf));
+  controller->dataplane_message(std::move(msg.data_buffer()), std::move(buf));
 
   // Wait for the invocation to finish
   ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(1)));
@@ -308,13 +308,13 @@ TEST_P(ProcessInvocationTest, NonExistingFunction)
   std::string function_name = "non_existing_function";
   std::string invocation_id = "first_id";
 
-  praas::common::message::InvocationRequest msg;
+  praas::common::message::InvocationRequestData msg;
   msg.function_name(function_name);
   msg.invocation_id(invocation_id);
 
   auto buf = runtime::internal::Buffer<char>{};
 
-  controller->dataplane_message(std::move(msg), std::move(buf));
+  controller->dataplane_message(std::move(msg.data_buffer()), std::move(buf));
 
   // Wait for the invocation to finish
   ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(1)));
@@ -338,7 +338,7 @@ TEST_P(ProcessInvocationTest, LargePayload)
 
   runtime::internal::BufferQueue<char> buffers(1, BUF_LEN);
 
-  praas::common::message::InvocationRequest msg;
+  praas::common::message::InvocationRequestData msg;
   msg.function_name(function_name);
   msg.invocation_id(invocation_id);
 
@@ -352,7 +352,7 @@ TEST_P(ProcessInvocationTest, LargePayload)
 
   msg.payload_size(buf.len);
 
-  controller->remote_message(std::move(msg), std::move(buf), process_id);
+  controller->remote_message(std::move(msg.data_buffer()), std::move(buf), process_id);
 
   // Wait for the invocation to finish
   ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(1)));

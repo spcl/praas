@@ -60,12 +60,12 @@ TEST_F(TCPServerTest, UpdateMetrics)
   ASSERT_TRUE(process_socket.connect(sockpp::inet_address("localhost", port)));
 
   // Correct registration
-  praas::common::message::ProcessConnection msg;
+  praas::common::message::ProcessConnectionData msg;
   msg.process_name(process_name);
   process_socket.write_n(msg.bytes(), decltype(msg)::BUF_SIZE);
 
   // Send data plane metrics
-  praas::common::message::DataPlaneMetrics metrics_msg;
+  praas::common::message::DataPlaneMetricsData metrics_msg;
   metrics_msg.computation_time(2000);
   metrics_msg.invocations(5);
   auto timestamp = std::chrono::system_clock::now();
@@ -105,7 +105,7 @@ TEST_F(TCPServerTest, UpdateMetricsIncorrect)
   ASSERT_TRUE(process_socket.connect(sockpp::inet_address("localhost", port)));
 
   // Send data plane metrics without registration
-  praas::common::message::DataPlaneMetrics metrics_msg;
+  praas::common::message::DataPlaneMetricsData metrics_msg;
   metrics_msg.computation_time(2000);
   metrics_msg.invocations(5);
   auto timestamp = std::chrono::system_clock::now();

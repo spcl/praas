@@ -184,14 +184,14 @@ TEST_P(ProcessMessagingTest, GetPutOneWorker)
   // First invocation
   {
     int idx = 0;
-    praas::common::message::InvocationRequest msg;
+    praas::common::message::InvocationRequestData msg;
     msg.function_name(put_function_name);
     msg.invocation_id(invocation_id[idx]);
 
     auto buf = buffers.retrieve_buffer(BUF_LEN);
     buf.len = generate_input("msg_key", buf);
 
-    controller->dataplane_message(std::move(msg), std::move(buf));
+    controller->dataplane_message(std::move(msg.data_buffer()), std::move(buf));
 
     // Wait for the invocation to finish
     ASSERT_EQ(
@@ -210,14 +210,14 @@ TEST_P(ProcessMessagingTest, GetPutOneWorker)
   // Second invocation
   {
     int idx = 1;
-    praas::common::message::InvocationRequest msg;
+    praas::common::message::InvocationRequestData msg;
     msg.function_name(get_function_name);
     msg.invocation_id(invocation_id[idx]);
 
     auto buf = buffers.retrieve_buffer(BUF_LEN);
     buf.len = generate_input("msg_key", buf);
 
-    controller->remote_message(std::move(msg), std::move(buf), process_id);
+    controller->remote_message(std::move(msg.data_buffer()), std::move(buf), process_id);
 
     // Wait for the invocation to finish
     ASSERT_EQ(
@@ -274,26 +274,26 @@ TEST_P(ProcessMessagingTest, GetPutTwoWorkers)
   reset();
 
   // First invocation
-  praas::common::message::InvocationRequest msg;
+  praas::common::message::InvocationRequestData msg;
   msg.function_name(get_function_name);
   msg.invocation_id(invocation_id[0]);
 
   auto buf = buffers.retrieve_buffer(BUF_LEN);
   buf.len = generate_input("msg_key", buf);
 
-  controller->dataplane_message(std::move(msg), std::move(buf));
+  controller->dataplane_message(std::move(msg.data_buffer()), std::move(buf));
 
   // Ensure that `get` function is running.
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-  praas::common::message::InvocationRequest put_msg;
+  praas::common::message::InvocationRequestData put_msg;
   put_msg.function_name(put_function_name);
   put_msg.invocation_id(invocation_id[1]);
 
   buf = buffers.retrieve_buffer(BUF_LEN);
   buf.len = generate_input("msg_key", buf);
 
-  controller->dataplane_message(std::move(put_msg), std::move(buf));
+  controller->dataplane_message(std::move(put_msg.data_buffer()), std::move(buf));
 
   // Wait for both invocations to finish
   for (int i = 0; i < 2; ++i) {

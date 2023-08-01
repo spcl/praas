@@ -195,7 +195,7 @@ TEST_P(ProcessLocalInvocationTest, SimpleInvocation)
 
     reset();
 
-    praas::common::message::InvocationRequest msg;
+    praas::common::message::InvocationRequestData msg;
     msg.function_name(function_name);
     msg.invocation_id(invocation_id[i]);
 
@@ -204,7 +204,7 @@ TEST_P(ProcessLocalInvocationTest, SimpleInvocation)
     // Send more data than needed - check that it still works
     msg.payload_size(buf.len + 64);
 
-    controller->dataplane_message(std::move(msg), std::move(buf));
+    controller->dataplane_message(std::move(msg.data_buffer()), std::move(buf));
 
     // Wait for the invocation to finish
     ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(1)));
@@ -228,13 +228,13 @@ TEST_P(ProcessLocalInvocationTest, UnknownInvocation)
 
   reset();
 
-  praas::common::message::InvocationRequest msg;
+  praas::common::message::InvocationRequestData msg;
   msg.function_name(function_name);
   msg.invocation_id(invocation_id);
 
   auto buf = runtime::internal::Buffer<char>{};
 
-  controller->dataplane_message(std::move(msg), std::move(buf));
+  controller->dataplane_message(std::move(msg.data_buffer()), std::move(buf));
 
   // Wait for the invocation to finish
   ASSERT_EQ(std::future_status::ready, finished.get_future().wait_for(std::chrono::seconds(1)));

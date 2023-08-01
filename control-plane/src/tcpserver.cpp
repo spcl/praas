@@ -26,10 +26,12 @@ namespace praas::control_plane::tcpserver {
 
     _server.setConnectionCallback([this](const trantor::TcpConnectionPtr& connPtr) {
       if (connPtr->connected()) {
-        _logger->debug("Connected new process from {}", connPtr.get()->peerAddr().toIpPort());
+        //_logger->debug("Connected new process from {}", connPtr.get()->peerAddr().toIpPort());
+        _logger->info("Connected new process from {}", connPtr.get()->peerAddr().toIpPort());
         _num_connected_processes++;
       } else if (connPtr->disconnected()) {
         _logger->debug("Closing a process at {}", connPtr->peerAddr().toIpPort());
+        _logger->info("Closing a process at {}", connPtr->peerAddr().toIpPort());
         handle_disconnection(connPtr);
       }
     });
@@ -83,33 +85,28 @@ namespace praas::control_plane::tcpserver {
   }
 
   bool TCPServer::handle_invocation_result(
-    ConnectionData & data, trantor::MsgBuffer* buffer,
-    const praas::common::message::InvocationResultParsed& req
+      ConnectionData& data, trantor::MsgBuffer* buffer,
+      const praas::common::message::InvocationResultPtr& req
   )
   {
     // Started, verify there is enough data
-    if(data.bytes_to_read == 0) {
+    if (data.bytes_to_read == 0) {
 
       data.bytes_to_read = req.total_length();
-      common::message::InvocationResult result;
-      result.invocation_id(req.invocation_id());
-      // FIXME: avoid copy here - just store the actual variant
-      data.cur_msg = std::move(result);
-      buffer->retrieve(praas::common::message::Message::BUF_SIZE);
 
+      data.cur_msg = req.to_ptr();
+
+      buffer->retrieve(praas::common::message::MessageConfig::BUF_SIZE);
     }
 
-    if(buffer->readableBytes() >= data.bytes_to_read) {
+    if (buffer->readableBytes() >= data.bytes_to_read) {
 
-      // FIXME: improved message design
-      auto parsed_msg = data.cur_msg.parse();
-      auto & msg = std::get<common::message::InvocationResultParsed>(parsed_msg);
+      std::cerr << buffer->readableBytes() << std::endl;
 
       {
         data.process->write_lock();
         data.process->finish_invocation(
-          std::string{msg.invocation_id()}, msg.return_code(),
-          buffer->peek(), data.bytes_to_read
+            std::string{req.invocation_id()}, req.return_code(), buffer->peek(), data.bytes_to_read
         );
       }
 
@@ -117,11 +114,8 @@ namespace praas::control_plane::tcpserver {
       data.bytes_to_read = 0;
 
       return true;
-
-    } else {
-      return false;
     }
-
+    return false;
   }
 
   void TCPServer::handle_message(
@@ -130,20 +124,23 @@ namespace praas::control_plane::tcpserver {
   {
     auto conn_data = connectionPtr->getContext<ConnectionData>();
     // FIXME: duplicate code from process - merge?
-    if(!conn_data) {
+    if (!conn_data) {
 
-      if(buffer->readableBytes() < praas::common::message::Message::BUF_SIZE) {
+      if (buffer->readableBytes() < praas::common::message::MessageConfig::BUF_SIZE) {
         return;
       }
-      auto msg = praas::common::message::Message::parse_message(buffer->peek());
-      if(std::holds_alternative<common::message::ProcessConnectionParsed>(msg)) {
-        handle_connection(connectionPtr, std::get<common::message::ProcessConnectionParsed>(msg));
+
+      praas::common::message::MessagePtr buffer_data{buffer->peek()};
+      auto msg = praas::common::message::MessageParser::parse(buffer_data);
+
+      if (std::holds_alternative<common::message::ProcessConnectionPtr>(msg)) {
+        handle_connection(connectionPtr, std::get<common::message::ProcessConnectionPtr>(msg));
       } else {
         _logger->error("Ignoring message from an unknown recepient");
       }
-      buffer->retrieve(praas::common::message::Message::BUF_SIZE);
+      buffer->retrieve(praas::common::message::MessageConfig::BUF_SIZE);
 
-      if(buffer->readableBytes() > 0) {
+      if (buffer->readableBytes() > 0) {
         handle_message(connectionPtr, buffer);
       }
       return;
@@ -153,86 +150,93 @@ namespace praas::control_plane::tcpserver {
 
     // Waiting for data
 
-    _logger->info("There are {} bytes to read, {} expected", buffer->readableBytes(), conn_data->bytes_to_read);
-    if(conn_data->bytes_to_read > 0) {
-      consumed = handle_message(connectionPtr, buffer, *conn_data.get(), conn_data->cur_msg.parse());
+    _logger->info(
+        "There are {} bytes to read, {} expected", buffer->readableBytes(), conn_data->bytes_to_read
+    );
+    if (conn_data->bytes_to_read > 0) {
+
+      auto msg = praas::common::message::MessageParser::parse(conn_data->cur_msg);
+      consumed = handle_message(connectionPtr, buffer, *conn_data, msg);
     }
     // Parsing message
     else {
 
-      if(buffer->readableBytes() < praas::common::message::Message::BUF_SIZE) {
+      if (buffer->readableBytes() < praas::common::message::MessageConfig::BUF_SIZE) {
         return;
       }
-      auto msg = praas::common::message::Message::parse_message(buffer->peek());
-      consumed = handle_message(connectionPtr, buffer, *conn_data, msg);
 
+      praas::common::message::MessagePtr buffer_data{buffer->peek()};
+      auto msg = praas::common::message::MessageParser::parse(buffer_data);
+      consumed = handle_message(connectionPtr, buffer, *conn_data, msg);
     }
 
-    _logger->info("Consumed message? {} There are {} bytes remaining", consumed, buffer->readableBytes());
-    if(consumed && buffer->readableBytes() > 0) {
+    _logger->info(
+        "Consumed message? {} There are {} bytes remaining", consumed, buffer->readableBytes()
+    );
+    if (consumed && buffer->readableBytes() > 0) {
       handle_message(connectionPtr, buffer);
     }
   }
 
   bool TCPServer::handle_message(
       const trantor::TcpConnectionPtr& connectionPtr, trantor::MsgBuffer* buffer,
-      ConnectionData & data, const praas::common::message::Message::MessageVariants & msg
+      ConnectionData& data, const praas::common::message::MessageVariants& msg
   )
   {
     return std::visit(
-      common::message::overloaded{
-        [this, connectionPtr, buffer](const common::message::ProcessClosureParsed&) mutable -> bool {
-          handle_closure(connectionPtr);
-          buffer->retrieve(praas::common::message::Message::BUF_SIZE);
-          return true;
-        },
-        [this, connectionPtr, buffer, data](const common::message::DataPlaneMetricsParsed& metrics
-        ) mutable -> bool {
-          if (connectionPtr->hasContext()) {
-            handle_data_metrics(data.process, metrics);
-            buffer->retrieve(praas::common::message::Message::BUF_SIZE);
-          } else {
-            spdlog::error(
-                "Ignoring data plane metrics for an unknown process, from {}",
-                connectionPtr->peerAddr().toIpPort()
-            );
-          }
-          return true;
-        },
-        [this, &data, buffer](const common::message::InvocationResultParsed& req) mutable -> bool {
-          return handle_invocation_result(data, buffer, req);
-        },
-        [this, connectionPtr, buffer, data](const common::message::SwapConfirmationParsed&) mutable -> bool {
-          if (connectionPtr->hasContext()) {
-            handle_swap(data.process);
-          } else {
-            spdlog::error(
-                "Ignoring swap confirmation metrics for an unknown process, from {}",
-                connectionPtr->peerAddr().toIpPort()
-            );
-          }
-          buffer->retrieve(praas::common::message::Message::BUF_SIZE);
-          return true;
-        },
-        [this, connectionPtr, buffer](common::message::ProcessConnectionParsed& msg
-        ) mutable -> bool {
-          handle_connection(connectionPtr, msg);
-          buffer->retrieve(praas::common::message::Message::BUF_SIZE);
-          return true;
-        },
-        [this, buffer](const auto&) mutable -> bool {
-          _logger->error("Ignore unknown message");
-          buffer->retrieve(praas::common::message::Message::BUF_SIZE);
-          return true;
-        }
-      },
-      msg
+        common::message::overloaded{
+            [this, connectionPtr,
+             buffer](const common::message::ProcessClosurePtr&) mutable -> bool {
+              handle_closure(connectionPtr);
+              buffer->retrieve(praas::common::message::MessageConfig::BUF_SIZE);
+              return true;
+            },
+            [this, connectionPtr, buffer,
+             data](const common::message::DataPlaneMetricsPtr& metrics) mutable -> bool {
+              if (connectionPtr->hasContext()) {
+                handle_data_metrics(data.process, metrics);
+                buffer->retrieve(praas::common::message::MessageConfig::BUF_SIZE);
+              } else {
+                spdlog::error(
+                    "Ignoring data plane metrics for an unknown process, from {}",
+                    connectionPtr->peerAddr().toIpPort()
+                );
+              }
+              return true;
+            },
+            [this, &data, buffer](const common::message::InvocationResultPtr& req) mutable -> bool {
+              return handle_invocation_result(data, buffer, req);
+            },
+            [this, connectionPtr, buffer,
+             data](const common::message::SwapConfirmationPtr&) mutable -> bool {
+              if (connectionPtr->hasContext()) {
+                handle_swap(data.process);
+              } else {
+                spdlog::error(
+                    "Ignoring swap confirmation metrics for an unknown process, from {}",
+                    connectionPtr->peerAddr().toIpPort()
+                );
+              }
+              buffer->retrieve(praas::common::message::MessageConfig::BUF_SIZE);
+              return true;
+            },
+            [this, connectionPtr,
+             buffer](common::message::ProcessConnectionPtr& msg) mutable -> bool {
+              handle_connection(connectionPtr, msg);
+              buffer->retrieve(praas::common::message::MessageConfig::BUF_SIZE);
+              return true;
+            },
+            [this, buffer](const auto&) mutable -> bool {
+              _logger->error("Ignore unknown message");
+              buffer->retrieve(praas::common::message::MessageConfig::BUF_SIZE);
+              return true;
+            }},
+        msg
     );
-
   }
 
   void TCPServer::handle_connection(
-      const trantor::TcpConnectionPtr& conn, const common::message::ProcessConnectionParsed& msg
+      const trantor::TcpConnectionPtr& conn, const common::message::ProcessConnectionPtr& msg
   )
   {
     // unordered_map does not allow to search using string_view for a string key
@@ -303,12 +307,13 @@ namespace praas::control_plane::tcpserver {
   }
 
   void TCPServer::handle_data_metrics(
-      const process::ProcessPtr& process_ptr,
-      const praas::common::message::DataPlaneMetricsParsed& msg
+      const process::ProcessPtr& process_ptr, const praas::common::message::DataPlaneMetricsPtr& msg
   )
   {
     if (process_ptr) {
-      process_ptr->update_metrics(msg.computation_time(), msg.invocations(), msg.last_invocation_timestamp());
+      process_ptr->update_metrics(
+          msg.computation_time(), msg.invocations(), msg.last_invocation_timestamp()
+      );
     } else {
       spdlog::error("Ignoring data plane metrics for an unknown process");
     }
