@@ -2,8 +2,8 @@
 #define PRAAS_CONTROLL_PLANE_PROCESS_HPP
 
 #include <praas/common/uuid.hpp>
-#include <praas/control-plane/state.hpp>
 #include <praas/control-plane/http.hpp>
+#include <praas/control-plane/state.hpp>
 
 #include <chrono>
 #include <memory>
@@ -78,10 +78,10 @@ namespace praas::control_plane::process {
     uuids::uuid invocation_id;
   };
 
-  //struct Handle {
-  //  std::optional<std::string> instance_id{};
-  //  std::optional<std::string> resource_id{};
-  //};
+  // struct Handle {
+  //   std::optional<std::string> instance_id{};
+  //   std::optional<std::string> resource_id{};
+  // };
 
   class Process : public std::enable_shared_from_this<Process> {
   public:
@@ -137,7 +137,7 @@ namespace praas::control_plane::process {
 
     const backend::ProcessInstance& c_handle() const;
 
-    void set_handle(std::shared_ptr<backend::ProcessInstance> && handle);
+    void set_handle(std::shared_ptr<backend::ProcessInstance>&& handle);
 
     Application& application() const;
 
@@ -148,6 +148,8 @@ namespace praas::control_plane::process {
     void connect(const trantor::TcpConnectionPtr& connectionPtr);
 
     read_lock_t read_lock() const;
+
+    trantor::TcpConnectionPtr dataplane_connection();
 
     /**
      * @brief Acquires an exclusive write lock to the class.
@@ -163,9 +165,8 @@ namespace praas::control_plane::process {
 
     // Modify the map of invocations.
     void add_invocation(
-      HttpServer::request_t request,
-      HttpServer::callback_t && callback,
-      const std::string& function_name
+        HttpServer::request_t request, HttpServer::callback_t&& callback,
+        const std::string& function_name
     );
 
     int active_invocations() const;
@@ -180,9 +181,14 @@ namespace praas::control_plane::process {
 
     void close_connection();
 
-  private:
+    void set_creation_callback(
+        std::function<void(std::shared_ptr<Process>, std::optional<std::string>)>&& callback
+    );
 
-    void _send_invocation(Invocation &);
+    void created_callback(const std::optional<std::string>& error_msg);
+
+  private:
+    void _send_invocation(Invocation&);
 
     std::string _name;
 
@@ -197,6 +203,8 @@ namespace praas::control_plane::process {
     trantor::TcpConnectionPtr _connection;
 
     state::SessionState _state;
+
+    std::function<void(std::shared_ptr<Process>, std::optional<std::string>)> _creation_callback{};
 
     // Application reference does not change throughout process lifetime.
 

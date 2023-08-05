@@ -167,6 +167,11 @@ namespace praas::control_plane::process {
     return _active_invocations;
   }
 
+  trantor::TcpConnectionPtr Process::dataplane_connection()
+  {
+    return this->_connection;
+  }
+
   void Process::finish_invocation(
       std::string invocation_id, int return_code, const char* buf, size_t len
   )
@@ -197,6 +202,25 @@ namespace praas::control_plane::process {
 
     } else {
       spdlog::error("Ignore non-existing invocation {}", invocation_id);
+    }
+  }
+
+  void Process::set_creation_callback(
+      std::function<void(ProcessPtr, std::optional<std::string>)>&& callback
+  )
+  {
+    this->_creation_callback = std::move(callback);
+  }
+
+  void Process::created_callback(const std::optional<std::string>& error_msg)
+  {
+    if (_creation_callback) {
+      if (!error_msg.has_value()) {
+        _creation_callback(this->shared_from_this(), std::nullopt);
+      } else {
+        _creation_callback(nullptr, error_msg);
+      }
+      _creation_callback = nullptr;
     }
   }
 

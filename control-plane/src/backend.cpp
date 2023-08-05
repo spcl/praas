@@ -79,6 +79,8 @@ namespace praas::control_plane::backend {
             callback(nullptr, fmt::format("Unknown error!"));
             return;
           }
+          std::cerr << response->getStatusCode() << std::endl;
+          std::cerr << response->body() << std::endl;
           if (response->getStatusCode() == drogon::HttpStatusCode::k500InternalServerError) {
             callback(
                 nullptr,
@@ -88,8 +90,12 @@ namespace praas::control_plane::backend {
             );
 
           } else if (response->getStatusCode() == drogon::HttpStatusCode::k200OK) {
+
             auto container = (*response->jsonObject())["container-id"].asString();
-            callback(std::make_shared<DockerInstance>(container), std::nullopt);
+            auto ip_address = (*response->jsonObject())["ip-address"].asString();
+            auto port = (*response->jsonObject())["port"].asInt();
+
+            callback(std::make_shared<DockerInstance>(ip_address, port, container), std::nullopt);
 
           } else {
             callback(nullptr, fmt::format("Unknown error! Response: {}", response->getBody()));

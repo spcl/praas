@@ -20,11 +20,11 @@ namespace praas::control_plane {
     std::promise<std::string> p;
     this->add_process(
         backend, poller, name, std::move(resources),
-        [&p](const std::string& message, bool success) {
-          if (success) {
+        [&p](process::ProcessPtr process, const std::optional<std::string>& error_msg) {
+          if (process) {
             p.set_value("");
           } else {
-            p.set_value(message);
+            p.set_value(error_msg.value());
           }
         }
     );
@@ -36,7 +36,8 @@ namespace praas::control_plane {
 
   void Application::add_process(
       backend::Backend& backend, tcpserver::TCPServer& poller, const std::string& name,
-      process::Resources&& resources, std::function<void(std::string, bool)>&& callback
+      process::Resources&& resources,
+      std::function<void(process::ProcessPtr, const std::optional<std::string>&)>&& callback
   )
   {
 
@@ -72,27 +73,26 @@ namespace praas::control_plane {
       }
     }
 
-    // Ensure that process is not modified.
-    // process::Process& p = (*iter).second;
-    // p.read_lock();
-
     poller.add_process(process);
+    process->set_creation_callback(std::move(callback));
+
     backend.allocate_process(
         process, resources,
-        [process = std::move(process), callback = std::move(callback), &poller, iter, this](
-            std::shared_ptr<backend::ProcessInstance>&& instance, std::optional<std::string> error
+        [process, &poller, iter, this](
+            std::shared_ptr<backend::ProcessInstance>&& instance,
+            const std::optional<std::string>& error
         ) {
           if (instance != nullptr) {
 
             process->set_handle(std::move(instance));
-            callback("Created process!", true);
+            // callback("Created process!", true);
 
           } else {
 
             write_lock_t lock(_active_mutex);
             poller.remove_process(*process);
             _active_processes.erase(iter);
-            callback(error.value(), false);
+            process->created_callback(error);
           }
         }
     );
@@ -137,12 +137,13 @@ namespace praas::control_plane {
     std::string name = fmt::format("controlplane-{}", _controlplane_processes.size());
     process::ProcessPtr process =
         std::make_shared<process::Process>(name, this, std::move(resources));
+    process->set_creation_callback(std::move(callback));
 
     spdlog::info("Allocating process for invocation {}", name);
     poller.add_process(process);
     backend.allocate_process(
         process, resources,
-        [=, this, callback = std::move(callback)](
+        [=, this](
             std::shared_ptr<backend::ProcessInstance>&& instance,
             const std::optional<std::string>& msg
         ) {
@@ -154,11 +155,11 @@ namespace praas::control_plane {
               write_lock_t lock(_controlplane_mutex);
               _controlplane_processes.emplace_back(process);
             }
-            callback(process, std::nullopt);
+            // callback(process, std::nullopt);
           } else {
 
             spdlog::error("Failed to allocate process!");
-            callback(nullptr, msg.value());
+            process->created_callback(msg.value());
           }
         }
     );

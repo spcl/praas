@@ -262,6 +262,8 @@ namespace praas::control_plane::tcpserver {
         process_ptr->read_lock();
         process_ptr->connect(conn);
 
+        process_ptr->created_callback(std::nullopt);
+
         // Now send pending invocations. Lock prevents adding more invocations,
         // and by the time we are finishing, the direct connection will be already up
         // and invocation can be submitted directly.

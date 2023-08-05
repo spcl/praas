@@ -1,4 +1,5 @@
 
+#include <praas/common/http.hpp>
 #include <praas/control-plane/config.hpp>
 #include <praas/control-plane/http.hpp>
 
@@ -112,11 +113,22 @@ namespace praas::control_plane {
     _workers.add_task(
         &worker::Workers::create_process, app_name, process_name,
         process::Resources{vcpus, memory, ""},
-        [callback = std::move(callback)](std::string message, bool success) {
-          if (success) {
-            callback(correct_response(message));
+        [callback =
+             std::move(callback)](process::ProcessPtr proc, std::optional<std::string> error_msg) {
+          if (proc) {
+
+            Json::Value conn_description;
+            conn_description["type"] = "direct";
+            conn_description["ip-address"] = proc->handle().ip_address;
+            conn_description["port"] = proc->handle().port;
+
+            Json::Value proc_description;
+            proc_description["name"] = proc->name();
+            proc_description["connection"] = conn_description;
+
+            callback(common::http::HTTPClient::correct_response(proc_description));
           } else {
-            callback(failed_response(message));
+            callback(failed_response(error_msg.value()));
           }
         }
     );

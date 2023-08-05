@@ -49,7 +49,9 @@ TEST_F(DeleteProcessTest, DeleteCorrect)
     std::promise<bool> p;
     _app_create.add_process(
         backend, poller, proc_name, std::move(resources),
-        [&p](std::string msg, bool success) { p.set_value(success); }
+        [&p](process::ProcessPtr proc, const std::optional<std::string>&) {
+          p.set_value(proc != nullptr);
+        }
     );
     ASSERT_TRUE(p.get_future().get());
 
@@ -89,7 +91,9 @@ TEST_F(DeleteProcessTest, DeleteWhileSwapping)
     std::promise<bool> p;
     _app_create.add_process(
         backend, poller, proc_name, std::move(resources),
-        [&p](std::string msg, bool success) { p.set_value(success); }
+        [&p](process::ProcessPtr proc, const std::optional<std::string>&) {
+          p.set_value(proc != nullptr);
+        }
     );
     ASSERT_TRUE(p.get_future().get());
 

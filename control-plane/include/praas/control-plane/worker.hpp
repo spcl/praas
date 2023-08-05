@@ -82,7 +82,7 @@ namespace praas::control_plane::worker {
     ////////////////////////////////////////////////////////////////////////////////
     bool create_process(
         const std::string& app_name, const std::string& proc_id, process::Resources&& resources,
-        std::function<void(const std::string&, bool)>&& callback
+        std::function<void(process::ProcessPtr, const std::optional<std::string>&)>&& callback
     );
 
     ////////////////////////////////////////////////////////////////////////////////

@@ -26,7 +26,16 @@ namespace praas::control_plane::backend {
   Type deserialize(std::string mode);
 
   struct ProcessInstance {
+
+    ProcessInstance(std::string ip_address, int port)
+        : ip_address(std::move(ip_address)), port(port)
+    {
+    }
+
     virtual std::string id() const = 0;
+
+    std::string ip_address;
+    int port;
   };
 
   struct Backend {
@@ -89,7 +98,10 @@ namespace praas::control_plane::backend {
     // FIXME: static polymorphism?
     struct DockerInstance : public ProcessInstance {
 
-      DockerInstance(std::string container_id) : container_id(container_id) {}
+      DockerInstance(std::string ip_address, int port, std::string container_id)
+          : ProcessInstance(std::move(ip_address), port), container_id(container_id)
+      {
+      }
 
       std::string id() const override
       {
