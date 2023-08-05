@@ -40,6 +40,27 @@ namespace praas::sdk {
     return status;
   }
 
+  std::optional<Process> PraaS::create_process(
+      const std::string& application, const std::string& process_name, int vcpus, int memory
+  )
+  {
+    auto req = drogon::HttpRequest::newHttpRequest();
+    req->setMethod(drogon::Put);
+    req->setPath(fmt::format("/apps/{}/processes/{}", application, process_name));
+    req->setParameter("vcpus", std::to_string(vcpus));
+    req->setParameter("memory", std::to_string(memory));
+
+    std::promise<Process> p;
+
+    _http_client->sendRequest(req, [&](drogon::ReqResult, const drogon::HttpResponsePtr& response) {
+      auto& json_obj = *response->getJsonObject();
+      auto ip_addr = json_obj["connection"]["ip-address"].asString();
+      auto port = json_obj["connection"]["port"].asInt();
+      p.set_value(Process{ip_addr, port, false});
+    });
+    return p.get_future().get();
+  }
+
   ControlPlaneInvocationResult PraaS::invoke(
       const std::string& app_name, const std::string& function_name,
       const std::string& invocation_data

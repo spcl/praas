@@ -2,6 +2,7 @@
 #define PRAAS_SDK_PRAAS_HPP
 
 #include <praas/sdk/invocation.hpp>
+#include <praas/sdk/process.hpp>
 
 #include <drogon/HttpClient.h>
 #include <trantor/net/EventLoopThread.h>
@@ -15,6 +16,10 @@ namespace praas::sdk {
     void disconnect();
 
     bool create_application(const std::string& application, const std::string& cloud_resource_name);
+
+    std::optional<Process> create_process(
+        const std::string& application, const std::string& process_name, int vcpus, int memory
+    );
 
     ControlPlaneInvocationResult invoke(
         const std::string& app_name, const std::string& function_name,
