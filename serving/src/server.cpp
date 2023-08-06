@@ -12,23 +12,22 @@
 
 namespace praas::serving::docker {
 
-  HttpServer::HttpServer(Options& cfg)
-      : _http_port(cfg.http_port), _docker_port(cfg.docker_port), _process_port(cfg.process_port),
-        _threads(cfg.threads), _max_processes(cfg.max_processes)
+  HttpServer::HttpServer(Options& cfg) : opts(cfg)
   {
     _logger = common::util::create_logger("HttpServer");
   }
 
   void HttpServer::start()
   {
-    _logger->info("Starting HTTP server at port {}", _http_port);
+    _logger->info("Starting HTTP server at port {}", opts.http_port);
     drogon::app().registerController(shared_from_this());
-    drogon::app().setThreadNum(_threads);
+    drogon::app().setThreadNum(opts.threads);
 
-    _http_client = common::http::HTTPClientFactory::create_client("http://127.0.0.1", _docker_port);
+    _http_client =
+        common::http::HTTPClientFactory::create_client("http://127.0.0.1", opts.docker_port);
 
     _server_thread =
-        std::thread{[this]() { drogon::app().addListener("0.0.0.0", _http_port).run(); }};
+        std::thread{[this]() { drogon::app().addListener("0.0.0.0", opts.http_port).run(); }};
   }
 
   void HttpServer::shutdown()
@@ -67,6 +66,37 @@ namespace praas::serving::docker {
     return substrings;
   }
 
+  void HttpServer::_inspect_container(
+      const std::string& proc_name, const std::string& container_id,
+      std::function<void(const drogon::HttpResponsePtr&)>&& callback
+  )
+  {
+    _http_client.get(
+        fmt::format("/containers/{}/json", container_id), {},
+        [callback = std::move(callback), container_id, this,
+         proc_name](drogon::ReqResult, const drogon::HttpResponsePtr& response) {
+          if (response->getStatusCode() == drogon::HttpStatusCode::k200OK) {
+
+            auto& response_json = *response->getJsonObject();
+            auto& port = response_json["NetworkSettings"]["Ports"]
+                                      [fmt::format("{}/tcp", opts.process_port)][0]["HostPort"];
+
+            Json::Value response;
+            response["status"] = fmt::format("Container for process {} created.", proc_name);
+            response["container-id"] = container_id;
+            response["process-id"] = proc_name;
+            response["ip-address"] = opts.server_ip;
+            response["port"] = std::stoi(port.asString());
+            callback(common::http::HTTPClient::correct_response(response));
+          } else {
+            callback(common::http::HTTPClient::failed_response(
+                fmt::format("Unknown error! Response: {}", response->getBody())
+            ));
+          }
+        }
+    );
+  }
+
   void HttpServer::_start_container(
       const std::string& proc_name, const std::string& container_id,
       std::function<void(const drogon::HttpResponsePtr&)>&& callback
@@ -75,7 +105,7 @@ namespace praas::serving::docker {
     _http_client.post(
         fmt::format("/containers/{}/start", container_id), {},
         [callback = std::move(callback), container_id, this,
-         proc_name](drogon::ReqResult, const drogon::HttpResponsePtr& response) {
+         proc_name](drogon::ReqResult, const drogon::HttpResponsePtr& response) mutable {
           if (response->getStatusCode() == drogon::HttpStatusCode::k404NotFound) {
             callback(common::http::HTTPClient::failed_response(fmt::format(
                 "Failure - container {} for process {} no longer exists", container_id, proc_name
@@ -84,12 +114,8 @@ namespace praas::serving::docker {
 
             _processes.add(proc_name, Process{proc_name, container_id});
             spdlog::debug("Started container {} for process {}.", container_id, proc_name);
+            _inspect_container(proc_name, container_id, std::move(callback));
 
-            Json::Value response;
-            response["status"] = fmt::format("Container for process {} created.", proc_name);
-            response["container-id"] = container_id;
-            response["process-id"] = proc_name;
-            callback(common::http::HTTPClient::correct_response(response));
           } else {
             callback(common::http::HTTPClient::failed_response(
                 fmt::format("Unknown error! Response: {}", response->getBody())
@@ -107,7 +133,7 @@ namespace praas::serving::docker {
     bind_ports.append(host_port);
 
     Json::Value port_bindings;
-    port_bindings[fmt::format("{}/tcp", _process_port)] = bind_ports;
+    port_bindings[fmt::format("{}/tcp", opts.process_port)] = bind_ports;
     Json::Value host_config;
     host_config["PortBindings"] = port_bindings;
     host_config["AutoRemove"] = true;
@@ -118,7 +144,7 @@ namespace praas::serving::docker {
     // We also need ExposedPorts.
     // Otherwise, ports will not be reachable from host.
     Json::Value exposed_ports;
-    exposed_ports[fmt::format("{}/tcp", _process_port)] = Json::Value{};
+    exposed_ports[fmt::format("{}/tcp", opts.process_port)] = Json::Value{};
     body["ExposedPorts"] = exposed_ports;
   }
 

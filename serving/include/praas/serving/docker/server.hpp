@@ -5,22 +5,32 @@
 #include <praas/common/http.hpp>
 #include <praas/serving/docker/containers.hpp>
 
+#include <optional>
 #include <thread>
 
 #include <drogon/drogon.h>
 #include <spdlog/spdlog.h>
+
+namespace cereal {
+
+  struct JSONInputArchive;
+
+} // namespace cereal
 
 namespace praas::serving::docker {
 
   struct Options {
     int max_processes;
     int http_port;
+    std::string server_ip;
     int docker_port;
     int process_port;
     int threads;
     bool verbose;
+
+    void serialize(cereal::JSONInputArchive&);
   };
-  Options opts(int, char**);
+  std::optional<Options> opts(int, char**);
 
   struct HttpServer : public drogon::HttpController<HttpServer, false>,
                       std::enable_shared_from_this<HttpServer> {
@@ -59,16 +69,16 @@ namespace praas::serving::docker {
         const std::string& proc_name, const std::string& container_id,
         std::function<void(const drogon::HttpResponsePtr&)>&& callback
     );
+    void _inspect_container(
+        const std::string& proc_name, const std::string& container_id,
+        std::function<void(const drogon::HttpResponsePtr&)>&& callback
+    );
 
     void _configure_ports(Json::Value& body);
 
     void _kill_all();
 
-    int _http_port;
-    int _docker_port;
-    int _process_port;
-    int _threads;
-    int _max_processes;
+    Options opts;
 
     praas::common::http::HTTPClient _http_client;
 

@@ -1,0 +1,8 @@
+{
+  "server-address": "127.0.0.1",
+  "http-port": 8080,
+  "docker-port": 2376,
+  "process-port": 8000,
+  "max-processes": 1,
+  "threads": 1
+}

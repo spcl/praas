@@ -24,7 +24,12 @@ int main(int argc, char** argv)
   praas::common::http::HTTPClientFactory::initialize(1);
 
   auto opts = praas::serving::docker::opts(argc, argv);
-  if (opts.verbose) {
+
+  if (!opts.has_value()) {
+    return 1;
+  }
+
+  if (opts->verbose) {
     spdlog::set_level(spdlog::level::debug);
   } else {
     spdlog::set_level(spdlog::level::info);
@@ -32,7 +37,7 @@ int main(int argc, char** argv)
   spdlog::set_pattern("[%H:%M:%S:%f] [P %P] [T %t] [%l] %v ");
   spdlog::info("Executing PraaS serving for Docker!");
 
-  auto server = std::make_shared<praas::serving::docker::HttpServer>(opts);
+  auto server = std::make_shared<praas::serving::docker::HttpServer>(opts.value());
   instance = server;
   server->start();
 
