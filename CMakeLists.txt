@@ -188,7 +188,10 @@ endforeach()
 
 if(PRAAS_WITH_TESTING)
 
-  set(TESTS tests/integration/invocation.cpp)
+  set(TESTS
+    tests/integration/invocation.cpp
+    tests/integration/allocation_invocation.cpp
+  )
   foreach(test ${TESTS})
 
     PraaS_AddTest("praas" test_name ${test})

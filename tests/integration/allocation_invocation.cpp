@@ -41,15 +41,17 @@ std::string get_output_binary(const char* buffer, size_t size)
   return out.msg;
 }
 
-TEST_F(IntegrationLocalInvocation, Invoke)
+TEST_F(IntegrationLocalInvocation, AllocationInvoke)
 {
   praas::common::http::HTTPClientFactory::initialize(1);
   {
     praas::sdk::PraaS praas{fmt::format("http://127.0.0.1:{}", 8000)};
 
-    ASSERT_TRUE(praas.create_application("test_app", "spcleth/praas-examples:hello-world-cpp"));
+    ASSERT_TRUE(
+        praas.create_application("test_alloc_invoc", "spcleth/praas-examples:hello-world-cpp")
+    );
 
-    auto proc = praas.create_process("test_app", "test_process", 1, 1024);
+    auto proc = praas.create_process("test_alloc_invoc", "alloc_invoc_process", 1, 1024);
     ASSERT_TRUE(proc.has_value());
 
     ASSERT_TRUE(proc->connect());

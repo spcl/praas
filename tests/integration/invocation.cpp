@@ -46,9 +46,9 @@ TEST_F(IntegrationLocalInvocation, Invoke)
   {
     praas::sdk::PraaS praas{fmt::format("http://127.0.0.1:{}", 8000)};
 
-    ASSERT_TRUE(praas.create_application("test_app", "spcleth/praas-examples:hello-world-cpp"));
+    ASSERT_TRUE(praas.create_application("test_invoc", "spcleth/praas-examples:hello-world-cpp"));
 
-    auto invoc = praas.invoke("test_app", "hello-world", "");
+    auto invoc = praas.invoke("test_invoc", "hello-world", "");
 
     ASSERT_EQ(invoc.return_code, 0);
     EXPECT_EQ("Hello, world!", get_output_binary(invoc.response));
