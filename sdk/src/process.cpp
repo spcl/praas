@@ -40,7 +40,11 @@ namespace praas::sdk {
 
     // Now wait for the confirmation;
     praas::common::message::MessageData response;
-    _dataplane.read_n(response.data(), praas::common::message::MessageConfig::BUF_SIZE);
+    auto read_bytes =
+        _dataplane.read_n(response.data(), praas::common::message::MessageConfig::BUF_SIZE);
+    if (read_bytes != praas::common::message::MessageConfig::BUF_SIZE) {
+      return false;
+    }
 
     auto parsed_msg = praas::common::message::MessageParser::parse(response);
     if (!std::holds_alternative<praas::common::message::ProcessConnectionPtr>(parsed_msg)) {
