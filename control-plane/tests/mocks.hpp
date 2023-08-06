@@ -3,6 +3,7 @@
 
 #include <praas/control-plane/backend.hpp>
 #include <praas/control-plane/deployment.hpp>
+#include <praas/control-plane/process.hpp>
 #include <praas/control-plane/resources.hpp>
 #include <praas/control-plane/tcpserver.hpp>
 #include <praas/control-plane/worker.hpp>
@@ -20,6 +21,8 @@ public:
 
 class MockBackendInstance : public backend::ProcessInstance {
 public:
+  MockBackendInstance() : backend::ProcessInstance("127.0.0.1", 0) {}
+
   MOCK_METHOD(std::string, id, (), (const));
 };
 
@@ -63,8 +66,10 @@ void setup_mocks(MockBackend& backend)
       std::function<void(std::shared_ptr<backend::ProcessInstance>&&, std::optional<std::string>)>;
 
   ON_CALL(backend, allocate_process(testing::_, testing::_, testing::_))
-      .WillByDefault([&](auto, const auto&, callback_t&& callback) {
+      .WillByDefault([&](process::ProcessPtr ptr, const auto&, callback_t&& callback) {
         callback(std::make_shared<MockBackendInstance>(), "");
+        // Mocking has to ensure that callbacks are called.
+        ptr->created_callback(std::nullopt);
       });
 }
 

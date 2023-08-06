@@ -126,7 +126,6 @@ namespace praas::control_plane::process {
       const std::string& function_name
   )
   {
-    // FIXME: send immediately if the process is already allocated
     _invocations.emplace_back(
         request, std::move(callback), function_name, _uuid_generator.generate()
     );
@@ -140,7 +139,9 @@ namespace praas::control_plane::process {
   void Process::send_invocations()
   {
     for (auto& invoc : _invocations) {
-      _send_invocation(invoc);
+      if (!invoc.submitted) {
+        _send_invocation(invoc);
+      }
     }
   }
 
@@ -160,6 +161,8 @@ namespace praas::control_plane::process {
 
     _connection->send(req.bytes(), req.BUF_SIZE);
     _connection->send(payload.data(), payload.length());
+
+    invoc.submitted = true;
   }
 
   int Process::active_invocations() const

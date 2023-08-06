@@ -259,7 +259,7 @@ namespace praas::control_plane::tcpserver {
       _logger->info("Registered process {}", msg.process_name());
 
       {
-        process_ptr->read_lock();
+        process_ptr->write_lock();
         process_ptr->connect(conn);
 
         process_ptr->created_callback(std::nullopt);

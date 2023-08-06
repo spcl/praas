@@ -76,6 +76,7 @@ namespace praas::control_plane::process {
     HttpServer::callback_t callback;
     std::string function_name;
     uuids::uuid invocation_id;
+    bool submitted = false;
   };
 
   // struct Handle {

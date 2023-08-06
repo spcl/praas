@@ -85,7 +85,6 @@ namespace praas::control_plane {
           if (instance != nullptr) {
 
             process->set_handle(std::move(instance));
-            // callback("Created process!", true);
 
           } else {
 

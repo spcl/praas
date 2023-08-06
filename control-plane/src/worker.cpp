@@ -42,7 +42,7 @@ namespace praas::control_plane::worker {
               process::ProcessPtr proc_ptr, const std::optional<std::string>& error_msg
           ) mutable {
             if (proc_ptr) {
-              proc_ptr->read_lock();
+              proc_ptr->write_lock();
               proc_ptr->add_invocation(std::move(request), std::move(callback), function_name);
             } else {
               callback(
