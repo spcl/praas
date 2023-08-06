@@ -14,7 +14,7 @@ function(PraaS_AddTest component target_name test_file)
   target_link_libraries(${name} PRIVATE GTest::gtest_main)
   target_link_libraries(${name} PRIVATE GTest::gmock_main)
 
-  gtest_discover_tests(${name})
+  gtest_discover_tests(${name} TEST_PREFIX "${component}:")
 
   set(${target_name} ${name} PARENT_SCOPE)
 
