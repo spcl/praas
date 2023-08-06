@@ -79,8 +79,6 @@ namespace praas::control_plane::backend {
             callback(nullptr, fmt::format("Unknown error!"));
             return;
           }
-          std::cerr << response->getStatusCode() << std::endl;
-          std::cerr << response->body() << std::endl;
           if (response->getStatusCode() == drogon::HttpStatusCode::k500InternalServerError) {
             callback(
                 nullptr,
