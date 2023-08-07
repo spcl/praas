@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
 import base64
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import logging
-from typing import Optional
+import json
+from typing import List, Optional
 
 import boto3
 import click
@@ -83,9 +84,40 @@ TASK_DEFINITION = {
 
 @dataclass_json
 @dataclass
+class FargateTask:
+    name: str
+    container: str
+
+@dataclass_json
+@dataclass
 class FargateDeployment:
+    region: str
+    images: List[str] = field(default_factory=list)
+    tasks: List[FargateTask] = field(default_factory=list)
+
     cluster_name: Optional[str] = None
     cluster_arn: Optional[str] = None
+
+    task_role_name: Optional[str] = None
+    task_role_arn: Optional[str] = None
+
+    execution_role_name: Optional[str] = None
+    execution_role_arn: Optional[str] = None
+
+    ecr_registry_name: Optional[str] = None
+    ecr_registry_id: Optional[str] = None
+    ecr_registry_uri: Optional[str] = None
+    ecr_authorization_token: Optional[str] = None
+
+def load_deployment(input_config: str) -> FargateDeployment:
+
+    with open(input_config, 'r') as in_file:
+        return FargateDeployment.from_json(in_file.read())
+
+def save_deployment(config: FargateDeployment, output_config: str):
+
+    with open(output_config, 'w') as out_file:
+        json.dump(config.to_dict(), out_file, indent=2)
 
 @click.group()
 def cli():
@@ -95,42 +127,54 @@ def cli():
 def cluster():
     pass
 
-@cluster.command()
+@cluster.command("create")
 @click.argument('name', type=str)
-@click.option('--region', type=str, default='us-east-1')
-def create(name: str, region: str):
+@click.argument('input_config', type=str)
+@click.argument('output_config', type=str)
+def create_cluster(name: str, input_config: str, output_config: str):
 
-    client = boto3.client('ecs', region_name=region)
+    deployment = load_deployment(input_config)
+
+    client = boto3.client('ecs', region_name=deployment.region)
     res = client.create_cluster(
         clusterName=name
     )
-    logging.info(f"Created cluster {name}, ARN {res['cluster']['clusterArn']}")
+    deployment.cluster_name = name
+    deployment.cluster_arn = res['cluster']['clusterArn']
+    logging.info(f"Created cluster {name}, ARN {deployment.cluster_arn}")
+
+    save_deployment(deployment, output_config)
 
 @cli.group()
 def role():
     pass
 
-@role.command("create-task-role")
+@role.command("create")
 @click.argument('name', type=str)
-@click.option('--region', type=str, default='us-east-1')
-def create_role(name: str, region: str):
+@click.argument('input_config', type=str)
+@click.argument('output_config', type=str)
+def create_role(name: str, input_config: str, output_config: str):
 
-    client = boto3.client('iam', region_name=region)
-    res = client.create_role(RoleName=name, AssumeRolePolicyDocument=TASK_ASSUMED_ROLE)
+    deployment = load_deployment(input_config)
+
+    client = boto3.client('iam', region_name=deployment.region)
+    role_name = f"{name}-task-role"
+    res = client.create_role(RoleName=role_name, AssumeRolePolicyDocument=TASK_ASSUMED_ROLE)
     arn = res['Role']['Arn']
-    res = client.put_role_policy(RoleName=name, PolicyName=f"{name}-s3", PolicyDocument=TASK_S3_ROLE)
-    logging.info(f"Created role {name}, ARN {arn}")
+    res = client.put_role_policy(RoleName=role_name, PolicyName=f"{name}-s3", PolicyDocument=TASK_S3_ROLE)
+    logging.info(f"Created task role {role_name}, ARN {arn}")
+    deployment.task_role_arn = arn
+    deployment.task_role_name = role_name
 
-@role.command("create-execution-role")
-@click.argument('name', type=str)
-@click.option('--region', type=str, default='us-east-1')
-def create_execution_role(name: str, region: str):
-
-    client = boto3.client('iam', region_name=region)
-    res = client.create_role(RoleName=name, AssumeRolePolicyDocument=TASK_ASSUMED_ROLE)
+    role_name = f"{name}-exec-role"
+    res = client.create_role(RoleName=role_name, AssumeRolePolicyDocument=TASK_ASSUMED_ROLE)
     arn = res['Role']['Arn']
-    res = client.put_role_policy(RoleName=name, PolicyName=f"{name}-exec", PolicyDocument=EXECUTION_ROLE)
-    logging.info(f"Created execution role {name}, ARN {arn}")
+    res = client.put_role_policy(RoleName=role_name, PolicyName=f"{name}-exec", PolicyDocument=EXECUTION_ROLE)
+    logging.info(f"Created execution role {role_name}, ARN {arn}")
+    deployment.execution_role_arn = arn
+    deployment.execution_role_name = role_name
+
+    save_deployment(deployment, output_config)
 
 @cli.group()
 def container():
@@ -138,31 +182,46 @@ def container():
 
 @container.command("create-registry")
 @click.argument('name', type=str)
-@click.option('--region', type=str, default='us-east-1')
-def create_registry(name: str, region: str):
+@click.argument('input_config', type=str)
+@click.argument('output_config', type=str)
+def create_registry(name: str, input_config: str, output_config: str):
 
-    client = boto3.client('ecr', region_name=region)
+    deployment = load_deployment(input_config)
+
+    client = boto3.client('ecr', region_name=deployment.region)
     res = client.create_repository(repositoryName=name)
-    logging.info(f"Created registry{name}, ID {registryId}, ARN {arn}")
+    deployment.ecr_registry_name = name
+    deployment.ecr_registry_id = res['repository']['registryId']
+    deployment.ecr_registry_uri = res['repository']['repositoryUri']
+
+    save_deployment(deployment, output_config)
 
 @container.command("push")
-@click.argument('registry-uri', type=str)
-@click.argument('registry-id', type=str)
-@click.argument('repository', type=str)
 @click.argument('image', type=str)
-@click.option('--region', type=str, default='us-east-1')
-def push_image(registry_uri: str, registry_id: str, repository:str, image: str, region: str):
+@click.argument('input_config', type=str)
+@click.argument('output_config', type=str)
+def push_image(image: str, input_config: str, output_config: str):
 
-    client = boto3.client('ecr', region_name=region)
-    res = client.get_authorization_token(registryIds=[registry_id])
-    token = res['authorizationData'][0]['authorizationToken']
-    token = base64.b64decode(token).decode()
-    _, token = token.split(':')
+    deployment = load_deployment(input_config)
+
+    if deployment.ecr_authorization_token is None:
+        client = boto3.client('ecr', region_name=deployment.region)
+        res = client.get_authorization_token(registryIds=[deployment.ecr_registry_id])
+        token = res['authorizationData'][0]['authorizationToken']
+        token = base64.b64decode(token).decode()
+        _, deployment.ecr_authorization_token = token.split(':')
 
     _, tag = image.split(':')
     docker_client = docker.from_env()
-    docker_client.login(username='AWS', password=token, registry=registry_uri)
-    docker_client.images.get(image).tag(repository=f"{registry_uri}/{repository}", tag=tag)
+    docker_client.login(username='AWS', password=deployment.ecr_authorization_token, registry=deployment.ecr_registry_uri)
+    repo_path = deployment.ecr_registry_uri
+    docker_client.images.get(image).tag(repository=repo_path, tag=tag)
+    docker_client.images.push(repository=repo_path, tag=tag)
+
+    if tag not in deployment.images:
+        deployment.images.append(tag)
+
+    save_deployment(deployment, output_config)
 
 @cli.group()
 def task():
@@ -170,21 +229,27 @@ def task():
 
 @task.command("create")
 @click.argument('name', type=str)
-@click.argument('container', type=str)
-@click.argument('task-role-arn', type=str)
-@click.argument('exec-role-arn', type=str)
-@click.option('--region', type=str, default='us-east-1')
-def create_task(name: str, container: str, task_role_arn: str, exec_role_arn: str, region: str):
+@click.argument('image_idx', type=int)
+@click.argument('input_config', type=str)
+@click.argument('output_config', type=str)
+def push_image(name: str, image_idx: int, input_config: str, output_config: str):
 
-    client = boto3.client('ecs', region_name=region)
+    deployment = load_deployment(input_config)
+
+    client = boto3.client('ecs', region_name=deployment.region)
     TASK_DEFINITION['family'] = name
-    TASK_DEFINITION['taskRoleArn'] = task_role_arn
-    TASK_DEFINITION['executionRoleArn'] = exec_role_arn
-    TASK_DEFINITION['containerDefinitions'][0]['image'] = container
+    TASK_DEFINITION['taskRoleArn'] = deployment.task_role_arn
+    TASK_DEFINITION['executionRoleArn'] = deployment.execution_role_arn
+    image_tag = deployment.images[image_idx]
+    image_name = f"{deployment.ecr_registry_uri}:{image_tag}"
+    TASK_DEFINITION['containerDefinitions'][0]['image'] = image_name
+
     res = client.register_task_definition(
         **TASK_DEFINITION
     )
-    print(res)
+    deployment.tasks.append(FargateTask(name, image_name))
+
+    save_deployment(deployment, output_config)
 
 if __name__ == '__main__':
     logging.basicConfig()
