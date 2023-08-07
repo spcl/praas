@@ -47,6 +47,7 @@ EXECUTION_ROLE ="""{
                 "ecr:BatchCheckLayerAvailability",
                 "ecr:GetDownloadUrlForLayer",
                 "ecr:BatchGetImage",
+                "logs:CreateLogGroup",
                 "logs:CreateLogStream",
                 "logs:PutLogEvents"
             ],
@@ -58,28 +59,37 @@ EXECUTION_ROLE ="""{
 """
 
 TASK_DEFINITION = {
-  "family": "",
-  "networkMode": "awsvpc",
-  "taskRoleArn": "", 
-  "containerDefinitions": [
-      {
-          "name": "process",
-          "image": "",
-          "portMappings": [
-              {
-                  "containerPort": 8000,
-                  "hostPort": 8000,
-                  "protocol": "tcp"
-              }
-          ],
-          "essential": True
-      }
-  ],
-  "requiresCompatibilities": [
-      "FARGATE"
-  ],
-  "cpu": "256",
-  "memory": "512"
+    "family": "",
+    "networkMode": "awsvpc",
+    "taskRoleArn": "", 
+    "containerDefinitions": [
+        {
+            "name": "process",
+            "image": "",
+            "portMappings": [
+                {
+                    "containerPort": 8000,
+                    "hostPort": 8000,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": True,            
+            "logConfiguration": {
+            "logDriver": "awslogs",
+                "options": {
+                    "awslogs-create-group": "true",
+                    "awslogs-group": "/ecs/new-test-task",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            }
+        }
+    ],
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "256",
+    "memory": "512"
 }
 
 @dataclass_json
@@ -87,6 +97,7 @@ TASK_DEFINITION = {
 class FargateTask:
     name: str
     container: str
+    arn: str
 
 @dataclass_json
 @dataclass
@@ -243,11 +254,13 @@ def push_image(name: str, image_idx: int, input_config: str, output_config: str)
     image_tag = deployment.images[image_idx]
     image_name = f"{deployment.ecr_registry_uri}:{image_tag}"
     TASK_DEFINITION['containerDefinitions'][0]['image'] = image_name
+    TASK_DEFINITION['containerDefinitions'][0]['logDriver']['options']['awslogs-group'] = f"/ecs/{name}"
 
     res = client.register_task_definition(
         **TASK_DEFINITION
     )
-    deployment.tasks.append(FargateTask(name, image_name))
+    arn = res['taskDefinition']['taskDefinitionArn']
+    deployment.tasks.append(FargateTask(name, image_name, arn))
 
     save_deployment(deployment, output_config)
 
