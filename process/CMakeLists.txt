@@ -126,7 +126,7 @@ if(Python_FOUND AND pybind11_FOUND)
 
 else()
 
-    set(PRAAS_WITH_INOKER_PYTHON FALSE)
+    set(PRAAS_WITH_INVOKER_PYTHON FALSE)
     add_feature_info(invoker_python ON "disabled")
 
 endif()
@@ -181,7 +181,23 @@ install(
   NAMESPACE praas::
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/praas
 )
+
+if(${PRAAS_WITH_INVOKER_PYTHON})
+
+  install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/invoker/python/cli/cli.py DESTINATION "${CMAKE_INSTALL_PREFIX}/bin/invoker/" RENAME "python.py")
+
+  set_target_properties(_pypraas PROPERTIES INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/praas")
+  install(
+    TARGETS _pypraas
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/pypraas
+  )
+  install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/invoker/python/pypraas/__init__.py DESTINATION "${CMAKE_INSTALL_LIBDIR}/pypraas/")
+  install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/invoker/python/pypraas/buffer.py DESTINATION "${CMAKE_INSTALL_LIBDIR}/pypraas/")
+
+endif()
+
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/config/config.json DESTINATION "${CMAKE_INSTALL_PREFIX}/config")
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/config/config_python.json DESTINATION "${CMAKE_INSTALL_PREFIX}/config")
 
 set(version 0.1)
 set_property(
