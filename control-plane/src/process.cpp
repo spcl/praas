@@ -209,18 +209,32 @@ namespace praas::control_plane::process {
   }
 
   void Process::set_creation_callback(
-      std::function<void(ProcessPtr, std::optional<std::string>)>&& callback
+      std::function<void(ProcessPtr, std::optional<std::string>)>&& callback,
+      bool wait_for_allocation
   )
   {
     this->_creation_callback = std::move(callback);
+    this->_wait_for_allocation = wait_for_allocation;
   }
 
   void Process::created_callback(const std::optional<std::string>& error_msg)
   {
     if (_creation_callback) {
       if (!error_msg.has_value()) {
+
+        // Success is reported conditionally - process is connected and backend
+        // returned process information.
+        if (!this->_handle) {
+          return;
+        }
+        if (_wait_for_allocation && this->_status != Status::ALLOCATED) {
+          return;
+        }
+
         _creation_callback(this->shared_from_this(), std::nullopt);
       } else {
+
+        // Failure is always reported.
         _creation_callback(nullptr, error_msg);
       }
       _creation_callback = nullptr;

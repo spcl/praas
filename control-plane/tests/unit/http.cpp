@@ -30,7 +30,7 @@ protected:
 
     praas::common::http::HTTPClientFactory::initialize(1);
 
-    setup_mocks(backend);
+    setup_mocks(backend, true);
 
     cfg.port = 8150;
   }
@@ -212,6 +212,7 @@ TEST_F(HttpServerTest, DeleteProcess)
 
 TEST_F(HttpServerTest, SwapProcess)
 {
+  setup_mocks(backend, false);
   auto http_server = std::make_shared<HttpServer>(cfg, workers);
   http_server->run();
 
@@ -231,7 +232,7 @@ TEST_F(HttpServerTest, SwapProcess)
     resources.get_application(app_name, app_acc);
     ASSERT_FALSE(app_acc.empty());
 
-    app_acc.get()->add_process(backend, server, proc_name, process::Resources(1, 2048, ""));
+    app_acc.get()->add_process(backend, server, proc_name, process::Resources(1, 2048, ""), false);
   }
 
   // Now swap the process - should fail because process is not allocated.

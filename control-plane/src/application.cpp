@@ -14,7 +14,7 @@ namespace praas::control_plane {
 
   void Application::add_process(
       backend::Backend& backend, tcpserver::TCPServer& poller, const std::string& name,
-      process::Resources&& resources
+      process::Resources&& resources, bool wait_for_allocation
   )
   {
     std::promise<std::string> p;
@@ -26,7 +26,8 @@ namespace praas::control_plane {
           } else {
             p.set_value(error_msg.value());
           }
-        }
+        },
+        wait_for_allocation
     );
     auto msg = p.get_future().get();
     if (!msg.empty()) {
@@ -37,7 +38,8 @@ namespace praas::control_plane {
   void Application::add_process(
       backend::Backend& backend, tcpserver::TCPServer& poller, const std::string& name,
       process::Resources&& resources,
-      std::function<void(process::ProcessPtr, const std::optional<std::string>&)>&& callback
+      std::function<void(process::ProcessPtr, const std::optional<std::string>&)>&& callback,
+      bool wait_for_allocation
   )
   {
 
@@ -74,7 +76,7 @@ namespace praas::control_plane {
     }
 
     poller.add_process(process);
-    process->set_creation_callback(std::move(callback));
+    process->set_creation_callback(std::move(callback), wait_for_allocation);
 
     backend.allocate_process(
         process, resources,
@@ -83,8 +85,13 @@ namespace praas::control_plane {
             const std::optional<std::string>& error
         ) {
           if (instance != nullptr) {
-
             process->set_handle(std::move(instance));
+
+            // Avoid a race condition.
+            // Created callback can be called by process connection, or by
+            // the backend returning information.
+            // We wait until both information are provided.
+            process->created_callback(std::nullopt);
 
           } else {
 
@@ -136,7 +143,7 @@ namespace praas::control_plane {
     std::string name = fmt::format("controlplane-{}", _controlplane_processes.size());
     process::ProcessPtr process =
         std::make_shared<process::Process>(name, this, std::move(resources));
-    process->set_creation_callback(std::move(callback));
+    process->set_creation_callback(std::move(callback), true);
 
     spdlog::info("Allocating process for invocation {}", name);
     poller.add_process(process);

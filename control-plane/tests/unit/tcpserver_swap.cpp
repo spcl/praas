@@ -54,7 +54,7 @@ TEST_F(TCPServerTest, SwapProcess)
   praas::control_plane::tcpserver::TCPServer server(config, workers);
   int port = server.port();
 
-  app.add_process(backend, server, process_name, std::move(resources));
+  app.add_process(backend, server, process_name, std::move(resources), false);
 
   sockpp::tcp_connector process_socket;
   ASSERT_TRUE(process_socket.connect(sockpp::inet_address("localhost", port)));
@@ -99,7 +99,7 @@ TEST_F(TCPServerTest, SwapProcessAndConfirm)
   praas::control_plane::tcpserver::TCPServer server(config, workers);
   int port = server.port();
 
-  app.add_process(backend, server, process_name, std::move(resources));
+  app.add_process(backend, server, process_name, std::move(resources), false);
 
   sockpp::tcp_connector process_socket;
   ASSERT_TRUE(process_socket.connect(sockpp::inet_address("localhost", port)));

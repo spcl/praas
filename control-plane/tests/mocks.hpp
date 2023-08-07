@@ -57,7 +57,7 @@ public:
   MOCK_METHOD(void, remove_process, (const process::Process&), (override));
 };
 
-void setup_mocks(MockBackend& backend)
+void setup_mocks(MockBackend& backend, bool mock_tcp_connection = false)
 {
   ON_CALL(backend, max_memory()).WillByDefault(testing::Return(4096));
   ON_CALL(backend, max_vcpus()).WillByDefault(testing::Return(4));
@@ -66,8 +66,11 @@ void setup_mocks(MockBackend& backend)
       std::function<void(std::shared_ptr<backend::ProcessInstance>&&, std::optional<std::string>)>;
 
   ON_CALL(backend, allocate_process(testing::_, testing::_, testing::_))
-      .WillByDefault([&](process::ProcessPtr ptr, const auto&, callback_t&& callback) {
+      .WillByDefault([=](process::ProcessPtr ptr, const auto&, callback_t&& callback) {
         callback(std::make_shared<MockBackendInstance>(), "");
+        if (mock_tcp_connection) {
+          ptr->set_status(process::Status::ALLOCATED);
+        }
         // Mocking has to ensure that callbacks are called.
         ptr->created_callback(std::nullopt);
       });

@@ -183,7 +183,8 @@ namespace praas::control_plane::process {
     void close_connection();
 
     void set_creation_callback(
-        std::function<void(std::shared_ptr<Process>, std::optional<std::string>)>&& callback
+        std::function<void(std::shared_ptr<Process>, std::optional<std::string>)>&& callback,
+        bool wait_for_allocation
     );
 
     void created_callback(const std::optional<std::string>& error_msg);
@@ -204,6 +205,8 @@ namespace praas::control_plane::process {
     trantor::TcpConnectionPtr _connection;
 
     state::SessionState _state;
+
+    bool _wait_for_allocation{};
 
     std::function<void(std::shared_ptr<Process>, std::optional<std::string>)> _creation_callback{};
 

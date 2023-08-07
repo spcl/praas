@@ -43,7 +43,7 @@ TEST_F(CreateProcessTest, CreateProcess)
     EXPECT_CALL(backend, max_memory()).Times(1);
     EXPECT_CALL(backend, max_vcpus()).Times(1);
 
-    _app_create.add_process(backend, poller, proc_name, std::move(resources));
+    _app_create.add_process(backend, poller, proc_name, std::move(resources), false);
     auto [lock, proc] = _app_create.get_process(proc_name);
 
     EXPECT_EQ(proc->name(), proc_name);

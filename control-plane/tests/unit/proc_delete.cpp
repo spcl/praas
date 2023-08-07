@@ -51,7 +51,8 @@ TEST_F(DeleteProcessTest, DeleteCorrect)
         backend, poller, proc_name, std::move(resources),
         [&p](process::ProcessPtr proc, const std::optional<std::string>&) {
           p.set_value(proc != nullptr);
-        }
+        },
+        false
     );
     ASSERT_TRUE(p.get_future().get());
 
@@ -93,7 +94,8 @@ TEST_F(DeleteProcessTest, DeleteWhileSwapping)
         backend, poller, proc_name, std::move(resources),
         [&p](process::ProcessPtr proc, const std::optional<std::string>&) {
           p.set_value(proc != nullptr);
-        }
+        },
+        false
     );
     ASSERT_TRUE(p.get_future().get());
 

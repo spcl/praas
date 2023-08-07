@@ -99,7 +99,8 @@ namespace praas::control_plane {
     void add_process(
         backend::Backend& backend, tcpserver::TCPServer& poller, const std::string& name,
         process::Resources&& resources,
-        std::function<void(process::ProcessPtr, const std::optional<std::string>&)>&& callback
+        std::function<void(process::ProcessPtr, const std::optional<std::string>&)>&& callback,
+        bool wait_for_allocation = true
     );
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -112,7 +113,7 @@ namespace praas::control_plane {
     ////////////////////////////////////////////////////////////////////////////////
     void add_process(
         backend::Backend& backend, tcpserver::TCPServer& poller, const std::string& name,
-        process::Resources&& resources
+        process::Resources&& resources, bool wait_for_allocation = true
     );
 
     ////////////////////////////////////////////////////////////////////////////////

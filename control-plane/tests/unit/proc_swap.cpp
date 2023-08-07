@@ -45,7 +45,7 @@ TEST_F(SwapProcessTest, SwapProcess)
   std::string resource_name{"sandbox"};
   process::Resources resources{1, 128, resource_name};
 
-  _app_create.add_process(backend, poller, proc_name, std::move(resources));
+  _app_create.add_process(backend, poller, proc_name, std::move(resources), false);
 
   // Manually change the process to be allocated.
   {
@@ -77,12 +77,10 @@ TEST_F(SwapProcessTest, SwapProcessFail)
   std::string resource_name{"sandbox"};
   process::Resources resources{1, 128, resource_name};
 
-  _app_create.add_process(backend, poller, proc_name, std::move(resources));
+  _app_create.add_process(backend, poller, proc_name, std::move(resources), false);
 
   // Incorrect swap of allocated process
-
   EXPECT_CALL(deployment, get_location(testing::_)).Times(0);
-
   EXPECT_THROW(_app_create.swap_process(proc_name, deployment), praas::common::InvalidProcessState);
 
   // Non-existing process
@@ -99,7 +97,7 @@ TEST_F(SwapProcessTest, FullSwapProcess)
   std::string resource_name{"sandbox"};
   process::Resources resources{1, 128, resource_name};
 
-  _app_create.add_process(backend, poller, proc_name, std::move(resources));
+  _app_create.add_process(backend, poller, proc_name, std::move(resources), false);
 
   // Manually change the process to be allocated.
   {
