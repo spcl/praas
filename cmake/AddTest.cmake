@@ -14,7 +14,13 @@ function(PraaS_AddTest component target_name test_file)
   target_link_libraries(${name} PRIVATE GTest::gtest_main)
   target_link_libraries(${name} PRIVATE GTest::gmock_main)
 
-  gtest_discover_tests(${name} TEST_PREFIX "${component}:")
+  # FIXME: the python path should only be set for a subset of tests
+  gtest_discover_tests(
+    ${name}
+    TEST_PREFIX "${component}:"
+    PROPERTIES ENVIRONMENT_MODIFICATION
+    "PYTHONPATH=path_list_append:${CMAKE_BINARY_DIR}/process"
+  )
 
   set(${target_name} ${name} PARENT_SCOPE)
 

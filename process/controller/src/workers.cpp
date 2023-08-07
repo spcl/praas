@@ -174,9 +174,6 @@ namespace praas::process {
                                       "invoker" / "cpp_invoker_exe"
                                 : std::filesystem::path{cfg.deployment_location} / "bin" /
                                       "invoker" / "cpp_invoker_exe";
-    // FIXME: enable this for further testing - integration test
-    // exec_path =
-    // "/work/serverless/2022/praas/code/build_debug/process/bin/invoker/cpp_invoker_exe";
     const char* argv[] = {
         exec_path.c_str(),
         "--process-id",
@@ -201,14 +198,8 @@ namespace praas::process {
 
     std::filesystem::path deployment_path =
         cfg.deployment_location.empty()
-            ? std::filesystem::path{"invoker"} / "python.py"
+            ? std::filesystem::canonical("/proc/self/exe").parent_path() / "invoker" / "python.py"
             : std::filesystem::path{cfg.deployment_location} / "bin" / "invoker" / "python.py";
-
-    // From process/bin/invoker/python.py -> process
-    auto python_lib_path = deployment_path.parent_path().parent_path().parent_path();
-    std::string env_var = fmt::format("PYTHONPATH={}", python_lib_path.c_str());
-    // This is safe because execvpe does not modify contents
-    char* envp[] = {const_cast<char*>(env_var.c_str()), 0};
 
     const char* argv[] = {
         python_runtime.c_str(),
@@ -225,7 +216,7 @@ namespace praas::process {
         cfg.code.config_location.c_str(),
         nullptr};
 
-    _workers.emplace_back(argv, cfg.ipc_mode, ipc_name, cfg.ipc_message_size, envp);
+    _workers.emplace_back(argv, cfg.ipc_mode, ipc_name, cfg.ipc_message_size);
   }
 
   Workers::Workers(config::Controller& cfg)
