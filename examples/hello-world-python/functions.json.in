@@ -1,0 +1,16 @@
+{{
+  "functions": {{
+    "python": {{
+      "hello-world": {{
+        "code": {{
+          "module": "{FUNCTIONS_DIRECTORY}/hello_world.py",
+          "function": "hello_world"
+        }},
+        "trigger": {{
+          "type": "direct",
+          "nargs": 1
+        }}
+      }}
+    }}
+  }}
+}}
