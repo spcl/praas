@@ -26,37 +26,6 @@
 
 using namespace praas::control_plane;
 
-// class MockWorkers : public worker::Workers {
-// public:
-//   MockWorkers(Resources& resources, backend::Backend& backend, deployment::Deployment&
-//   deployment)
-//       : worker::Workers(config::Workers{}, backend, deployment, resources)
-//   {
-//   }
-// };
-//
-// class MockDeployment : public deployment::Deployment {
-// public:
-//   MOCK_METHOD(std::unique_ptr<state::SwapLocation>, get_location, (std::string), (override));
-//   MOCK_METHOD(void, delete_swap, (const state::SwapLocation&), (override));
-// };
-//
-// class MockBackendInstance : public backend::ProcessInstance {
-// public:
-//   MOCK_METHOD(std::string, id, (), (const));
-// };
-//
-// class MockBackend : public backend::Backend {
-// public:
-//   MOCK_METHOD(
-//       std::shared_ptr<backend::ProcessInstance>, allocate_process,
-//       (process::ProcessPtr, const process::Resources&), (override)
-//   );
-//   MOCK_METHOD(void, shutdown, (const std::shared_ptr<backend::ProcessInstance>&), ());
-//   MOCK_METHOD(int, max_memory, (), (const));
-//   MOCK_METHOD(int, max_vcpus, (), (const));
-// };
-
 class HttpTCPIntegration : public ::testing::Test {
 protected:
   void SetUp() override
@@ -64,16 +33,9 @@ protected:
     ON_CALL(backend, max_memory()).WillByDefault(testing::Return(4096));
     ON_CALL(backend, max_vcpus()).WillByDefault(testing::Return(4));
 
-    // using callback_t = std::function<
-    //     void(std::shared_ptr<backend::ProcessInstance>&&, std::optional<std::string>)>;
-    // ON_CALL(backend, allocate_process(testing::_, testing::_, testing::_))
-    //     .WillByDefault([&](auto, const auto&, callback_t&& callback) {
-    //       callback(instance, "Failed allocation");
-    //     });
-
     workers.attach_tcpserver(server);
 
-    spdlog::set_level(spdlog::level::debug);
+    cfg.port = 8100;
   }
 
   Resources resources;
@@ -81,6 +43,7 @@ protected:
   MockBackend backend;
   MockDeployment deployment;
   MockWorkers workers{backend, deployment};
+  config::HTTPServer cfg;
 
   config::TCPServer config;
   tcpserver::TCPServer server{config, workers};
@@ -89,7 +52,6 @@ protected:
 TEST_F(HttpTCPIntegration, Invoke)
 {
   // FIXME: config structure for http
-  config::HTTPServer cfg;
   cfg.max_payload_size = 5 * 1024 * 1024;
   auto http_server = std::make_shared<HttpServer>(cfg, workers);
   http_server->run();

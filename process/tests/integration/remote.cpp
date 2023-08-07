@@ -90,6 +90,7 @@ public:
     cfg.deployment_location =
         std::filesystem::canonical("/proc/self/exe").parent_path().parent_path();
 
+    cfg.port = DEFAULT_CONTROLLER_PORT;
     controller = std::make_unique<Controller>(cfg);
 
     controller_thread = std::thread{&Controller::start, controller.get()};
@@ -124,6 +125,8 @@ public:
   std::thread controller_thread;
   config::Controller cfg;
   std::unique_ptr<Controller> controller;
+
+  static constexpr int DEFAULT_CONTROLLER_PORT = 8200;
 
   // Results
   static constexpr int INVOC_COUNT = 4;
@@ -177,7 +180,7 @@ TEST_P(ProcessRemoteServer, DataPlaneInvocations)
   controller->set_remote(&server);
   server.poll();
 
-  praas::sdk::Process process{"localhost", 8080};
+  praas::sdk::Process process{"localhost", DEFAULT_CONTROLLER_PORT};
 
   ASSERT_TRUE(process.connect());
 

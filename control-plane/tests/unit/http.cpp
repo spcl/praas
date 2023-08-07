@@ -31,6 +31,8 @@ protected:
     praas::common::http::HTTPClientFactory::initialize(1);
 
     setup_mocks(backend);
+
+    cfg.port = 8150;
   }
 
   void TearDown() override
@@ -43,6 +45,7 @@ protected:
   MockBackend backend;
   MockDeployment deployment;
   worker::Workers workers{config::Workers{}, backend, deployment, resources};
+  config::HTTPServer cfg;
 
   config::TCPServer config;
   tcpserver::TCPServer server{config, workers};
@@ -50,7 +53,6 @@ protected:
 
 TEST_F(HttpServerTest, CreateApp)
 {
-  config::HTTPServer cfg;
   auto http_server = std::make_shared<HttpServer>(cfg, workers);
   http_server->run();
 
@@ -83,7 +85,6 @@ TEST_F(HttpServerTest, CreateApp)
 
 TEST_F(HttpServerTest, CreateProcess)
 {
-  config::HTTPServer cfg;
   auto http_server = std::make_shared<HttpServer>(cfg, workers);
   http_server->run();
 
@@ -130,7 +131,6 @@ TEST_F(HttpServerTest, CreateProcess)
 
 TEST_F(HttpServerTest, DeleteProcess)
 {
-  config::HTTPServer cfg;
   auto http_server = std::make_shared<HttpServer>(cfg, workers);
   http_server->run();
 
@@ -212,7 +212,6 @@ TEST_F(HttpServerTest, DeleteProcess)
 
 TEST_F(HttpServerTest, SwapProcess)
 {
-  config::HTTPServer cfg;
   auto http_server = std::make_shared<HttpServer>(cfg, workers);
   http_server->run();
 
@@ -322,7 +321,6 @@ TEST_F(HttpServerTest, SwapProcess)
 
 TEST_F(HttpServerTest, ListProcesses)
 {
-  config::HTTPServer cfg;
   auto http_server = std::make_shared<HttpServer>(cfg, workers);
   http_server->run();
 

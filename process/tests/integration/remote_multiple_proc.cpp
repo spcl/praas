@@ -164,6 +164,8 @@ public:
     return -1;
   }
 
+  static constexpr int DEFAULT_CONTROLLER_PORT = 8200;
+
   static constexpr int PROC_COUNT = 2;
   config::Controller cfg;
   std::array<std::thread, PROC_COUNT> controller_threads;
@@ -218,7 +220,7 @@ TEST_P(ProcessRemoteServers, GetPutCommunication)
 
   std::vector<std::unique_ptr<remote::TCPServer>> servers;
   for (int i = 0; i < PROC_COUNT; ++i) {
-    cfg.port = 8080 + i;
+    cfg.port = DEFAULT_CONTROLLER_PORT + i;
     servers.emplace_back(std::make_unique<remote::TCPServer>(*controllers[i].get(), cfg));
     controllers[i]->set_remote(servers.back().get());
     servers.back()->poll();
@@ -226,7 +228,7 @@ TEST_P(ProcessRemoteServers, GetPutCommunication)
 
   std::vector<praas::sdk::Process> processes;
   for (int i = 0; i < PROC_COUNT; ++i) {
-    processes.emplace_back(std::string{"localhost"}, 8080 + i);
+    processes.emplace_back(std::string{"localhost"}, DEFAULT_CONTROLLER_PORT + i);
     ASSERT_TRUE(processes.back().connect());
   }
 
@@ -238,12 +240,12 @@ TEST_P(ProcessRemoteServers, GetPutCommunication)
   msg.status_change(static_cast<int>(praas::common::Application::Status::ACTIVE));
   msg.process_id(controllers[1]->process_id());
   msg.ip_address("localhost");
-  msg.port(8080 + 1);
+  msg.port(DEFAULT_CONTROLLER_PORT + 1);
   processes[0].connection().write_n(msg.bytes(), msg.BUF_SIZE);
 
   msg.process_id(controllers[0]->process_id());
   msg.ip_address("localhost");
-  msg.port(8080);
+  msg.port(DEFAULT_CONTROLLER_PORT);
   processes[1].connection().write_n(msg.bytes(), msg.BUF_SIZE);
 
   auto buf = buffers.retrieve_buffer(BUF_LEN);
@@ -295,7 +297,7 @@ TEST_P(ProcessRemoteServers, SimultaenousMessaging)
 
   std::vector<std::unique_ptr<remote::TCPServer>> servers;
   for (int i = 0; i < PROC_COUNT; ++i) {
-    cfg.port = 8080 + i;
+    cfg.port = DEFAULT_CONTROLLER_PORT + i;
     servers.emplace_back(std::make_unique<remote::TCPServer>(*controllers[i].get(), cfg));
     controllers[i]->set_remote(servers.back().get());
     servers.back()->poll();
@@ -303,7 +305,7 @@ TEST_P(ProcessRemoteServers, SimultaenousMessaging)
 
   std::vector<praas::sdk::Process> processes;
   for (int i = 0; i < PROC_COUNT; ++i) {
-    processes.emplace_back(std::string{"localhost"}, 8080 + i);
+    processes.emplace_back(std::string{"localhost"}, DEFAULT_CONTROLLER_PORT + i);
     ASSERT_TRUE(processes.back().connect());
   }
 
@@ -315,12 +317,12 @@ TEST_P(ProcessRemoteServers, SimultaenousMessaging)
   msg.status_change(static_cast<int>(praas::common::Application::Status::ACTIVE));
   msg.process_id(controllers[1]->process_id());
   msg.ip_address("localhost");
-  msg.port(8080 + 1);
+  msg.port(DEFAULT_CONTROLLER_PORT + 1);
   processes[0].connection().write_n(msg.bytes(), msg.BUF_SIZE);
 
   msg.process_id(controllers[0]->process_id());
   msg.ip_address("localhost");
-  msg.port(8080);
+  msg.port(DEFAULT_CONTROLLER_PORT);
   processes[1].connection().write_n(msg.bytes(), msg.BUF_SIZE);
 
   auto buf = buffers.retrieve_buffer(BUF_LEN);
@@ -357,6 +359,7 @@ TEST_P(ProcessRemoteServers, SimultaenousMessaging)
 
 TEST_P(ProcessRemoteServers, RemoteInvocations)
 {
+  spdlog::set_level(spdlog::level::debug);
   SetUp(2);
 
   const int BUF_LEN = 1024;
@@ -364,7 +367,7 @@ TEST_P(ProcessRemoteServers, RemoteInvocations)
 
   std::vector<std::unique_ptr<remote::TCPServer>> servers;
   for (int i = 0; i < PROC_COUNT; ++i) {
-    cfg.port = 8080 + i;
+    cfg.port = DEFAULT_CONTROLLER_PORT + i;
     servers.emplace_back(std::make_unique<remote::TCPServer>(*controllers[i].get(), cfg));
     controllers[i]->set_remote(servers.back().get());
     servers.back()->poll();
@@ -372,7 +375,7 @@ TEST_P(ProcessRemoteServers, RemoteInvocations)
 
   std::vector<praas::sdk::Process> processes;
   for (int i = 0; i < PROC_COUNT; ++i) {
-    processes.emplace_back(std::string{"localhost"}, 8080 + i);
+    processes.emplace_back(std::string{"localhost"}, DEFAULT_CONTROLLER_PORT + i);
     ASSERT_TRUE(processes.back().connect());
   }
 
@@ -386,12 +389,12 @@ TEST_P(ProcessRemoteServers, RemoteInvocations)
   msg.status_change(static_cast<int>(praas::common::Application::Status::ACTIVE));
   msg.process_id(controllers[1]->process_id());
   msg.ip_address("localhost");
-  msg.port(8080 + 1);
+  msg.port(DEFAULT_CONTROLLER_PORT + 1);
   processes[0].connection().write_n(msg.bytes(), msg.BUF_SIZE);
 
   msg.process_id(controllers[0]->process_id());
   msg.ip_address("localhost");
-  msg.port(8080);
+  msg.port(DEFAULT_CONTROLLER_PORT);
   processes[1].connection().write_n(msg.bytes(), msg.BUF_SIZE);
 
   std::vector<std::thread> invoc_threads;
@@ -435,7 +438,7 @@ TEST_P(ProcessRemoteServers, RemoteInvocationsUnknown)
 
   std::vector<std::unique_ptr<remote::TCPServer>> servers;
   for (int i = 0; i < PROC_COUNT; ++i) {
-    cfg.port = 8080 + i;
+    cfg.port = DEFAULT_CONTROLLER_PORT + i;
     servers.emplace_back(std::make_unique<remote::TCPServer>(*controllers[i].get(), cfg));
     controllers[i]->set_remote(servers.back().get());
     servers.back()->poll();
@@ -443,7 +446,7 @@ TEST_P(ProcessRemoteServers, RemoteInvocationsUnknown)
 
   std::vector<praas::sdk::Process> processes;
   for (int i = 0; i < PROC_COUNT; ++i) {
-    processes.emplace_back(std::string{"localhost"}, 8080 + i);
+    processes.emplace_back(std::string{"localhost"}, DEFAULT_CONTROLLER_PORT + i);
     ASSERT_TRUE(processes.back().connect());
   }
 
@@ -458,12 +461,12 @@ TEST_P(ProcessRemoteServers, RemoteInvocationsUnknown)
   msg.status_change(static_cast<int>(praas::common::Application::Status::ACTIVE));
   msg.process_id(controllers[1]->process_id());
   msg.ip_address("localhost");
-  msg.port(8080 + 1);
+  msg.port(DEFAULT_CONTROLLER_PORT + 1);
   processes[0].connection().write_n(msg.bytes(), msg.BUF_SIZE);
 
   msg.process_id(controllers[0]->process_id());
   msg.ip_address("localhost");
-  msg.port(8080);
+  msg.port(DEFAULT_CONTROLLER_PORT);
   processes[1].connection().write_n(msg.bytes(), msg.BUF_SIZE);
 
   std::vector<std::thread> invoc_threads;
