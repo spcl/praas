@@ -73,12 +73,12 @@ TASK_DEFINITION = {
                     "protocol": "tcp"
                 }
             ],
-            "essential": True,            
+            "essential": True,
             "logConfiguration": {
-            "logDriver": "awslogs",
+                "logDriver": "awslogs",
                 "options": {
                     "awslogs-create-group": "true",
-                    "awslogs-group": "/ecs/new-test-task",
+                    "awslogs-group": "",
                     "awslogs-region": "us-east-1",
                     "awslogs-stream-prefix": "ecs"
                 }
@@ -254,7 +254,7 @@ def push_image(name: str, image_idx: int, input_config: str, output_config: str)
     image_tag = deployment.images[image_idx]
     image_name = f"{deployment.ecr_registry_uri}:{image_tag}"
     TASK_DEFINITION['containerDefinitions'][0]['image'] = image_name
-    TASK_DEFINITION['containerDefinitions'][0]['logDriver']['options']['awslogs-group'] = f"/ecs/{name}"
+    TASK_DEFINITION['containerDefinitions'][0]['logConfiguration']['options']['awslogs-group'] = f"/ecs/{name}"
 
     res = client.register_task_definition(
         **TASK_DEFINITION
