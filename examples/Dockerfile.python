@@ -1,0 +1,7 @@
+FROM spcleth/praas:process-python
+ARG example
+
+ADD ${example}/ /function
+ADD configure.py /function
+RUN /function/configure.py /function/functions.json.in /function/functions.json /function && rm /function/functions.json.in && rm /function/configure.py
+

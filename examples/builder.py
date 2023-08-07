@@ -20,7 +20,7 @@ try:
     image, output = client.images.build(
         path='examples',
         tag=f'spcleth/praas-examples:{args.example}-{args.language}',
-        dockerfile='Dockerfile',
+        dockerfile=f'Dockerfile.{args.language}',
         buildargs={
             'example': f'{args.example}-{args.language}'
         }
