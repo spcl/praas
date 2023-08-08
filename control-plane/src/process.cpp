@@ -80,6 +80,14 @@ namespace praas::control_plane::process {
 
     _connection = std::move(connectionPtr);
     _status = Status::ALLOCATED;
+
+    // Now send pending invocations. Lock prevents adding more invocations,
+    // and by the time we are finishing, the direct connection will be already up
+    // and invocation can be submitted directly.
+    // Thus, no invocation should be lost.
+    send_invocations();
+
+    this->created_callback(std::nullopt);
   }
 
   void Process::close_connection()
@@ -231,13 +239,24 @@ namespace praas::control_plane::process {
           return;
         }
 
-        _creation_callback(this->shared_from_this(), std::nullopt);
+        // Created callback can be called by process connection, or by
+        // the backend returning information.
+        // For example, Fargate needs to query the IP address.
+        // Only once we have, we can call back HTTP query.
+        _handle->connect([this](const std::optional<std::string>& error_msg) {
+          if (error_msg.has_value()) {
+            _creation_callback(nullptr, error_msg);
+          } else {
+            _creation_callback(this->shared_from_this(), std::nullopt);
+          }
+          _creation_callback = nullptr;
+        });
       } else {
 
         // Failure is always reported.
         _creation_callback(nullptr, error_msg);
+        _creation_callback = nullptr;
       }
-      _creation_callback = nullptr;
     }
   }
 

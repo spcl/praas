@@ -6,9 +6,14 @@
 #include <praas/control-plane/application.hpp>
 #include <praas/control-plane/config.hpp>
 
-#include <aws/ecs/ECSClient.h>
+#include <aws/core/client/AsyncCallerContext.h>
+#include <aws/ec2/model/DescribeNetworkInterfacesRequest.h>
+#include <aws/ec2/model/DescribeNetworkInterfacesResponse.h>
+#include <aws/ec2/model/IpamPoolAwsService.h>
 #include <aws/ecs/ECSServiceClientModel.h>
 #include <aws/ecs/model/AssignPublicIp.h>
+#include <aws/ecs/model/DescribeTasksRequest.h>
+#include <aws/ecs/model/DescribeTasksResult.h>
 #include <aws/ecs/model/LaunchType.h>
 #include <aws/ecs/model/RunTaskRequest.h>
 #include <aws/ecs/model/RunTaskResult.h>
@@ -134,7 +139,8 @@ namespace praas::control_plane::backend {
     _logger = common::util::create_logger("FargateBackend");
 
     InitAPI(_options);
-    _client = std::make_unique<Aws::ECS::ECSClient>();
+    _client = std::make_shared<Aws::ECS::ECSClient>();
+    _ec2_client = std::make_shared<Aws::EC2::EC2Client>();
 
     std::ifstream cfg_input{cfg.fargate_config};
     // FIXME: error handling
@@ -149,11 +155,113 @@ namespace praas::control_plane::backend {
     ShutdownAPI(_options);
   }
 
+  void FargateBackend::FargateInstance::
+      _callback_task_describe(const Aws::ECS::ECSClient* /*unused*/, const Aws::ECS::Model::DescribeTasksRequest&, const Aws::ECS::Model::DescribeTasksOutcome& result, const std::shared_ptr<const Aws::Client::AsyncCallerContext>&)
+  {
+    if (result.IsSuccess()) {
+
+      if (result.GetResult().GetTasks().empty()) {
+        this->_connected_callback(
+            fmt::format("Couldn't query the ENI interface of task {}", container_id)
+        );
+        return;
+      }
+
+      if (result.GetResult().GetTasks()[0].GetAttachments().empty()) {
+        this->_connected_callback(
+            fmt::format("Couldn't query the ENI interface of task {}", container_id)
+        );
+        return;
+      }
+
+      for (auto& obj : result.GetResult().GetTasks()[0].GetAttachments()[0].GetDetails()) {
+        if (obj.GetName() == "networkInterfaceId") {
+          eni_interface = obj.GetValue();
+        }
+      }
+
+    } else {
+      this->_connected_callback(fmt::format(
+          "Couldn't query the ENI interface of task {}, error {}", container_id,
+          result.GetError().GetMessage()
+      ));
+      return;
+    }
+
+    if (eni_interface.empty()) {
+      this->_connected_callback(
+          fmt::format("Couldn't query the ENI interface of task {}", container_id)
+      );
+      return;
+    }
+
+    Aws::EC2::Model::DescribeNetworkInterfacesRequest req;
+    req.SetNetworkInterfaceIds({eni_interface});
+
+    _ec2_client->DescribeNetworkInterfacesAsync(
+        req,
+        [this](auto* ptr, auto res, auto outcome, auto& context) mutable {
+          _callback_describe_eni(ptr, res, outcome, context);
+        }
+    );
+  }
+
+  void FargateBackend::FargateInstance::
+      _callback_describe_eni(const Aws::EC2::EC2Client* /*unused*/, const Aws::EC2::Model::DescribeNetworkInterfacesRequest&, const Aws::EC2::Model::DescribeNetworkInterfacesOutcome& result, const std::shared_ptr<const Aws::Client::AsyncCallerContext>&)
+  {
+    if (result.IsSuccess()) {
+
+      if (result.GetResult().GetNetworkInterfaces().empty()) {
+        this->_connected_callback(
+            fmt::format("Couldn't query the IP address of ENI interface {}", eni_interface)
+        );
+      } else {
+        this->ip_address =
+            result.GetResult().GetNetworkInterfaces()[0].GetAssociation().GetPublicIp();
+
+        this->_connected_callback(std::nullopt);
+      };
+    } else {
+      this->_connected_callback(
+          fmt::format("Fargate initialization failed, reason: {}", result.GetError().GetMessage())
+      );
+    }
+  }
+
+  void FargateBackend::FargateInstance::connect(
+      std::function<void(const std::optional<std::string>&)>&& callback
+  )
+  {
+    this->_connected_callback = std::move(callback);
+
+    // Find the ENI interface
+    Aws::ECS::Model::DescribeTasksRequest req;
+    req.WithCluster(cluster_name);
+    // req.SetTasks({"7ed0afc1-1cef-4570-8740-5cab2d221bdf"});
+    req.SetTasks({container_id});
+
+    _ecs_client->DescribeTasksAsync(
+        req,
+        [this](auto* ptr, auto res, auto outcome, auto& context) mutable {
+          _callback_task_describe(ptr, res, outcome, context);
+        }
+    );
+  }
+
   void FargateBackend::allocate_process(
       process::ProcessPtr process, const process::Resources& resources,
       std::function<void(std::shared_ptr<ProcessInstance>&&, std::optional<std::string>)>&& callback
   )
   {
+    std::string cluster_name = _fargate_config["cluster_name"].asString();
+    // std::string task_arn =
+    //     "arn:aws:ecs:us-east-1:261490803749:task/test-cluster/e4ae9f36d21546f6948b03629b24610f";
+    // callback(
+    //     std::make_shared<FargateInstance>(
+    //         8000, "e4ae9f36d21546f6948b03629b24610f", cluster_name, _client, _ec2_client
+    //     ),
+    //     std::nullopt
+    //);
     Aws::ECS::Model::RunTaskRequest req;
     req.SetCluster(_fargate_config["cluster_name"].asString());
     req.SetTaskDefinition(_fargate_config["tasks"][0]["arn"].asString());
@@ -185,20 +293,18 @@ namespace praas::control_plane::backend {
 
     _client->RunTaskAsync(
         req,
-        [callback = std::move(callback),
+        [=, callback = std::move(callback),
          this](const Aws::ECS::ECSClient* /*unused*/, const Aws::ECS::Model::RunTaskRequest&, const Aws::ECS::Model::RunTaskOutcome& result, const std::shared_ptr<const Aws::Client::AsyncCallerContext>&) mutable {
           if (result.IsSuccess()) {
             const auto& task = result.GetResult().GetTasks().front();
-            callback(std::make_shared<FargateInstance>(8000, task.GetTaskArn()), std::nullopt);
+            callback(
+                std::make_shared<FargateInstance>(
+                    8000, task.GetTaskArn(), cluster_name, _client, _ec2_client
+                ),
+                std::nullopt
+            );
           } else {
-            _logger->error("Starting task failed!");
-            _logger->error(result.GetResult().GetTasks().size());
-            _logger->error(result.GetResult().GetFailures().size());
-            _logger->error(result.GetError().GetMessage());
-            for (auto& err : result.GetResult().GetFailures()) {
-              _logger->error(err.GetReason());
-            }
-            callback(nullptr, "Fargate error");
+            callback(nullptr, fmt::format("Fargate error: {}", result.GetError().GetMessage()));
           }
         }
     );

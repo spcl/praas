@@ -5,6 +5,8 @@
 #include <praas/control-plane/process.hpp>
 
 #include <aws/core/Aws.h>
+#include <aws/ec2/EC2Client.h>
+#include <aws/ecs/ECSClient.h>
 
 #include <memory>
 
@@ -22,18 +24,37 @@ namespace praas::control_plane::process {
 
 } // namespace praas::control_plane::process
 
+namespace Aws::Client {
+
+  class AsyncCallerContext;
+
+} // namespace Aws::Client
+
 namespace Aws::ECS {
 
   class ECSClient;
 
 } // namespace Aws::ECS
 
+namespace Aws::EC2 {
+
+  class EC2Client;
+
+} // namespace Aws::EC2
+
 namespace Aws::ECS::Model {
 
   class RunTaskRequest;
   class RunTaskResult;
+  class DescribeTasksRequest;
 
 } // namespace Aws::ECS::Model
+
+namespace Aws::EC2::Model {
+
+  class DescribeNetworkInterfacesRequest;
+
+} // namespace Aws::EC2::Model
 
 namespace praas::control_plane::backend {
 
@@ -46,6 +67,11 @@ namespace praas::control_plane::backend {
     ProcessInstance(std::string ip_address, int port)
         : ip_address(std::move(ip_address)), port(port)
     {
+    }
+
+    virtual void connect(std::function<void(const std::optional<std::string>&)>&& callback)
+    {
+      callback(std::nullopt);
     }
 
     virtual std::string id() const = 0;
@@ -157,8 +183,13 @@ namespace praas::control_plane::backend {
 
     struct FargateInstance : public ProcessInstance {
 
-      FargateInstance(int port, std::string container_id)
-          : ProcessInstance("", port), container_id(container_id)
+      FargateInstance(
+          int port, std::string container_id, std::string cluster_name,
+          std::shared_ptr<Aws::ECS::ECSClient>& ecs_client,
+          std::shared_ptr<Aws::EC2::EC2Client>& ec2_client
+      )
+          : ProcessInstance("", port), container_id(container_id), cluster_name(cluster_name),
+            _connected_callback(nullptr), _ecs_client(ecs_client), _ec2_client(ec2_client)
       {
       }
 
@@ -167,7 +198,23 @@ namespace praas::control_plane::backend {
         return container_id;
       }
 
+      virtual void connect(std::function<void(const std::optional<std::string>&)>&& callback);
+
       std::string container_id;
+
+      std::string cluster_name;
+
+      std::string eni_interface{};
+
+      std::function<void(const std::optional<std::string>&)> _connected_callback;
+
+      void
+      _callback_task_describe(const Aws::ECS::ECSClient* /*unused*/, const Aws::ECS::Model::DescribeTasksRequest&, const Aws::ECS::Model::DescribeTasksOutcome& result, const std::shared_ptr<const Aws::Client::AsyncCallerContext>&);
+      void
+      _callback_describe_eni(const Aws::EC2::EC2Client* /*unused*/, const Aws::EC2::Model::DescribeNetworkInterfacesRequest&, const Aws::EC2::Model::DescribeNetworkInterfacesOutcome& result, const std::shared_ptr<const Aws::Client::AsyncCallerContext>&);
+
+      std::shared_ptr<Aws::ECS::ECSClient> _ecs_client;
+      std::shared_ptr<Aws::EC2::EC2Client> _ec2_client;
     };
 
     FargateBackend(const config::BackendFargate& cfg);
@@ -192,7 +239,8 @@ namespace praas::control_plane::backend {
     Json::Value _fargate_config;
 
     Aws::SDKOptions _options;
-    std::unique_ptr<Aws::ECS::ECSClient> _client;
+    std::shared_ptr<Aws::ECS::ECSClient> _client;
+    std::shared_ptr<Aws::EC2::EC2Client> _ec2_client;
 
     std::vector<std::shared_ptr<ProcessInstance>> _instances;
   };

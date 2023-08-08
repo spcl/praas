@@ -261,16 +261,6 @@ namespace praas::control_plane::tcpserver {
       {
         process_ptr->write_lock();
         process_ptr->connect(conn);
-
-        // Created callback can be called by process connection, or by
-        // the backend returning information.
-        process_ptr->created_callback(std::nullopt);
-
-        // Now send pending invocations. Lock prevents adding more invocations,
-        // and by the time we are finishing, the direct connection will be already up
-        // and invocation can be submitted directly.
-        // Thus, no invocation should be lost.
-        process_ptr->send_invocations();
       }
 
       _num_registered_processes++;
