@@ -138,6 +138,9 @@ namespace praas::control_plane::backend {
   {
     _logger = common::util::create_logger("FargateBackend");
 
+    // https://github.com/aws/aws-sdk-cpp/issues/1410
+    putenv("AWS_EC2_METADATA_DISABLED=true");
+
     InitAPI(_options);
     _client = std::make_shared<Aws::ECS::ECSClient>();
     _ec2_client = std::make_shared<Aws::EC2::EC2Client>();
