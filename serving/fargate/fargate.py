@@ -212,11 +212,12 @@ def create_registry(name: str, input_config: str, output_config: str):
 @click.argument('image', type=str)
 @click.argument('input_config', type=str)
 @click.argument('output_config', type=str)
-def push_image(image: str, input_config: str, output_config: str):
+@click.option('--regenerate-token', is_flag=True)
+def push_image(image: str, input_config: str, output_config: str, regenerate_token: bool):
 
     deployment = load_deployment(input_config)
 
-    if deployment.ecr_authorization_token is None:
+    if deployment.ecr_authorization_token is None or regenerate_token:
         client = boto3.client('ecr', region_name=deployment.region)
         res = client.get_authorization_token(registryIds=[deployment.ecr_registry_id])
         token = res['authorizationData'][0]['authorizationToken']
@@ -228,7 +229,12 @@ def push_image(image: str, input_config: str, output_config: str):
     docker_client.login(username='AWS', password=deployment.ecr_authorization_token, registry=deployment.ecr_registry_uri)
     repo_path = deployment.ecr_registry_uri
     docker_client.images.get(image).tag(repository=repo_path, tag=tag)
-    docker_client.images.push(repository=repo_path, tag=tag)
+
+    # last line is empty
+    output = docker_client.images.push(repository=repo_path, tag=tag).split('\n')
+    last_line = json.loads(output[-2])
+    if 'error' in last_line:
+        logging.error(f"Failed pushing! Reasong: {last_line['error']}") 
 
     if tag not in deployment.images:
         deployment.images.append(tag)
@@ -244,7 +250,7 @@ def task():
 @click.argument('image_idx', type=int)
 @click.argument('input_config', type=str)
 @click.argument('output_config', type=str)
-def push_image(name: str, image_idx: int, input_config: str, output_config: str):
+def create_task(name: str, image_idx: int, input_config: str, output_config: str):
 
     deployment = load_deployment(input_config)
 
