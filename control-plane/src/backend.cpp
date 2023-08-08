@@ -267,7 +267,7 @@ namespace praas::control_plane::backend {
     //);
     Aws::ECS::Model::RunTaskRequest req;
     req.SetCluster(_fargate_config["cluster_name"].asString());
-    req.SetTaskDefinition(_fargate_config["tasks"][0]["arn"].asString());
+    req.SetTaskDefinition(process->application().resources().code_resource_name);
     req.SetLaunchType(Aws::ECS::Model::LaunchType::FARGATE);
 
     Aws::ECS::Model::NetworkConfiguration net_cfg;
