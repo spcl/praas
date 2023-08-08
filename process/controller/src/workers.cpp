@@ -55,6 +55,8 @@ namespace praas::process {
 
       it->second.payload.push_back(std::move(buffer));
 
+      it->second.start();
+
       // Now add the function to the queue
       _pending_invocations.push_back(&it->second);
     }
@@ -89,9 +91,11 @@ namespace praas::process {
     if (it == _active_invocations.end() || !(*it).second.active) {
       return std::nullopt;
     }
+    it->second.end();
 
     Invocation invoc = std::move((*it).second);
     _active_invocations.erase(it);
+    std::cerr << fmt::format("Invocation took {} ms", invoc.duration()) << std::endl;
 
     return invoc;
   }
