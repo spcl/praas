@@ -157,11 +157,17 @@ namespace praas::control_plane {
 
             spdlog::info("Allocated process {}", name);
             process->set_handle(std::move(instance));
+
+            // Avoid a race condition.
+            // Created callback can be called by process connection, or by
+            // the backend returning information.
+            // We wait until both information are provided.
+            process->created_callback(std::nullopt);
+
             {
               write_lock_t lock(_controlplane_mutex);
               _controlplane_processes.emplace_back(process);
             }
-            // callback(process, std::nullopt);
           } else {
 
             spdlog::error("Failed to allocate process!");
