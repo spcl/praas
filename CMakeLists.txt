@@ -69,6 +69,15 @@ endforeach()
 
 foreach(COMPONENT ${PRAAS_BACKENDS})
 
+  if(COMPONENT STREQUAL "fargate")
+    message(STATUS "Building Fargate backend for AWS cloud.")
+    set(PRAAS_WITH_BACKEND_FARGATE TRUE)
+    add_compile_definitions(WITH_FARGATE_BACKEND)
+    add_feature_info(backends ON "fargate")
+  else()
+    message(FATAL_ERROR "The backend ${COMPONENT} does not exist")
+  endif()
+
 endforeach()
 
 ###

@@ -91,6 +91,16 @@ namespace praas::control_plane::config {
     port = 8080;
   }
 
+  void BackendFargate::load(cereal::JSONInputArchive& archive)
+  {
+    archive(CEREAL_NVP(fargate_config));
+  }
+
+  void BackendFargate::set_defaults()
+  {
+    fargate_config = "";
+  }
+
   Config Config::deserialize(std::istream& in_stream)
   {
     Config cfg;
@@ -147,6 +157,10 @@ namespace praas::control_plane::config {
     this->backend_type = backend::deserialize(backend_type);
     if (this->backend_type == backend::Type::DOCKER) {
       auto ptr = std::make_unique<BackendDocker>();
+      common::util::cereal_load_optional(archive, "backend", *ptr);
+      this->backend = std::move(ptr);
+    } else if (this->backend_type == backend::Type::AWS_FARGATE) {
+      auto ptr = std::make_unique<BackendFargate>();
       common::util::cereal_load_optional(archive, "backend", *ptr);
       this->backend = std::move(ptr);
     }

@@ -6,13 +6,19 @@
 #include <praas/control-plane/application.hpp>
 #include <praas/control-plane/config.hpp>
 
+#include <aws/ecs/ECSClient.h>
+#include <aws/ecs/ECSServiceClientModel.h>
+#include <aws/ecs/model/AssignPublicIp.h>
+#include <aws/ecs/model/LaunchType.h>
+#include <aws/ecs/model/RunTaskRequest.h>
+#include <aws/ecs/model/RunTaskResult.h>
 #include <drogon/HttpTypes.h>
 #include <fcntl.h>
 #include <sys/signal.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include <drogon/drogon.h>
+#include <fstream>
 
 namespace praas::control_plane::backend {
 
@@ -34,6 +40,11 @@ namespace praas::control_plane::backend {
     if (cfg.backend_type == Type::DOCKER) {
       return std::make_unique<DockerBackend>(*dynamic_cast<config::BackendDocker*>(cfg.backend.get()
       ));
+    }
+    if (cfg.backend_type == Type::AWS_FARGATE) {
+      return std::make_unique<FargateBackend>(
+          *dynamic_cast<config::BackendFargate*>(cfg.backend.get())
+      );
     }
     return nullptr;
   }
@@ -114,6 +125,97 @@ namespace praas::control_plane::backend {
   }
 
   int DockerBackend::max_vcpus() const
+  {
+    return 1;
+  }
+
+  FargateBackend::FargateBackend(const config::BackendFargate& cfg)
+  {
+    _logger = common::util::create_logger("FargateBackend");
+
+    InitAPI(_options);
+    _client = std::make_unique<Aws::ECS::ECSClient>();
+
+    std::ifstream cfg_input{cfg.fargate_config};
+    // FIXME: error handling
+    if (cfg_input.is_open()) {
+      cfg_input >> _fargate_config;
+    }
+  }
+
+  FargateBackend::~FargateBackend()
+  {
+    // FIXME: kill tasks
+    ShutdownAPI(_options);
+  }
+
+  void FargateBackend::allocate_process(
+      process::ProcessPtr process, const process::Resources& resources,
+      std::function<void(std::shared_ptr<ProcessInstance>&&, std::optional<std::string>)>&& callback
+  )
+  {
+    Aws::ECS::Model::RunTaskRequest req;
+    req.SetCluster(_fargate_config["cluster_name"].asString());
+    req.SetTaskDefinition(_fargate_config["tasks"][0]["arn"].asString());
+    req.SetLaunchType(Aws::ECS::Model::LaunchType::FARGATE);
+
+    Aws::ECS::Model::NetworkConfiguration net_cfg;
+    Aws::ECS::Model::AwsVpcConfiguration aws_net_cfg;
+    auto subnet = _fargate_config["subnet"].asString();
+    aws_net_cfg.SetSubnets({subnet});
+    aws_net_cfg.SetAssignPublicIp(Aws::ECS::Model::AssignPublicIp::ENABLED);
+    net_cfg.SetAwsvpcConfiguration(aws_net_cfg);
+    req.SetNetworkConfiguration(net_cfg);
+
+    Aws::ECS::Model::TaskOverride task_override;
+    // FIXME: test and reenable
+    // task_override.SetCpu(std::to_string(resources.vcpus));
+    // task_override.SetMemory(std::to_string(resources.memory));
+
+    Aws::ECS::Model::ContainerOverride env;
+    auto controlplane_addr = fmt::format("{}:{}", _tcp_ip, _tcp_port);
+    env.SetEnvironment(
+        {Aws::ECS::Model::KeyValuePair{}.WithName("CONTROLPLANE_ADDR").WithValue(controlplane_addr),
+         Aws::ECS::Model::KeyValuePair{}.WithName("PROCESS_ID").WithValue(process->name())}
+    );
+    env.SetName("process");
+
+    task_override.SetContainerOverrides({env});
+    req.SetOverrides(task_override);
+
+    _client->RunTaskAsync(
+        req,
+        [callback = std::move(callback),
+         this](const Aws::ECS::ECSClient* /*unused*/, const Aws::ECS::Model::RunTaskRequest&, const Aws::ECS::Model::RunTaskOutcome& result, const std::shared_ptr<const Aws::Client::AsyncCallerContext>&) mutable {
+          if (result.IsSuccess()) {
+            const auto& task = result.GetResult().GetTasks().front();
+            callback(std::make_shared<FargateInstance>(8000, task.GetTaskArn()), std::nullopt);
+          } else {
+            _logger->error("Starting task failed!");
+            _logger->error(result.GetResult().GetTasks().size());
+            _logger->error(result.GetResult().GetFailures().size());
+            _logger->error(result.GetError().GetMessage());
+            for (auto& err : result.GetResult().GetFailures()) {
+              _logger->error(err.GetReason());
+            }
+            callback(nullptr, "Fargate error");
+          }
+        }
+    );
+  }
+
+  void FargateBackend::shutdown(const std::shared_ptr<ProcessInstance>& instance)
+  {
+    // FIXME: send call to erase
+    std::erase(_instances, instance);
+  }
+
+  int FargateBackend::max_memory() const
+  {
+    return 1024;
+  }
+
+  int FargateBackend::max_vcpus() const
   {
     return 1;
   }

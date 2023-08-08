@@ -4,11 +4,14 @@
 #include <praas/common/http.hpp>
 #include <praas/control-plane/process.hpp>
 
+#include <aws/core/Aws.h>
+
 #include <memory>
 
 namespace praas::control_plane::config {
 
   struct BackendDocker;
+  struct BackendFargate;
   struct Config;
 
 } // namespace praas::control_plane::config
@@ -18,6 +21,19 @@ namespace praas::control_plane::process {
   struct Resources;
 
 } // namespace praas::control_plane::process
+
+namespace Aws::ECS {
+
+  class ECSClient;
+
+} // namespace Aws::ECS
+
+namespace Aws::ECS::Model {
+
+  class RunTaskRequest;
+  class RunTaskResult;
+
+} // namespace Aws::ECS::Model
 
 namespace praas::control_plane::backend {
 
@@ -134,6 +150,53 @@ namespace praas::control_plane::backend {
 
     std::vector<std::shared_ptr<ProcessInstance>> _instances;
   };
+
+#if defined(WITH_FARGATE_BACKEND)
+
+  struct FargateBackend : Backend {
+
+    struct FargateInstance : public ProcessInstance {
+
+      FargateInstance(int port, std::string container_id)
+          : ProcessInstance("", port), container_id(container_id)
+      {
+      }
+
+      std::string id() const override
+      {
+        return container_id;
+      }
+
+      std::string container_id;
+    };
+
+    FargateBackend(const config::BackendFargate& cfg);
+
+    ~FargateBackend() override;
+
+    void allocate_process(
+        process::ProcessPtr, const process::Resources& resources,
+        std::function<void(std::shared_ptr<ProcessInstance>&&, std::optional<std::string>)>&&
+            callback
+    ) override;
+
+    void shutdown(const std::shared_ptr<ProcessInstance>&) override;
+
+    int max_memory() const override;
+
+    int max_vcpus() const override;
+
+  private:
+    std::shared_ptr<spdlog::logger> _logger;
+
+    Json::Value _fargate_config;
+
+    Aws::SDKOptions _options;
+    std::unique_ptr<Aws::ECS::ECSClient> _client;
+
+    std::vector<std::shared_ptr<ProcessInstance>> _instances;
+  };
+#endif
 
 } // namespace praas::control_plane::backend
 

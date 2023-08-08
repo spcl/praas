@@ -86,6 +86,13 @@ namespace praas::control_plane::config {
     void set_defaults();
   };
 
+  struct BackendFargate : Backend {
+    std::string fargate_config;
+
+    void load(cereal::JSONInputArchive& archive);
+    void set_defaults();
+  };
+
   struct Deployment {};
 
   struct Config {
