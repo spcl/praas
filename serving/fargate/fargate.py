@@ -103,6 +103,7 @@ class FargateTask:
 @dataclass
 class FargateDeployment:
     region: str
+    subnet: str
     images: List[str] = field(default_factory=list)
     tasks: List[FargateTask] = field(default_factory=list)
 
