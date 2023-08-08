@@ -92,7 +92,8 @@ namespace praas::sdk {
           if (result != drogon::ReqResult::Ok || response->getStatusCode() != drogon::k200OK) {
             res.return_code = 1;
             auto json = response->getJsonObject();
-            _last_error = (*json)["reason"].asString();
+            res.error_message = (*json)["reason"].asString();
+
             p.set_value();
             return;
           }
