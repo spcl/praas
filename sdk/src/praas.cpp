@@ -2,6 +2,7 @@
 
 #include <future>
 
+#include <drogon/HttpTypes.h>
 #include <spdlog/fmt/fmt.h>
 
 namespace praas::sdk {
@@ -28,16 +29,19 @@ namespace praas::sdk {
     req->setPath(fmt::format("/apps/{}", application));
     req->setParameter("cloud_resource_name", cloud_resource_name);
 
-    std::promise<void> p;
-    bool status = false;
+    std::promise<bool> p;
 
-    _http_client->sendRequest(req, [&](drogon::ReqResult, const drogon::HttpResponsePtr& response) {
-      status = response->getStatusCode() == drogon::k200OK;
-      p.set_value();
-    });
-    p.get_future().wait();
-
-    return status;
+    _http_client->sendRequest(
+        req,
+        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          if (result == drogon::ReqResult::Ok) {
+            p.set_value(response->getStatusCode() == drogon::k200OK);
+          } else {
+            p.set_value(false);
+          }
+        }
+    );
+    return p.get_future().get();
   }
 
   std::optional<Process> PraaS::create_process(
@@ -50,14 +54,21 @@ namespace praas::sdk {
     req->setParameter("vcpus", std::to_string(vcpus));
     req->setParameter("memory", std::to_string(memory));
 
-    std::promise<Process> p;
+    std::promise<std::optional<Process>> p;
 
-    _http_client->sendRequest(req, [&](drogon::ReqResult, const drogon::HttpResponsePtr& response) {
-      auto& json_obj = *response->getJsonObject();
-      auto ip_addr = json_obj["connection"]["ip-address"].asString();
-      auto port = json_obj["connection"]["port"].asInt();
-      p.set_value(Process{ip_addr, port, false});
-    });
+    _http_client->sendRequest(
+        req,
+        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          if (result == drogon::ReqResult::Ok) {
+            auto& json_obj = *response->getJsonObject();
+            auto ip_addr = json_obj["connection"]["ip-address"].asString();
+            auto port = json_obj["connection"]["port"].asInt();
+            p.set_value(Process{ip_addr, port, false});
+          } else {
+            p.set_value(std::nullopt);
+          }
+        }
+    );
     return p.get_future().get();
   }
 
