@@ -92,7 +92,7 @@ namespace praas::process {
 
     long duration() const
     {
-      return std::chrono::duration_cast<std::chrono::milliseconds>(
+      return std::chrono::duration_cast<std::chrono::microseconds>(
                  invocation_end - invocation_start
       )
           .count();

@@ -95,7 +95,7 @@ namespace praas::process {
 
     Invocation invoc = std::move((*it).second);
     _active_invocations.erase(it);
-    std::cerr << fmt::format("Invocation took {} ms", invoc.duration()) << std::endl;
+    std::cerr << fmt::format("Invocation took {} us", invoc.duration()) << std::endl;
 
     return invoc;
   }
