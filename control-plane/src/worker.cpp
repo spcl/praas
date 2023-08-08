@@ -10,9 +10,10 @@
 #include <praas/control-plane/server.hpp>
 
 #include <charconv>
-#include <drogon/HttpTypes.h>
+#include <chrono>
 #include <thread>
 
+#include <drogon/HttpTypes.h>
 #include <sockpp/tcp_connector.h>
 #include <spdlog/spdlog.h>
 
@@ -20,7 +21,7 @@ namespace praas::control_plane::worker {
 
   void Workers::handle_invocation(
       HttpServer::request_t request, HttpServer::callback_t&& callback, const std::string& app_id,
-      std::string function_name
+      std::string function_name, std::chrono::high_resolution_clock::time_point start
   )
   {
     Resources::RWAccessor acc;
@@ -38,12 +39,14 @@ namespace praas::control_plane::worker {
       // FIXME: make resources configurable
       acc.get()->get_controlplane_process(
           _backend, *_server, process::Resources{1, 2048, ""},
-          [function_name, request = std::move(request), callback = std::move(callback)](
+          [start, function_name, request = std::move(request), callback = std::move(callback)](
               process::ProcessPtr proc_ptr, const std::optional<std::string>& error_msg
           ) mutable {
             if (proc_ptr) {
               proc_ptr->write_lock();
-              proc_ptr->add_invocation(std::move(request), std::move(callback), function_name);
+              proc_ptr->add_invocation(
+                  std::move(request), std::move(callback), function_name, start
+              );
             } else {
               callback(
                   HttpServer::failed_response(error_msg.value(), drogon::k500InternalServerError)

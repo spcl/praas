@@ -8,6 +8,7 @@
 #include <praas/control-plane/resources.hpp>
 #include <praas/control-plane/worker.hpp>
 
+#include <chrono>
 #include <drogon/HttpAppFramework.h>
 #include <drogon/HttpTypes.h>
 #include <future>
@@ -141,8 +142,10 @@ namespace praas::control_plane {
   )
   {
     _logger->info("Push new invocation request of {}", function_name);
+    auto start = std::chrono::high_resolution_clock::now();
     _workers.add_task(
-        &worker::Workers::handle_invocation, request, std::move(callback), app_name, function_name
+        &worker::Workers::handle_invocation, request, std::move(callback), app_name, function_name,
+        start
     );
   }
 
