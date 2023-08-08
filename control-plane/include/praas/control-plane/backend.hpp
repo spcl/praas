@@ -4,9 +4,9 @@
 #include <praas/common/http.hpp>
 #include <praas/control-plane/process.hpp>
 
+#if defined(WITH_FARGATE_BACKEND)
 #include <aws/core/Aws.h>
-#include <aws/ec2/EC2Client.h>
-#include <aws/ecs/ECSClient.h>
+#endif
 
 #include <memory>
 
@@ -24,6 +24,7 @@ namespace praas::control_plane::process {
 
 } // namespace praas::control_plane::process
 
+#if defined(WITH_FARGATE_BACKEND)
 namespace Aws::Client {
 
   class AsyncCallerContext;
@@ -55,6 +56,7 @@ namespace Aws::EC2::Model {
   class DescribeNetworkInterfacesRequest;
 
 } // namespace Aws::EC2::Model
+#endif
 
 namespace praas::control_plane::backend {
 

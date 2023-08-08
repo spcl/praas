@@ -6,6 +6,7 @@
 #include <praas/control-plane/application.hpp>
 #include <praas/control-plane/config.hpp>
 
+#if defined(WITH_FARGATE_BACKEND)
 #include <aws/core/client/AsyncCallerContext.h>
 #include <aws/ec2/model/DescribeNetworkInterfacesRequest.h>
 #include <aws/ec2/model/DescribeNetworkInterfacesResponse.h>
@@ -17,6 +18,8 @@
 #include <aws/ecs/model/LaunchType.h>
 #include <aws/ecs/model/RunTaskRequest.h>
 #include <aws/ecs/model/RunTaskResult.h>
+#endif
+
 #include <drogon/HttpTypes.h>
 #include <fcntl.h>
 #include <sys/signal.h>
@@ -46,11 +49,13 @@ namespace praas::control_plane::backend {
       return std::make_unique<DockerBackend>(*dynamic_cast<config::BackendDocker*>(cfg.backend.get()
       ));
     }
+#if defined(WITH_FARGATE_BACKEND)
     if (cfg.backend_type == Type::AWS_FARGATE) {
       return std::make_unique<FargateBackend>(
           *dynamic_cast<config::BackendFargate*>(cfg.backend.get())
       );
     }
+#endif
     return nullptr;
   }
 
@@ -134,6 +139,7 @@ namespace praas::control_plane::backend {
     return 1;
   }
 
+#if defined(WITH_FARGATE_BACKEND)
   FargateBackend::FargateBackend(const config::BackendFargate& cfg)
   {
     _logger = common::util::create_logger("FargateBackend");
@@ -328,5 +334,6 @@ namespace praas::control_plane::backend {
   {
     return 1;
   }
+#endif
 
 } // namespace praas::control_plane::backend
