@@ -42,6 +42,10 @@ function(control_plane_link tgt)
   target_link_libraries(${tgt} PRIVATE cereal::cereal)
   target_link_libraries(${tgt} PRIVATE fmt::fmt)
 
+  if(PRAAS_WITH_BACKEND_FARGATE OR PRAAS_WITH_DEPLOYMENT_AWS)
+    target_link_libraries(${tgt} PUBLIC ${AWSSDK_LINK_LIBRARIES})
+  endif()
+
 endfunction()
 
 ###

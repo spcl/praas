@@ -159,6 +159,15 @@ else()
   message(STATUS "Found drogon dependency")
 endif()
 
+###
+# aws sdk
+###
+# FIXME: found only components that are necessary
+find_package(AWSSDK REQUIRED COMPONENTS ec2 s3 ecs)
+if(NOT AWSSDK_FOUND)
+  message(FATAL_ERROR "Couldn't find AWS!")
+endif()
+
 if(PRAAS_WITH_TESTING)
 
   ###
