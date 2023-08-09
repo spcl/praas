@@ -1,0 +1,46 @@
+{{
+  "functions": {{
+    "python": {{
+      "compile": {{
+        "code": {{
+          "module": "{FUNCTIONS_DIRECTORY}/compile.py",
+          "function": "compile"
+        }},
+        "trigger": {{
+          "type": "direct",
+          "nargs": 1
+        }}
+      }},
+      "get-file": {{
+        "code": {{
+          "module": "{FUNCTIONS_DIRECTORY}/files.py",
+          "function": "get_file"
+        }},
+        "trigger": {{
+          "type": "direct",
+          "nargs": 1
+        }}
+      }},
+      "update-file": {{
+        "code": {{
+          "module": "{FUNCTIONS_DIRECTORY}/files.py",
+          "function": "update_file"
+        }},
+        "trigger": {{
+          "type": "direct",
+          "nargs": 1
+        }}
+      }},
+      "get-pdf": {{
+        "code": {{
+          "module": "{FUNCTIONS_DIRECTORY}/compile.py",
+          "function": "get_pdf"
+        }},
+        "trigger": {{
+          "type": "direct",
+          "nargs": 1
+        }}
+      }}
+    }}
+  }}
+}}

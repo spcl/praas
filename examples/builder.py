@@ -5,7 +5,7 @@ import argparse
 import docker
 
 BENCHMARKS = [
-    'hello-world'
+    'hello-world', 'latex-editor'
 ]
 
 parser = argparse.ArgumentParser(prog='Docker Builder')
@@ -15,6 +15,12 @@ parser.add_argument('-v', '--verbose', action='store_true')
 
 args = parser.parse_args()
 client = docker.from_env()
+
+def print_log(output):
+
+    for line in output:
+        if 'stream' in line:
+            print(line['stream'], end='')
 
 try:
     image, output = client.images.build(
@@ -28,8 +34,7 @@ try:
     print(f'Built image {image.tags}')
     if args.verbose:
         print("Build output")
-        for line in output:
-            if 'stream' in line:
-                print(line['stream'], end='')
+        print_log(output)
 except docker.errors.BuildError as e:
     print(e)
+    print_log(e.build_log)

@@ -1,7 +1,14 @@
 FROM spcleth/praas:process-python
 ARG example
 
+RUN apt-get install -y --no-install-recommends latexmk texlive-base texlive-latex-extra texlive-latex-recommended aspell cm-super texlive-plain-generic texlive-fonts-recommended
+
 ADD ${example}/ /function
 ADD configure.py /function
-RUN /function/configure.py /function/functions.json.in /function/functions.json /function && rm /function/functions.json.in && rm /function/configure.py
+ADD install.py /function
+RUN /function/install.py /function \
+    && /function/configure.py /function/functions.json.in /function/functions.json /function \
+    && rm /function/functions.json.in \
+    && rm /function/configure.py \
+    && rm /function/install.py
 
