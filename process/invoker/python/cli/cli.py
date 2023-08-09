@@ -100,6 +100,7 @@ def invoke(process_id, ipc_mode, ipc_name, code_location, code_config_location):
             invoker.finish(context.invocation_id, error_msg)
 
         context.end_invocation()
+        print(flush=True)
 
 if __name__ == '__main__':
     invoke()
