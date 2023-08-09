@@ -428,5 +428,18 @@ def state_keys(invocation, context):
         if received_keys[i][1] < before:
             return 1
 
+    after = datetime.now().timestamp()
+    context.state(input_keys[0], "")
+    new_received_keys = context.state_keys()
+
+    if len(new_received_keys) != len(input_keys):
+        return 1
+
+    if new_received_keys[0][1] == received_keys[0][1]:
+        return 1
+
+    if new_received_keys[0][1] < after:
+        return 1
+
     return 0
 

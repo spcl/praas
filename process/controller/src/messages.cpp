@@ -86,17 +86,21 @@ namespace praas::process::message {
   bool MessageStore::state(const std::string& key, runtime::internal::Buffer<char>& payload)
   {
     // TODO: document breaking change - state now overwrites
-    auto [it, success] = _msgs.emplace(
-        std::piecewise_construct, std::forward_as_tuple(key),
-        std::forward_as_tuple("", std::move(payload))
-    );
-    if (success) {
-      auto time = std::chrono::system_clock::now();
-      auto timestamp =
-          std::chrono::duration_cast<std::chrono::microseconds>(time.time_since_epoch()).count();
-      _state_keys.emplace_back(key, timestamp / 1000.0 / 1000.0);
+    auto [it, emplaced] = _msgs.insert_or_assign(key, Message{"", std::move(payload)});
+    auto time = std::chrono::system_clock::now();
+    auto timestamp =
+        std::chrono::duration_cast<std::chrono::microseconds>(time.time_since_epoch()).count() /
+        1000.0 / 1000.0;
+
+    if (emplaced) {
+      _state_keys.emplace_back(key, timestamp);
+    } else {
+      auto it = std::find_if(_state_keys.begin(), _state_keys.end(), [key](const auto& obj) {
+        return std::get<0>(obj) == key;
+      });
+      std::get<1>((*it)) = timestamp;
     }
-    return success;
+    return true;
   }
 
   const std::vector<std::tuple<std::string, double>>& MessageStore::state_keys() const

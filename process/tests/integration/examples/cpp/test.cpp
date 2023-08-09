@@ -213,6 +213,22 @@ state_keys(praas::process::runtime::Invocation invoc, praas::process::runtime::C
     }
   }
 
+  before = std::chrono::system_clock::now();
+  context.state(input_keys[0], "");
+
+  before_timestamp =
+      std::chrono::duration_cast<std::chrono::microseconds>(before.time_since_epoch()).count() /
+      1000.0 / 1000.0;
+
+  auto new_received_keys = context.state_keys();
+
+  if (new_received_keys.size() != input_keys.size()) {
+    return 1;
+  }
+  if (before_timestamp > std::get<1>(new_received_keys[0])) {
+    return 1;
+  }
+
   return 0;
 }
 
