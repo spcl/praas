@@ -170,6 +170,16 @@
           "type": "direct",
           "nargs": 1
         }
+      },
+      "state_keys": {
+        "code": {
+          "module": "@PRAAS_SOURCE_DIRECTORY@/process/tests/integration/examples/python/test.py",
+          "function": "state_keys"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
       }
     },
     "cpp": {
@@ -337,6 +347,16 @@
         "code": {
           "module": "@PRAAS_DIRECTORY@/process/tests/examples/libexample_cpp.so",
           "function": "local_invocation_unknown"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
+      "state_keys": {
+        "code": {
+          "module": "@PRAAS_DIRECTORY@/process/tests/examples/libexample_cpp.so",
+          "function": "state_keys"
         },
         "trigger": {
           "type": "direct",

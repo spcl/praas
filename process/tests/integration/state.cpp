@@ -232,6 +232,45 @@ TEST_P(ProcessStateTest, StateOneWorker)
   }
 }
 
+TEST_P(ProcessStateTest, StateKeys)
+{
+
+  SetUp(1);
+
+  const int BUF_LEN = 1024;
+  std::string function_name = "state_keys";
+  std::string process_id = "remote-process-1";
+  std::array<std::string, 1> invocation_id = {"first_id"};
+
+  runtime::internal::BufferQueue<char> buffers(10, 1024);
+
+  reset();
+
+  // First invocation
+  {
+    int idx = 0;
+    praas::common::message::InvocationRequestData msg;
+    msg.function_name(function_name);
+    msg.invocation_id(invocation_id[idx]);
+
+    auto buf = buffers.retrieve_buffer(BUF_LEN);
+    buf.len = generate_input("msg_key", buf);
+
+    controller->dataplane_message(std::move(msg.data_buffer()), runtime::internal::Buffer<char>{});
+
+    // Wait for the invocation to finish
+    ASSERT_EQ(
+        std::future_status::ready,
+        saved_results[0].finished.get_future().wait_for(std::chrono::seconds(1))
+    );
+
+    // Dataplane message
+    EXPECT_FALSE(saved_results[0].process.has_value());
+    EXPECT_EQ(saved_results[0].id, invocation_id[idx]);
+    EXPECT_EQ(saved_results[0].return_code, 0);
+  }
+}
+
 #if defined(PRAAS_WITH_INVOKER_PYTHON)
 INSTANTIATE_TEST_SUITE_P(
     ProcessStateTest, ProcessStateTest,

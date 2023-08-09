@@ -181,6 +181,30 @@ state_get(praas::process::runtime::Invocation invoc, praas::process::runtime::Co
   return 0;
 }
 
+extern "C" int
+state_keys(praas::process::runtime::Invocation invoc, praas::process::runtime::Context& context)
+{
+  std::vector<std::string> input_keys{"first_key", "second_key", "another_key"};
+
+  for (const auto& key : input_keys) {
+    context.state(key, "");
+  }
+
+  auto received_keys = context.state_keys();
+
+  if (received_keys.size() != input_keys.size()) {
+    return 1;
+  }
+
+  for (size_t i = 0; i < received_keys.size(); ++i) {
+    if (received_keys[i] != input_keys[i]) {
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
 // Computes arg1 ** arg2
 extern "C" int
 power(praas::process::runtime::Invocation invocation, praas::process::runtime::Context& context)

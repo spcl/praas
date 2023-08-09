@@ -406,3 +406,22 @@ def state_get(invocation, context):
 
     return 0
 
+def state_keys(invocation, context):
+
+    input_keys = ["first_key", "second_key", "another_key"]
+
+    for key in input_keys:
+        context.state(key, "")
+
+    received_keys = context.state_keys()
+
+    if len(received_keys) != len(input_keys):
+        return 1
+
+    for i in range(len(received_keys)):
+
+        if received_keys[i] != input_keys[i]:
+            return 1
+
+    return 0
+
