@@ -50,7 +50,7 @@ namespace praas::process::runtime {
     }
   }
 
-  std::vector<std::string> Context::state_keys()
+  std::vector<std::tuple<std::string, double>> Context::state_keys()
   {
     internal::ipc::StateKeysRequest req;
 

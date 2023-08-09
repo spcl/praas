@@ -3,6 +3,7 @@
 #include <praas/process/runtime/context.hpp>
 #include <praas/process/runtime/invocation.hpp>
 
+#include <chrono>
 #include <iostream>
 
 extern "C" int
@@ -181,14 +182,20 @@ state_get(praas::process::runtime::Invocation invoc, praas::process::runtime::Co
   return 0;
 }
 
+#include <iomanip>
 extern "C" int
 state_keys(praas::process::runtime::Invocation invoc, praas::process::runtime::Context& context)
 {
   std::vector<std::string> input_keys{"first_key", "second_key", "another_key"};
 
+  auto before = std::chrono::system_clock::now();
   for (const auto& key : input_keys) {
     context.state(key, "");
   }
+
+  double before_timestamp =
+      std::chrono::duration_cast<std::chrono::microseconds>(before.time_since_epoch()).count() /
+      1000.0 / 1000.0;
 
   auto received_keys = context.state_keys();
 
@@ -197,7 +204,11 @@ state_keys(praas::process::runtime::Invocation invoc, praas::process::runtime::C
   }
 
   for (size_t i = 0; i < received_keys.size(); ++i) {
-    if (received_keys[i] != input_keys[i]) {
+    if (std::get<0>(received_keys[i]) != input_keys[i]) {
+      return 1;
+    }
+
+    if (before_timestamp > std::get<1>(received_keys[i])) {
       return 1;
     }
   }

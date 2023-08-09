@@ -8,13 +8,14 @@
 #include <boost/iostreams/stream.hpp>
 #include <cereal/archives/binary.hpp>
 #include <cereal/types/string.hpp>
+#include <cereal/types/tuple.hpp>
 #include <cereal/types/vector.hpp>
 
 namespace praas::process::runtime::internal {
 
   struct StateKeys {
 
-    std::vector<std::string> keys;
+    std::vector<std::tuple<std::string, double>> keys;
 
     template <typename Ar>
     void save(Ar& archive) const
@@ -28,7 +29,7 @@ namespace praas::process::runtime::internal {
       archive(CEREAL_NVP(keys));
     }
 
-    static std::string serialize(const std::vector<std::string>& keys)
+    static std::string serialize(const std::vector<std::tuple<std::string, double>>& keys)
     {
       // FIXME: avoid copy here
       StateKeys out{keys};

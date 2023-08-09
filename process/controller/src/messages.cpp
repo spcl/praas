@@ -91,12 +91,15 @@ namespace praas::process::message {
         std::forward_as_tuple("", std::move(payload))
     );
     if (success) {
-      _state_keys.emplace_back(key);
+      auto time = std::chrono::system_clock::now();
+      auto timestamp =
+          std::chrono::duration_cast<std::chrono::microseconds>(time.time_since_epoch()).count();
+      _state_keys.emplace_back(key, timestamp / 1000.0 / 1000.0);
     }
     return success;
   }
 
-  const std::vector<std::string>& MessageStore::state_keys() const
+  const std::vector<std::tuple<std::string, double>>& MessageStore::state_keys() const
   {
     return _state_keys;
   }

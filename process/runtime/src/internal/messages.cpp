@@ -46,7 +46,7 @@ namespace praas::process::runtime::internal::ipc {
     }
 
     if (type == Type::STATE_KEYS_REQUEST) {
-      return MessageVariants{StateKeysRequestParsed(data + HEADER_OFFSET)};
+      return MessageVariants{StateKeysResultParsed(data + HEADER_OFFSET)};
     }
 
     throw common::PraaSException{fmt::format("Unknown message with type number {}", type_val)};

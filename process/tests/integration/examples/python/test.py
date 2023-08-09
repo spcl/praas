@@ -1,6 +1,7 @@
 
 import dataclasses
 from dataclasses import dataclass
+from datetime import datetime
 import json
 import numpy as np
 import pickle
@@ -410,6 +411,7 @@ def state_keys(invocation, context):
 
     input_keys = ["first_key", "second_key", "another_key"]
 
+    before = datetime.now().timestamp()
     for key in input_keys:
         context.state(key, "")
 
@@ -420,7 +422,10 @@ def state_keys(invocation, context):
 
     for i in range(len(received_keys)):
 
-        if received_keys[i] != input_keys[i]:
+        if received_keys[i][0] != input_keys[i]:
+            return 1
+
+        if received_keys[i][1] < before:
             return 1
 
     return 0
