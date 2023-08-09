@@ -93,8 +93,12 @@ namespace praas::process::message {
 
     runtime::internal::Buffer<char>* try_state(const std::string& key);
 
+    const std::vector<std::string>& state_keys() const;
+
   private:
     std::unordered_map<std::string, Message> _msgs;
+
+    std::vector<std::string> _state_keys;
 
     static constexpr std::string_view ANY_PROCESS = "ANY";
   };

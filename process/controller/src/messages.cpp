@@ -6,6 +6,7 @@
 #include <iostream>
 
 #include <spdlog/spdlog.h>
+#include <tuple>
 
 namespace praas::process::message {
 
@@ -84,8 +85,20 @@ namespace praas::process::message {
 
   bool MessageStore::state(const std::string& key, runtime::internal::Buffer<char>& payload)
   {
-    auto [it, success] = _msgs.try_emplace(key, "", std::move(payload));
+    // TODO: document breaking change - state now overwrites
+    auto [it, success] = _msgs.emplace(
+        std::piecewise_construct, std::forward_as_tuple(key),
+        std::forward_as_tuple("", std::move(payload))
+    );
+    if (success) {
+      _state_keys.emplace_back(key);
+    }
     return success;
+  }
+
+  const std::vector<std::string>& MessageStore::state_keys() const
+  {
+    return _state_keys;
   }
 
   std::optional<runtime::internal::Buffer<char>>
