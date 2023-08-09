@@ -7,6 +7,7 @@
 #include <praas/process/controller/remote.hpp>
 #include <praas/process/runtime/internal/buffer.hpp>
 #include <praas/process/runtime/internal/ipc/messages.hpp>
+#include <praas/process/runtime/internal/state.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -360,6 +361,19 @@ namespace praas::process {
             },
             [&, this](runtime::internal::ipc::PutRequestParsed& req) mutable {
               _process_put(req, std::move(payload));
+            },
+            [&, this](runtime::internal::ipc::StateKeysRequestParsed& req) mutable {
+              int length;
+
+              // FIXME: buffer
+              auto str = runtime::internal::StateKeys::serialize(_mailbox.state_keys());
+              runtime::internal::ipc::StateKeysResult return_req;
+              return_req.buffer_length(str.length());
+
+              worker.ipc_write().send(
+                  return_req,
+                  runtime::internal::BufferAccessor<const char>(str.data(), str.length())
+              );
             },
             [&, this](runtime::internal::ipc::GetRequestParsed& req) mutable {
               if (req.state()) {
