@@ -72,17 +72,25 @@ namespace praas::control_plane::process {
   };
 
   struct Invocation {
+
+    // Shouldn't be necessary once all compilers support C++20
+    // Otherwise, it fails at emplace_back
+    Invocation(
+        HttpServer::request_t& req, HttpServer::callback_t&& callback, const std::string& fname,
+        uuids::uuid invoc_id, std::chrono::high_resolution_clock::time_point start
+    )
+        : request(req), callback(callback), function_name(fname), invocation_id(invoc_id),
+          start(start)
+    {
+    }
+
     HttpServer::request_t request;
     HttpServer::callback_t callback;
     std::string function_name;
     uuids::uuid invocation_id;
+    std::chrono::high_resolution_clock::time_point start;
     bool submitted = false;
   };
-
-  // struct Handle {
-  //   std::optional<std::string> instance_id{};
-  //   std::optional<std::string> resource_id{};
-  // };
 
   class Process : public std::enable_shared_from_this<Process> {
   public:
@@ -167,7 +175,7 @@ namespace praas::control_plane::process {
     // Modify the map of invocations.
     void add_invocation(
         HttpServer::request_t request, HttpServer::callback_t&& callback,
-        const std::string& function_name
+        const std::string& function_name, std::chrono::high_resolution_clock::time_point start
     );
 
     int active_invocations() const;

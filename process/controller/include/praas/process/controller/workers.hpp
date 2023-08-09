@@ -7,6 +7,7 @@
 #include <praas/process/runtime/internal/functions.hpp>
 #include <praas/process/runtime/internal/ipc/ipc.hpp>
 
+#include <chrono>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -79,6 +80,25 @@ namespace praas::process {
       req.buffers(payload.begin(), payload.end());
     }
 
+    void start()
+    {
+      invocation_start = std::chrono::high_resolution_clock::now();
+    }
+
+    void end()
+    {
+      invocation_end = std::chrono::high_resolution_clock::now();
+    }
+
+    long duration() const
+    {
+      return std::chrono::duration_cast<std::chrono::microseconds>(
+                 invocation_end - invocation_start
+      )
+          .count();
+    }
+
+    std::chrono::high_resolution_clock::time_point invocation_start, invocation_end;
     runtime::internal::ipc::InvocationRequest req;
     std::vector<runtime::internal::Buffer<char>> payload;
     const runtime::internal::Trigger* trigger;

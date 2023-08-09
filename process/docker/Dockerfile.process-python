@@ -9,8 +9,7 @@ WORKDIR /praas-build
 ADD . /source/
 RUN pybind11_DIR=/usr/local/lib/python3.10/dist-packages/pybind11 /opt/bin/cmake \
     -DCMAKE_MODULE_PATH="/opt/lib/cmake;/opt/lib/cmake/Drogon;/opt/lib/cmake/Trantor;/opt/lib/cmake/cereal" \
-    -DCMAKE_BUILD_TYPE=Debug \
-    -DPRAAS_DEPLOYMENTS="aws" \
+    -DCMAKE_BUILD_TYPE=Release \
     -DPRAAS_COMPONENTS="process" \
     -DCMAKE_INSTALL_PREFIX=/praas \
     /source
@@ -19,7 +18,7 @@ RUN /opt/bin/cmake --build . --target install -j4
 FROM ubuntu:22.04
 ENV PYTHONPATH=/praas/lib
 
-RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-pip python-is-python3 && pip install click
+RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-pip python-is-python3 && pip install click numpy
 COPY --from=builder /opt /opt
 COPY --from=builder /praas /praas
 

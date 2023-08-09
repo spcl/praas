@@ -5,6 +5,7 @@
 #include <praas/common/messages.hpp>
 #include <praas/common/uuid.hpp>
 
+#include <chrono>
 #include <drogon/HttpTypes.h>
 #include <drogon/utils/FunctionTraits.h>
 #include <spdlog/spdlog.h>
@@ -131,11 +132,11 @@ namespace praas::control_plane::process {
 
   void Process::add_invocation(
       HttpServer::request_t request, HttpServer::callback_t&& callback,
-      const std::string& function_name
+      const std::string& function_name, std::chrono::high_resolution_clock::time_point start
   )
   {
     _invocations.emplace_back(
-        request, std::move(callback), function_name, _uuid_generator.generate()
+        request, std::move(callback), function_name, _uuid_generator.generate(), start
     );
     // Count also pending invocations
     _active_invocations++;
@@ -197,6 +198,11 @@ namespace praas::control_plane::process {
     if (iter != _invocations.end()) {
 
       --_active_invocations;
+
+      auto now = std::chrono::high_resolution_clock::now();
+      auto duration =
+          std::chrono::duration_cast<std::chrono::microseconds>(now - (*iter).start).count();
+      spdlog::info(fmt::format("Invocation finished, took {} us", duration));
 
       spdlog::error("Responding to client of invocation {}", invocation_id);
       Json::Value json;
