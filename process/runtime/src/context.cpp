@@ -49,6 +49,17 @@ namespace praas::process::runtime {
     }
   }
 
+  void Context::state(std::string_view msg_key, std::string_view data)
+  {
+    internal::ipc::PutRequest req;
+    req.name(msg_key);
+    req.data_len(data.length());
+    req.state(true);
+
+    // User data - for shm, it might have to be copied!
+    _invoker.put(req, internal::BufferAccessor<const char>{data.data(), data.length()});
+  }
+
   void Context::state(std::string_view msg_key, Buffer buf)
   {
     internal::ipc::PutRequest req;

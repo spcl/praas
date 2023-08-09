@@ -68,6 +68,11 @@ void define_pypraas_function(py::module& m)
                        &praas::process::runtime::Context::state
                    )
       )
+      .def(
+          "state", py::overload_cast<std::string_view, std::string_view>(
+                       &praas::process::runtime::Context::state
+                   )
+      )
       .def("state", py::overload_cast<std::string_view>(&praas::process::runtime::Context::state))
       .def("invoke", &praas::process::runtime::Context::invoke);
 

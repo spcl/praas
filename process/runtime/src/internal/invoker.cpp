@@ -143,6 +143,11 @@ namespace praas::process::runtime::internal {
     _ipc_channel_write->send(msg, payload);
   }
 
+  void Invoker::put(ipc::Message& msg, BufferAccessor<const char> payload)
+  {
+    _ipc_channel_write->send(msg, payload);
+  }
+
   std::tuple<ipc::GetRequestParsed, Buffer<char>> Invoker::get(ipc::Message& msg)
   {
     // Send GET request, zero payload.

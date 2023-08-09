@@ -32,6 +32,8 @@ namespace praas::process::runtime {
 
     Buffer state(std::string_view msg_key);
 
+    void state(std::string_view msg_key, std::string_view data);
+
     // Non-owning!
     Buffer get(std::string_view source, std::string_view msg_key);
 

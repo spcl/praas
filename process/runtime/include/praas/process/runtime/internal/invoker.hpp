@@ -29,6 +29,7 @@ namespace praas::process::runtime::internal {
     void shutdown();
 
     void put(ipc::Message& msg, BufferAccessor<std::byte> payload);
+    void put(ipc::Message& msg, BufferAccessor<const char> payload);
 
     std::tuple<ipc::GetRequestParsed, Buffer<char>> get(ipc::Message& msg);
 
