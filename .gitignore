@@ -37,3 +37,5 @@ tags
 
 # Python files
 *.pyc
+
+python-venv
