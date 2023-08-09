@@ -4,6 +4,7 @@
 #include <praas/process/runtime/buffer.hpp>
 #include <praas/process/runtime/internal/invoker.hpp>
 #include <praas/process/runtime/internal/ipc/messages.hpp>
+#include <praas/process/runtime/internal/state.hpp>
 
 namespace praas::process::runtime {
 
@@ -47,6 +48,17 @@ namespace praas::process::runtime {
       acc.len = _output_buf_view.len;
       return acc;
     }
+  }
+
+  std::vector<std::string> Context::state_keys()
+  {
+    internal::ipc::StateKeysRequest req;
+
+    _invoker.put(req, internal::BufferAccessor<const char>{});
+
+    auto [result, data] = _invoker.get<internal::ipc::StateKeysResultParsed>();
+
+    return internal::StateKeys::deserialize(data.data(), data.len).keys;
   }
 
   void Context::state(std::string_view msg_key, std::string_view data)

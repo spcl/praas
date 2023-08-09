@@ -41,6 +41,14 @@ namespace praas::process::runtime::internal::ipc {
       return MessageVariants{ApplicationUpdateParsed(data + HEADER_OFFSET)};
     }
 
+    if (type == Type::STATE_KEYS_RESULT) {
+      return MessageVariants{StateKeysResultParsed(data + HEADER_OFFSET)};
+    }
+
+    if (type == Type::STATE_KEYS_REQUEST) {
+      return MessageVariants{StateKeysRequestParsed(data + HEADER_OFFSET)};
+    }
+
     throw common::PraaSException{fmt::format("Unknown message with type number {}", type_val)};
   }
 
@@ -287,6 +295,18 @@ namespace praas::process::runtime::internal::ipc {
   {
     // NOLINTNEXTLINE
     *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET + Message::ID_LENGTH) = len;
+  }
+
+  int32_t StateKeysResultParsed::buffer_length() const
+  {
+    // NOLINTNEXTLINE
+    return *reinterpret_cast<const int32_t*>(buf);
+  }
+
+  void StateKeysResult::buffer_length(int32_t len)
+  {
+    // NOLINTNEXTLINE
+    *reinterpret_cast<int32_t*>(data.data() + HEADER_OFFSET) = len;
   }
 
   int32_t ApplicationUpdateParsed::status_change() const

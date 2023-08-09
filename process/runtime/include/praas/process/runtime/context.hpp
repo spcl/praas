@@ -28,6 +28,8 @@ namespace praas::process::runtime {
     // the location of the message.
     void put(std::string_view destination, std::string_view msg_key, Buffer buf);
 
+    std::vector<std::string> state_keys();
+
     void state(std::string_view msg_key, Buffer buf);
 
     Buffer state(std::string_view msg_key);

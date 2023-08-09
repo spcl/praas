@@ -24,6 +24,8 @@ namespace praas::process::runtime::internal::ipc {
   struct PutRequestParsed;
   struct InvocationRequestParsed;
   struct InvocationResultParsed;
+  struct StateKeysRequestParsed;
+  struct StateKeysResultParsed;
   struct ApplicationUpdateParsed;
 
   struct Message {
@@ -35,6 +37,8 @@ namespace praas::process::runtime::internal::ipc {
       INVOCATION_REQUEST,
       INVOCATION_RESULT,
       APPLICATION_UPDATE,
+      STATE_KEYS_REQUEST,
+      STATE_KEYS_RESULT,
       END_FLAG
     };
 
@@ -64,7 +68,7 @@ namespace praas::process::runtime::internal::ipc {
 
     using MessageVariants = std::variant<
         GetRequestParsed, PutRequestParsed, InvocationRequestParsed, InvocationResultParsed,
-        ApplicationUpdateParsed>;
+        ApplicationUpdateParsed, StateKeysResultParsed, StateKeysRequestParsed>;
 
     MessageVariants parse() const;
 
@@ -250,6 +254,41 @@ namespace praas::process::runtime::internal::ipc {
     void invocation_id(std::string_view id);
     void buffer_length(int32_t length);
     void return_code(int32_t code);
+  };
+
+  struct StateKeysRequestParsed {
+    const int8_t* buf;
+
+    StateKeysRequestParsed(const int8_t* buf) : buf(buf) {}
+  };
+
+  struct StateKeysRequest : Message, StateKeysRequestParsed {
+
+    StateKeysRequest()
+        : Message(Type::STATE_KEYS_REQUEST),
+          StateKeysRequestParsed(this->data.data() + HEADER_OFFSET)
+    {
+    }
+  };
+
+  struct StateKeysResultParsed {
+    const int8_t* buf;
+
+    StateKeysResultParsed(const int8_t* buf) : buf(buf) {}
+
+    int32_t buffer_length() const;
+  };
+
+  struct StateKeysResult : Message, StateKeysResultParsed {
+
+    StateKeysResult()
+        : Message(Type::STATE_KEYS_RESULT), StateKeysResultParsed(this->data.data() + HEADER_OFFSET)
+    {
+    }
+
+    using StateKeysResultParsed::buffer_length;
+
+    void buffer_length(int32_t length);
   };
 
   struct ApplicationUpdateParsed {
