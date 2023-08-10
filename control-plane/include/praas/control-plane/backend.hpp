@@ -101,14 +101,14 @@ namespace praas::control_plane::backend {
      *
      * @return maximal memory in megabytes
      */
-    virtual int max_memory() const = 0;
+    virtual double max_memory() const = 0;
 
     /**
      * @brief The maximal number of vCPUs that canbe allocated for a single process.
      *
      * @return count of virtual CPUs
      */
-    virtual int max_vcpus() const = 0;
+    virtual double max_vcpus() const = 0;
 
     /**
      * @brief factory method that returns a new backend instance according to configuration choice.
@@ -157,9 +157,9 @@ namespace praas::control_plane::backend {
 
     void shutdown(const std::shared_ptr<ProcessInstance>&) override;
 
-    int max_memory() const override;
+    double max_memory() const override;
 
-    int max_vcpus() const override;
+    double max_vcpus() const override;
 
   private:
     std::shared_ptr<spdlog::logger> _logger;
@@ -221,9 +221,9 @@ namespace praas::control_plane::backend {
 
     void shutdown(const std::shared_ptr<ProcessInstance>&) override;
 
-    int max_memory() const override;
+    double max_memory() const override;
 
-    int max_vcpus() const override;
+    double max_vcpus() const override;
 
   private:
     std::shared_ptr<spdlog::logger> _logger;

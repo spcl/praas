@@ -101,19 +101,10 @@ namespace praas::control_plane {
     if (vcpus_str.empty() || memory_str.empty()) {
       callback(failed_response("Missing arguments!"));
     }
-    int vcpus = -1;
-    int memory = -1;
-    try {
-      vcpus = std::stoi(vcpus_str);
-      memory = std::stoi(memory_str);
-    } catch (...) {
-      callback(failed_response("Incorrect arguments!"));
-      return;
-    }
 
     _workers.add_task(
         &worker::Workers::create_process, app_name, process_name,
-        process::Resources{vcpus, memory, ""},
+        process::Resources{vcpus_str, memory_str, ""},
         [callback =
              std::move(callback)](process::ProcessPtr proc, std::optional<std::string> error_msg) {
           if (proc) {

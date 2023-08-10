@@ -84,9 +84,9 @@ namespace praas::control_plane::tcpserver {
 
   void TCPServer::remove_process(const process::Process&)
   {
+    _logger->error("Not implemented!");
     // Disable the connection
     // Insert the removal
-    throw common::NotImplementedError{};
   }
 
   bool TCPServer::handle_invocation_result(
