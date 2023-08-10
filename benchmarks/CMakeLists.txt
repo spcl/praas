@@ -24,6 +24,7 @@ add_executable(benchmarker_latex_compiling_s3 latex-service/benchmarker_compilin
 target_link_libraries(benchmarker_latex_compiling_s3 PUBLIC spdlog::spdlog)
 target_link_libraries(benchmarker_latex_compiling_s3 PUBLIC cereal::cereal)
 target_link_libraries(benchmarker_latex_compiling_s3 PRIVATE praas_sdk)
+target_link_libraries(benchmarker_latex_compiling_s3 PRIVATE -lcurl)
 set_target_properties(benchmarker_latex_compiling_s3 PROPERTIES RUNTIME_OUTPUT_DIRECTORY latex-service)
 
 #add_executable(invocations_benchmarker invocations_benchmarker.cpp)
