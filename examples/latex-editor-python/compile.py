@@ -14,6 +14,7 @@ import pypraas
 @dataclass
 class CompileRequest:
     file: str
+    clean: bool
 
 @dataclass_json
 @dataclass
@@ -61,8 +62,11 @@ def compile(invocation, context):
     end_update = datetime.now()
 
     start_compile = datetime.now()
+    cmd = ['latexmk', '-pdf', '--output-directory=pdfs', input.file]
+    if input.clean:
+        cmd.append('-gg')
     ret = subprocess.run(
-        ['latexmk', '-pdf', '--output-directory=pdfs', input.file],
+        cmd,
         stderr=subprocess.STDOUT, stdout=subprocess.PIPE,
         cwd=MAIN_DIR,
     )
