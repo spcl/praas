@@ -23,6 +23,9 @@ struct Config {
   std::vector<std::string> input_files;
   int repetitions;
 
+  std::string resources_cpu;
+  std::string resources_memory;
+
   std::string control_plane_address;
 
   std::string output_file;
@@ -34,6 +37,8 @@ struct Config {
     ar(CEREAL_NVP(inputs_directory));
     ar(CEREAL_NVP(input_files));
     ar(CEREAL_NVP(repetitions));
+    ar(CEREAL_NVP(resources_cpu));
+    ar(CEREAL_NVP(resources_memory));
 
     ar(CEREAL_NVP(control_plane_address));
     ar(CEREAL_NVP(output_file));
@@ -111,7 +116,9 @@ int main(int argc, char** argv)
 
   praas.create_application("test-latex-editing", cfg.cloud_resource_name);
 
-  auto proc = praas.create_process("test-latex-editing", "alloc_invoc_process", 1, 1024);
+  auto proc = praas.create_process(
+      "test-latex-editing", "alloc_invoc_process", cfg.resources_cpu, cfg.resources_memory
+  );
   if (!proc.has_value() || !proc->connect()) {
     abort();
   }
