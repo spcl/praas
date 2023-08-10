@@ -59,11 +59,11 @@ namespace praas::sdk {
     _http_client->sendRequest(
         req,
         [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
-          if (result == drogon::ReqResult::Ok) {
+          if (result == drogon::ReqResult::Ok && response->getStatusCode() == drogon::k200OK) {
             auto& json_obj = *response->getJsonObject();
             auto ip_addr = json_obj["connection"]["ip-address"].asString();
             auto port = json_obj["connection"]["port"].asInt();
-            p.set_value(Process{ip_addr, port, false});
+            p.set_value(Process{ip_addr, port, true});
           } else {
             p.set_value(std::nullopt);
           }
