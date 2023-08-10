@@ -18,7 +18,8 @@ namespace praas::sdk {
     bool create_application(const std::string& application, const std::string& cloud_resource_name);
 
     std::optional<Process> create_process(
-        const std::string& application, const std::string& process_name, int vcpus, int memory
+        const std::string& application, const std::string& process_name, std::string vcpus,
+        std::string memory
     );
 
     ControlPlaneInvocationResult invoke(

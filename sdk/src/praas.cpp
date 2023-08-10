@@ -45,14 +45,15 @@ namespace praas::sdk {
   }
 
   std::optional<Process> PraaS::create_process(
-      const std::string& application, const std::string& process_name, int vcpus, int memory
+      const std::string& application, const std::string& process_name, std::string vcpus,
+      std::string memory
   )
   {
     auto req = drogon::HttpRequest::newHttpRequest();
     req->setMethod(drogon::Put);
     req->setPath(fmt::format("/apps/{}/processes/{}", application, process_name));
-    req->setParameter("vcpus", std::to_string(vcpus));
-    req->setParameter("memory", std::to_string(memory));
+    req->setParameter("vcpus", vcpus);
+    req->setParameter("memory", memory);
 
     std::promise<std::optional<Process>> p;
 
@@ -65,6 +66,7 @@ namespace praas::sdk {
             auto port = json_obj["connection"]["port"].asInt();
             p.set_value(Process{ip_addr, port, true});
           } else {
+            std::cerr << *response->getJsonObject() << std::endl;
             p.set_value(std::nullopt);
           }
         }
