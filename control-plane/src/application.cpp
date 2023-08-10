@@ -47,13 +47,15 @@ namespace praas::control_plane {
       throw praas::common::InvalidConfigurationError("Empty name");
     }
 
-    if (resources.memory <= 0 || resources.memory > backend.max_memory()) {
+    double memory = std::stod(resources.memory);
+    if (memory <= 0 || memory > backend.max_memory()) {
       throw praas::common::InvalidConfigurationError(
           fmt::format("Incorrect memory size {}", resources.memory)
       );
     }
 
-    if (resources.vcpus <= 0 || resources.vcpus > backend.max_vcpus()) {
+    double vcpus = std::stod(resources.vcpus);
+    if (vcpus <= 0 || vcpus > backend.max_vcpus()) {
       throw praas::common::InvalidConfigurationError(
           fmt::format("Incorrect number of vCPUs {}", resources.vcpus)
       );

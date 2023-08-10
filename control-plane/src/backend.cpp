@@ -129,12 +129,12 @@ namespace praas::control_plane::backend {
     std::erase(_instances, instance);
   }
 
-  int DockerBackend::max_memory() const
+  double DockerBackend::max_memory() const
   {
     return 1024;
   }
 
-  int DockerBackend::max_vcpus() const
+  double DockerBackend::max_vcpus() const
   {
     return 1;
   }
@@ -263,14 +263,7 @@ namespace praas::control_plane::backend {
   )
   {
     std::string cluster_name = _fargate_config["cluster_name"].asString();
-    // std::string task_arn =
-    //     "arn:aws:ecs:us-east-1:261490803749:task/test-cluster/e4ae9f36d21546f6948b03629b24610f";
-    // callback(
-    //     std::make_shared<FargateInstance>(
-    //         8000, "e4ae9f36d21546f6948b03629b24610f", cluster_name, _client, _ec2_client
-    //     ),
-    //     std::nullopt
-    //);
+
     Aws::ECS::Model::RunTaskRequest req;
     req.SetCluster(_fargate_config["cluster_name"].asString());
     req.SetTaskDefinition(process->application().resources().code_resource_name);
@@ -285,9 +278,8 @@ namespace praas::control_plane::backend {
     req.SetNetworkConfiguration(net_cfg);
 
     Aws::ECS::Model::TaskOverride task_override;
-    // FIXME: test and reenable
-    // task_override.SetCpu(std::to_string(resources.vcpus));
-    // task_override.SetMemory(std::to_string(resources.memory));
+    task_override.SetCpu(resources.vcpus);
+    task_override.SetMemory(resources.memory);
 
     Aws::ECS::Model::ContainerOverride env;
     auto controlplane_addr = fmt::format("{}:{}", _tcp_ip, _tcp_port);
@@ -325,14 +317,14 @@ namespace praas::control_plane::backend {
     std::erase(_instances, instance);
   }
 
-  int FargateBackend::max_memory() const
+  double FargateBackend::max_memory() const
   {
-    return 1024;
+    return 120;
   }
 
-  int FargateBackend::max_vcpus() const
+  double FargateBackend::max_vcpus() const
   {
-    return 1;
+    return 16384;
   }
 #endif
 

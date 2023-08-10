@@ -66,8 +66,8 @@ namespace praas::control_plane::process {
 
   struct Resources {
 
-    int32_t vcpus{};
-    int32_t memory{};
+    std::string vcpus{};
+    std::string memory{};
     std::string sandbox_id;
   };
 

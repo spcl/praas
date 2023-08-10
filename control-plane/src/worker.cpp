@@ -38,7 +38,7 @@ namespace praas::control_plane::worker {
       // Get a process or allocate one.
       // FIXME: make resources configurable
       acc.get()->get_controlplane_process(
-          _backend, *_server, process::Resources{1, 2048, ""},
+          _backend, *_server, process::Resources{"1", "2048", ""},
           [start, function_name, request = std::move(request), callback = std::move(callback)](
               process::ProcessPtr proc_ptr, const std::optional<std::string>& error_msg
           ) mutable {
