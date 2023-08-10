@@ -690,6 +690,7 @@ namespace praas::process {
     std::optional<Invocation> invoc = _work_queue.finish(std::string{invocation_id});
     if (invoc.has_value()) {
       Invocation& invocation = invoc.value();
+      _logger->info("Finished invocation {}, it took {} us", invocation_id, invoc->duration());
       _process_invocation_result(invocation.source, invocation_id, return_code, payload);
     } else {
       _logger->error("Could not find invocation for ID {}", invocation_id);
