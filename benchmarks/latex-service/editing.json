@@ -1,0 +1,13 @@
+{
+  "inputs_directory": "../input",
+  "input_files": [
+    "secs/acks.tex",
+    "secs/multi.tex",
+    "secs/core.tex",
+    "sampleteaser.pdf"
+  ],
+  "repetitions": 5,
+  "control_plane_address": "127.0.0.1",
+  "output_file": "latex_editing.csv",
+  "cloud_resource_name": "spcleth/praas-examples:latex-editor-python"
+}

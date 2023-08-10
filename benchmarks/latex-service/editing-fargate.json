@@ -1,0 +1,13 @@
+{
+  "inputs_directory": "../input",
+  "input_files": [
+    "secs/acks.tex",
+    "secs/multi.tex",
+    "secs/core.tex",
+    "sampleteaser.pdf"
+  ],
+  "repetitions": 5,
+  "control_plane_address": "52.206.95.87",
+  "output_file": "latex_editing_fargate.csv",
+  "cloud_resource_name": "arn:aws:ecs:us-east-1:261490803749:task-definition/latex-serving:1"
+}
