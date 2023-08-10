@@ -37,7 +37,7 @@ def state(path, data):
 
 def get_state(path):
 
-    return s3_client.get_object(Bucket='praas-benchmarks', Key=path)['Body'].read().decode('utf-8')
+    return s3_client.get_object(Bucket='praas-benchmarks', Key=path)['Body'].read()
 
 def compile(event, context):
 
@@ -52,7 +52,7 @@ def compile(event, context):
 
         path = file['Key']
         timestamp = file['LastModified'].timestamp()
-        file_path = MAIN_DIR + path
+        file_path = os.path.join(MAIN_DIR, path)
         updated = False
         if os.path.exists(file_path):
             fs_timestamp = os.path.getmtime(file_path)
@@ -63,6 +63,7 @@ def compile(event, context):
         if updated:
             data = get_state(path)
 
+            #print("update", path, file_path)
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
             if os.path.splitext(file_path)[1] in ['.pdf', '.png']:
@@ -70,50 +71,64 @@ def compile(event, context):
                     input_f.write(data)
             else:
                 with open(file_path, 'w') as input_f:
-                    input_f.write(data)
+                    input_f.write(data.decode('utf-8'))
     end_update = datetime.now()
 
+    #print("Compile")
+    #print(os.listdir(MAIN_DIR))
     start_compile = datetime.now()
     cmd = ['latexmk', '-pdf', '--output-directory=pdfs', input.file]
     if input.clean:
         cmd.append('-gg')
+    #with open('/tmp/output', 'w') as out_file:
     ret = subprocess.run(
         cmd,
+        #capture_output=True,
+        #stderr=subprocess.STDOUT, stdout=out_file,
         stderr=subprocess.STDOUT, stdout=subprocess.PIPE,
+        #stderr=subprocess.STDOUT, stdout=subprocess.STDOUT,
         cwd=MAIN_DIR,
     )
     end_compile = datetime.now()
 
     return_data = {}
 
+    pre, ext = os.path.splitext(input.file)
+    path = os.path.join('pdfs', f"{pre}.pdf")
+    s3_client.upload_file(os.path.join(MAIN_DIR, path), "praas-benchmarks", path)
+    #with open('/tmp/output', 'r') as in_f:
+    #    logs = in_f.read()
+    #    print('logs', len(logs))
+
     if ret.returncode == 0:
         return_data['status'] = 'succcess'
     else:
         return_data['status'] = 'failure'
-    return_data['output'] = ret.stdout.decode()
+    return_data['output'] = base64.b64encode(ret.stdout).decode()
     return_data['time_data'] = (end_update - start_update)/timedelta(seconds=1)
     return_data['time_compile'] = (end_compile - start_compile)/timedelta(seconds=1)
 
+    #print(return_data)
+
     return return_data
 
-if __name__ == "__main__":
-    compile({'file': 'sample-sigconf.txt', 'clean': False}, {})
+def get_pdf(event, context):
 
-#def get_pdf(invocation, context):
-#
-#    input = FileRequest.from_json(invocation.args[0].str())
-# 
-#    file_path = os.path.join(MAIN_DIR, 'pdfs', f"{input.file}.pdf")
-#    return_dict = {}
-#    if os.path.exists(file_path):
-#        return_dict['status'] = 'success'
-#        with open(file_path, 'rb') as input_f:
-#            return_dict['data'] = base64.b64encode(input_f.read()).decode()
-#    else:
-#        return_dict['status'] = 'failure'
-#
-#    out_buf = context.get_output_buffer()
-#    json.dump(return_dict, pypraas.BufferStringWriter(out_buf))
-#    context.set_output_buffer(out_buf)
-#
-#    return 0
+    if 'body' in event:
+        event = json.loads(event['body'])
+
+    input = FileRequest.from_dict(event)
+
+    result = {}
+    file_path = os.path.join('pdfs', f"{input.file}.pdf")
+    try:
+        d = s3_client.get_object(Bucket='praas-benchmarks', Key=file_path)['Body'].read()
+        result['data'] = base64.b64encode(d).decode()
+        result['status'] = 'success'
+    except:
+        result['status'] = 'failure'
+ 
+    return result
+
+if __name__ == "__main__":
+    print(get_pdf({'file': 'sample-sigconf'}, {}))
