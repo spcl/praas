@@ -56,6 +56,19 @@ namespace praas::common::http {
   }
 
   std::shared_ptr<drogon::HttpRequest>
+  HTTPClient::post(const std::string& body, callback_t&& callback)
+  {
+    auto req = drogon::HttpRequest::newHttpRequest();
+    req->setMethod(drogon::Post);
+    req->setContentTypeCode(drogon::CT_APPLICATION_JSON);
+    req->setBody(body);
+
+    request(req, {}, std::forward<callback_t>(callback));
+
+    return req;
+  }
+
+  std::shared_ptr<drogon::HttpRequest>
   HTTPClient::get(const std::string& path, parameters_t&& params, callback_t&& callback)
   {
     auto req = drogon::HttpRequest::newHttpRequest();

@@ -40,6 +40,8 @@ namespace praas::common::http {
 
     request_ptr_t get(const std::string& path, parameters_t&& params, callback_t&& callback);
 
+    request_ptr_t post(const std::string& body, callback_t&& callback);
+
     request_ptr_t post(const std::string& path, parameters_t&& params, callback_t&& callback);
 
     request_ptr_t
