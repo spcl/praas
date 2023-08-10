@@ -13,6 +13,18 @@ target_link_libraries(benchmarker_latex_compiling PUBLIC cereal::cereal)
 target_link_libraries(benchmarker_latex_compiling PRIVATE praas_sdk)
 set_target_properties(benchmarker_latex_compiling PROPERTIES RUNTIME_OUTPUT_DIRECTORY latex-service)
 
+add_executable(benchmarker_latex_editing_s3 latex-service/benchmarker_editing_s3.cpp)
+target_link_libraries(benchmarker_latex_editing_s3 PUBLIC spdlog::spdlog)
+target_link_libraries(benchmarker_latex_editing_s3 PUBLIC cereal::cereal)
+target_link_libraries(benchmarker_latex_editing_s3 PRIVATE praas_sdk)
+set_target_properties(benchmarker_latex_editing_s3 PROPERTIES RUNTIME_OUTPUT_DIRECTORY latex-service)
+
+add_executable(benchmarker_latex_compiling_s3 latex-service/benchmarker_compiling_s3.cpp)
+target_link_libraries(benchmarker_latex_compiling_s3 PUBLIC spdlog::spdlog)
+target_link_libraries(benchmarker_latex_compiling_s3 PUBLIC cereal::cereal)
+target_link_libraries(benchmarker_latex_compiling_s3 PRIVATE praas_sdk)
+set_target_properties(benchmarker_latex_compiling_s3 PROPERTIES RUNTIME_OUTPUT_DIRECTORY latex-service)
+
 #add_executable(invocations_benchmarker invocations_benchmarker.cpp)
 #target_link_libraries(invocations_benchmarker PUBLIC spdlog::spdlog)
 #target_link_libraries(invocations_benchmarker PUBLIC cereal::cereal)
