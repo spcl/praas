@@ -19,6 +19,8 @@
 #include "Base64.h"
 #include "praas/common/http.hpp"
 
+#include <curl/curl.h>
+
 struct Config {
   std::string inputs_directory;
   std::vector<std::string> input_files;
@@ -179,6 +181,47 @@ Res get_output(const char* buffer, size_t size)
   return out;
 }
 
+CURL* curl = curl_easy_init();
+
+static size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp)
+{
+  ((std::string*)userp)->append((char*)contents, size * nmemb);
+  return size * nmemb;
+}
+
+std::tuple<std::string, double> make_request(std::string url, const std::string& data)
+{
+  std::string header[] = {"Content-Type: application/json"};
+  if (curl) {
+    int len;
+    char* str = curl_easy_unescape(curl, url.c_str(), url.length(), &len);
+    curl_easy_setopt(curl, CURLOPT_URL, str);
+    std::string readBuffer;
+    struct curl_slist* list = NULL;
+    list = curl_slist_append(list, "Content-Type: application/json");
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
+    curl_easy_setopt(curl, CURLOPT_POST, 1);
+    // curl_easy_setopt(curl, CURLOPT_USERPWD,
+    // "23bc46b1-71f6-4ed5-8c54-816aa4f8c502:123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP");
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+    // curl_easy_setopt(curl, CURLOPT_WRITEDATA, stdout);
+    readBuffer.clear();
+    auto begin = std::chrono::high_resolution_clock::now();
+    auto res = curl_easy_perform(curl);
+    auto end = std::chrono::high_resolution_clock::now();
+    curl_slist_free_all(list);
+    if (res != CURLE_OK) {
+      abort();
+    }
+
+    return std::make_tuple(
+        readBuffer, std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()
+    );
+  }
+}
+
 std::string upload_file(std::string file, Config& cfg, bool read_data = true)
 {
   File input_file;
@@ -239,42 +282,53 @@ int main(int argc, char** argv)
     for (const auto& file : files) {
       auto data = upload_file(file, cfg);
 
-      std::promise<int> p;
-      client.post(
-          data,
-          [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
-            if (result != drogon::ReqResult::Ok && response->getStatusCode() != drogon::k200OK)
-              abort();
-            p.set_value(response->getJsonObject()->size());
-          }
-      );
-      int val = p.get_future().get();
+      auto [length, duration] = make_request(cfg.lambda_url_update_file, data);
+      // std::promise<int> p;
+      // client.post(
+      //     data,
+      //     [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
+      //       if (result != drogon::ReqResult::Ok && response->getStatusCode() != drogon::k200OK)
+      //         abort();
+      //       p.set_value(response->getJsonObject()->size());
+      //     }
+      //);
+      // int val = p.get_future().get();
     }
 
-    spdlog::info("Begin rep {}", i);
+    if (i % 10 == 0)
+      spdlog::info("Begin rep {}", i);
     CompileRequest req{"sample-sigconf.tex", true};
     auto data = generate_input_compile(req);
-    auto begin = std::chrono::high_resolution_clock::now();
-    std::promise<int> p;
-    client_compile.post(
-        data,
-        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
-          std::cerr << result << " " << response->getStatusCode() << std::endl;
-          // if (result != drogon::ReqResult::Ok && response->getStatusCode() != drogon::k200OK)
-          //   abort();
-          p.set_value(1);
-        }
-    );
-    int size = p.get_future().get();
-    auto end = std::chrono::high_resolution_clock::now();
-    size = 0; // val.toStyledString().length();
+    // auto begin = std::chrono::high_resolution_clock::now();
+    // std::promise<int> p;
+    // client_compile.post(
+    //     data,
+    //     [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
+    //       std::cerr << result << " " << response->getStatusCode() << std::endl;
+    //       // if (result != drogon::ReqResult::Ok && response->getStatusCode() != drogon::k200OK)
+    //       //   abort();
+    //       p.set_value(1);
+    //     }
+    //);
+    // int size = p.get_future().get();
+    // auto end = std::chrono::high_resolution_clock::now();
+    // size = 0; // val.toStyledString().length();
+    auto [result, duration] = make_request(cfg.lambda_url_compile, data);
+
+    // std::cerr << "done" << std::endl;
+    Json::Value root;
+    Json::Reader reader;
+    bool parsingSuccessful = reader.parse(result, root);
+    if (!parsingSuccessful) {
+      std::cout << "Error parsing the string" << std::endl;
+    }
+    // std::cerr << "parsed" << std::endl;
 
     if (i > 0) {
       Json::Value val;
       measurements.emplace_back(
-          "compile", "full", i, data.length(), size,
-          std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count(),
-          val["time_data"].asInt(), val["time_compile"].asInt()
+          "compile", "full", i, data.length(), result.length(), duration,
+          root["time_data"].asDouble(), root["time_compile"].asDouble()
       );
     }
   }
@@ -288,42 +342,27 @@ int main(int argc, char** argv)
     for (const auto& file : update_files) {
       auto data = upload_file(file, cfg, false);
 
-      std::promise<int> p;
-      client.post(
-          data,
-          [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
-            std::cerr << result << " " << response->getStatusCode() << std::endl;
-            // if (result != drogon::ReqResult::Ok && response->getStatusCode() != drogon::k200OK)
-            //   abort();
-            p.set_value(1);
-          }
-      );
-      int val = p.get_future().get();
+      auto [length, duration] = make_request(cfg.lambda_url_update_file, data);
     }
 
     CompileRequest req{"sample-sigconf.tex", false};
     auto data = generate_input_compile(req);
-    auto begin = std::chrono::high_resolution_clock::now();
-    std::promise<int> p;
-    Json::Value val;
-    client_compile.post(
-        data,
-        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
-          std::cerr << result << " " << response->getStatusCode() << std::endl;
-          // if (result != drogon::ReqResult::Ok && response->getStatusCode() != drogon::k200OK)
-          //   abort();
-          p.set_value(1);
-        }
-    );
-    int size = p.get_future().get();
-    auto end = std::chrono::high_resolution_clock::now();
-    size = 0; // val.toStyledString().length();
+    auto [result, duration] = make_request(cfg.lambda_url_compile, data);
+
+    // std::cerr << "done" << std::endl;
+    Json::Value root;
+    Json::Reader reader;
+    bool parsingSuccessful = reader.parse(result, root);
+    if (!parsingSuccessful) {
+      std::cout << "Error parsing the string" << std::endl;
+    }
+    // std::cerr << "parsed" << std::endl;
 
     if (i > 0) {
+      Json::Value val;
       measurements.emplace_back(
-          "compile", "small-update", i, data.length(), size,
-          std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count(),
-          val["time_data"].asInt(), val["time_compile"].asInt()
+          "compile", "small-update", i, data.length(), result.length(), duration,
+          root["time_data"].asDouble(), root["time_compile"].asDouble()
       );
     }
   }
@@ -338,42 +377,27 @@ int main(int argc, char** argv)
     for (const auto& file : update_files) {
       auto data = upload_file(file, cfg, false);
 
-      std::promise<int> p;
-      client.post(
-          data,
-          [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
-            std::cerr << result << " " << response->getStatusCode() << std::endl;
-            // if (result != drogon::ReqResult::Ok && response->getStatusCode() != drogon::k200OK)
-            //   abort();
-            p.set_value(response->getJsonObject()->size());
-          }
-      );
-      int val = p.get_future().get();
+      auto [length, duration] = make_request(cfg.lambda_url_update_file, data);
     }
 
     CompileRequest req{"sample-sigconf.tex", false};
     auto data = generate_input_compile(req);
-    auto begin = std::chrono::high_resolution_clock::now();
-    std::promise<int> p;
-    Json::Value val;
-    client_compile.post(
-        data,
-        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
-          std::cerr << result << " " << response->getStatusCode() << std::endl;
-          // if (result != drogon::ReqResult::Ok && response->getStatusCode() != drogon::k200OK)
-          //   abort();
-          p.set_value(1);
-        }
-    );
-    int size = p.get_future().get();
-    auto end = std::chrono::high_resolution_clock::now();
-    size = 0; // val.toStyledString().length();
+    auto [result, duration] = make_request(cfg.lambda_url_compile, data);
+
+    // std::cerr << "done" << std::endl;
+    Json::Value root;
+    Json::Reader reader;
+    bool parsingSuccessful = reader.parse(result, root);
+    if (!parsingSuccessful) {
+      std::cout << "Error parsing the string" << std::endl;
+    }
+    // std::cerr << "parsed" << std::endl;
 
     if (i > 0) {
+      Json::Value val;
       measurements.emplace_back(
-          "compile", "large-update", i, data.length(), size,
-          std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count(),
-          val["time_data"].asInt(), val["time_compile"].asInt()
+          "compile", "large-update", i, data.length(), result.length(), duration,
+          root["time_data"].asDouble(), root["time_compile"].asDouble()
       );
     }
   }
@@ -384,24 +408,19 @@ int main(int argc, char** argv)
     spdlog::info("Begin rep {}", i);
     CompileRequest req{"sample-sigconf", false};
     auto data = generate_input_compile(req);
-    auto begin = std::chrono::high_resolution_clock::now();
-    std::promise<int> p;
-    Json::Value val;
-    client_get.post(
-        data,
-        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
-          if (result != drogon::ReqResult::Ok && response->getStatusCode() != drogon::k200OK)
-            abort();
-          p.set_value(1);
-        }
-    );
-    int size = p.get_future().get();
-    auto end = std::chrono::high_resolution_clock::now();
+    auto [result, duration] = make_request(cfg.lambda_url_compile, data);
+
+    // std::cerr << "done" << std::endl;
+    Json::Value root;
+    Json::Reader reader;
+    bool parsingSuccessful = reader.parse(result, root);
+    if (!parsingSuccessful) {
+      std::cout << "Error parsing the string" << std::endl;
+    }
 
     if (i > 0) {
       measurements.emplace_back(
-          "get-pdf", "default", i, data.length(), size,
-          std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count(), 0, 0
+          "get-pdf", "default", i, data.length(), result.length(), duration, 0, 0
       );
     }
   }
