@@ -21,6 +21,8 @@
 #include "Base64.h"
 #include "praas/common/http.hpp"
 
+#include <curl/curl.h>
+
 struct Config {
   std::string inputs_directory;
   std::vector<std::string> input_files;
@@ -95,6 +97,47 @@ std::string generate_input_json(File& file)
   }
   return output.str();
 }
+CURL* curl = curl_easy_init();
+
+static size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp)
+{
+  ((std::string*)userp)->append((char*)contents, size * nmemb);
+  return size * nmemb;
+}
+
+std::tuple<int, double> make_request(std::string url, const std::string& data)
+{
+  std::string header[] = {"Content-Type: application/json"};
+  if (curl) {
+    int len;
+    char* str = curl_easy_unescape(curl, url.c_str(), url.length(), &len);
+    curl_easy_setopt(curl, CURLOPT_URL, str);
+    std::string readBuffer;
+    struct curl_slist* list = NULL;
+    list = curl_slist_append(list, "Content-Type: application/json");
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
+    curl_easy_setopt(curl, CURLOPT_POST, 1);
+    // curl_easy_setopt(curl, CURLOPT_USERPWD,
+    // "23bc46b1-71f6-4ed5-8c54-816aa4f8c502:123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP");
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+    // curl_easy_setopt(curl, CURLOPT_WRITEDATA, stdout);
+    readBuffer.clear();
+    auto begin = std::chrono::high_resolution_clock::now();
+    auto res = curl_easy_perform(curl);
+    auto end = std::chrono::high_resolution_clock::now();
+    curl_slist_free_all(list);
+    if (res != CURLE_OK) {
+      abort();
+    }
+
+    return std::make_tuple(
+        readBuffer.length(),
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()
+    );
+  }
+}
 
 int main(int argc, char** argv)
 {
@@ -141,26 +184,24 @@ int main(int argc, char** argv)
     for (int i = 0; i < cfg.repetitions + 1; ++i) {
 
       std::promise<int> p;
-      auto begin = std::chrono::high_resolution_clock::now();
-      client.post(
-          data,
-          [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
-            // std::cerr << result << std::endl;
-            // std::cerr << response->getStatusCode() << std::endl;
-            // if (response->getJsonObject())
-            //   std::cerr << *response->getJsonObject() << std::endl;
-            if (result != drogon::ReqResult::Ok && response->getStatusCode() != drogon::k200OK)
-              abort();
-            p.set_value(response->getJsonObject()->size());
-          }
-      );
-      int val = p.get_future().get();
-      auto end = std::chrono::high_resolution_clock::now();
+      auto [length, duration] = make_request(cfg.lambda_url_update, data);
+      // auto begin = std::chrono::high_resolution_clock::now();
+      // client.post(
+      //     data,
+      //     [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
+      //       // std::cerr << result << std::endl;
+      //       // std::cerr << response->getStatusCode() << std::endl;
+      //       // if (response->getJsonObject())
+      //       //   std::cerr << *response->getJsonObject() << std::endl;
+      //       if (result != drogon::ReqResult::Ok && response->getStatusCode() != drogon::k200OK)
+      //         abort();
+      //       p.set_value(response->getJsonObject()->size());
+      //     }
+      //);
+      // int val = p.get_future().get();
+      // auto end = std::chrono::high_resolution_clock::now();
       if (i > 0) {
-        measurements.emplace_back(
-            "update-file", file, i, data.length(), val,
-            std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()
-        );
+        measurements.emplace_back("update-file", file, i, data.length(), length, duration);
       }
     }
   }
@@ -179,26 +220,28 @@ int main(int argc, char** argv)
 
     for (int i = 0; i < cfg.repetitions + 1; ++i) {
 
-      std::promise<int> p;
-      auto begin = std::chrono::high_resolution_clock::now();
-      client.post(
-          data,
-          [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
-            // std::cerr << result << std::endl;
-            // std::cerr << response->getStatusCode() << std::endl;
-            // if (response->getJsonObject())
-            //   std::cerr << *response->getJsonObject() << std::endl;
-            if (result != drogon::ReqResult::Ok && response->getStatusCode() != drogon::k200OK)
-              abort();
-            p.set_value(response->getJsonObject()->size());
-          }
-      );
-      int val = p.get_future().get();
-      auto end = std::chrono::high_resolution_clock::now();
+      // std::promise<int> p;
+      auto [length, duration] = make_request(cfg.lambda_url_get, data);
+      // auto begin = std::chrono::high_resolution_clock::now();
+      // client.post(
+      //     data,
+      //     [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
+      //       // std::cerr << result << std::endl;
+      //       // std::cerr << response->getStatusCode() << std::endl;
+      //       // if (response->getJsonObject())
+      //       //   std::cerr << *response->getJsonObject() << std::endl;
+      //       if (result != drogon::ReqResult::Ok && response->getStatusCode() != drogon::k200OK)
+      //         abort();
+      //       p.set_value(response->getJsonObject()->size());
+      //     }
+      //);
+      // int val = p.get_future().get();
+      // auto end = std::chrono::high_resolution_clock::now();
       if (i > 0) {
         measurements.emplace_back(
-            "get-file", file, i, data.length(), val,
-            std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()
+            "get-file", file, i, data.length(), length, duration
+            // val,
+            // std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()
         );
       }
     }
@@ -214,6 +257,7 @@ int main(int argc, char** argv)
   }
 
   out_file.close();
+  curl_easy_cleanup(curl);
 
   return 0;
 }
