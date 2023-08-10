@@ -466,7 +466,6 @@ namespace praas::process::remote {
       }
     }
 
-    _logger->info("Submit invocation result of {}", invocation_id);
     praas::common::message::InvocationResultData req;
     req.invocation_id(invocation_id);
     req.return_code(return_code);
