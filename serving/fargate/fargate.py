@@ -217,6 +217,7 @@ def push_image(image: str, input_config: str, output_config: str, regenerate_tok
 
     deployment = load_deployment(input_config)
 
+    docker_client = docker.from_env()
     if deployment.ecr_authorization_token is None or regenerate_token:
         client = boto3.client('ecr', region_name=deployment.region)
         res = client.get_authorization_token(registryIds=[deployment.ecr_registry_id])
@@ -225,8 +226,9 @@ def push_image(image: str, input_config: str, output_config: str, regenerate_tok
         _, deployment.ecr_authorization_token = token.split(':')
 
     _, tag = image.split(':')
-    docker_client = docker.from_env()
-    docker_client.login(username='AWS', password=deployment.ecr_authorization_token, registry=deployment.ecr_registry_uri)
+    uri = deployment.ecr_registry_uri.split('/')[0]
+    # https://github.com/docker/docker-py/issues/2256
+    docker_client.login(username='AWS', password=deployment.ecr_authorization_token, registry=uri, reauth=True)
     repo_path = deployment.ecr_registry_uri
     docker_client.images.get(image).tag(repository=repo_path, tag=tag)
 
