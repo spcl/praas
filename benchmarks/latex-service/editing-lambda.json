@@ -8,8 +8,9 @@
   ],
   "resources_cpu": "1",
   "resources_memory": "1024",
+  "resources_memory": "1024",
   "repetitions": 5,
-  "control_plane_address": "127.0.0.1",
   "output_file": "latex_editing.csv",
-  "cloud_resource_name": "<docker-container-name>"
+  "lambda_url_update": "",
+  "lambda_url_get": ""
 }
