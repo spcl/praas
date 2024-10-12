@@ -182,7 +182,7 @@ int main(int argc, char** argv)
       }
       if (i > 0) {
         measurements.emplace_back(
-            "update-file", file, i, data.length(), invoc.payload_len,
+            "get-file", file, i, data.length(), invoc.payload_len,
             std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()
         );
       }
