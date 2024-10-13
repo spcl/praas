@@ -94,7 +94,11 @@ namespace praas::control_plane::backend {
             callback
     ) = 0;
 
-    virtual void shutdown(const std::shared_ptr<ProcessInstance>&) = 0;
+    virtual void shutdown(
+      const std::string& name,
+      process::ProcessObserver instance,
+      std::function<void(std::optional<std::string>)>&& callback
+    ) = 0;
 
     /**
      * @brief The upper cap on a memory that can be allocated for a process.
@@ -155,7 +159,11 @@ namespace praas::control_plane::backend {
             callback
     ) override;
 
-    void shutdown(const std::shared_ptr<ProcessInstance>&) override;
+    void shutdown(
+      const std::string& name,
+      process::ProcessObserver instance,
+      std::function<void(std::optional<std::string>)>&& callback
+    ) override;
 
     double max_memory() const override;
 
@@ -219,7 +227,11 @@ namespace praas::control_plane::backend {
             callback
     ) override;
 
-    void shutdown(const std::shared_ptr<ProcessInstance>&) override;
+    void shutdown(
+      const std::string& name,
+      process::ProcessObserver instance,
+      std::function<void(std::optional<std::string>)>&& callback
+    ) override;
 
     double max_memory() const override;
 

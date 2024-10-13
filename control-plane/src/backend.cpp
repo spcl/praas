@@ -114,6 +114,7 @@ namespace praas::control_plane::backend {
             auto ip_address = (*response->jsonObject())["ip-address"].asString();
             auto port = (*response->jsonObject())["port"].asInt();
 
+            spdlog::info("Received callback");
             callback(std::make_shared<DockerInstance>(ip_address, port, container), std::nullopt);
 
           } else {
@@ -123,10 +124,50 @@ namespace praas::control_plane::backend {
     );
   }
 
-  void DockerBackend::shutdown(const std::shared_ptr<ProcessInstance>& instance)
+  void DockerBackend::shutdown(
+    const std::string& name,
+    process::ProcessObserver instance,
+    std::function<void(std::optional<std::string>)>&& callback
+  )
   {
-    // FIXME: send call to erase
-    std::erase(_instances, instance);
+    _http_client.post(
+        "/kill",
+        {
+            {"process", name},
+        },
+        [callback = std::move(callback), name, instance, this](
+          drogon::ReqResult result, const drogon::HttpResponsePtr& response
+        ) mutable {
+
+          if (result != drogon::ReqResult::Ok) {
+            callback(fmt::format("Unknown error!"));
+            return;
+          }
+
+          if (response->getStatusCode() == drogon::HttpStatusCode::k500InternalServerError) {
+            callback(
+              fmt::format(
+                  "Process {} could not stopped, reason: {}", name, response->body()
+              )
+            );
+
+          } else if (response->getStatusCode() == drogon::HttpStatusCode::k200OK) {
+
+            auto ptr = instance.lock();
+            if(ptr) {
+              std::erase(_instances, ptr->handle_ptr());
+              ptr->reset_handle();
+              callback(std::nullopt);
+            } else {
+              callback("Fatal error: process deleted during stopping!");
+            }
+
+
+          } else {
+            callback(fmt::format("Unknown error! Response: {}", response->getBody()));
+          }
+        }
+    );
   }
 
   double DockerBackend::max_memory() const
@@ -208,10 +249,11 @@ namespace praas::control_plane::backend {
     req.SetNetworkInterfaceIds({eni_interface});
 
     _ec2_client->DescribeNetworkInterfacesAsync(
-        req,
         [this](auto* ptr, auto res, auto outcome, auto& context) mutable {
           _callback_describe_eni(ptr, res, outcome, context);
-        }
+        },
+        nullptr,
+        req
     );
   }
 
@@ -311,10 +353,14 @@ namespace praas::control_plane::backend {
     );
   }
 
-  void FargateBackend::shutdown(const std::shared_ptr<ProcessInstance>& instance)
+  void FargateBackend::shutdown(
+    const std::string& name,
+    process::ProcessObserver instance,
+    std::function<void(std::optional<std::string>)>&& callback
+  )
   {
     // FIXME: send call to erase
-    std::erase(_instances, instance);
+    std::erase(_instances, instance.lock()->handle_ptr());
   }
 
   double FargateBackend::max_memory() const
