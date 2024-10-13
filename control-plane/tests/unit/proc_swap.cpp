@@ -43,7 +43,7 @@ TEST_F(SwapProcessTest, SwapProcess)
 
   std::string proc_name{"proc1"};
   std::string resource_name{"sandbox"};
-  process::Resources resources{1, 128, resource_name};
+  process::Resources resources{"1", "128", resource_name};
 
   _app_create.add_process(backend, poller, proc_name, std::move(resources), false);
 
@@ -75,7 +75,7 @@ TEST_F(SwapProcessTest, SwapProcessFail)
 
   std::string proc_name{"proc1"};
   std::string resource_name{"sandbox"};
-  process::Resources resources{1, 128, resource_name};
+  process::Resources resources{"1", "128", resource_name};
 
   _app_create.add_process(backend, poller, proc_name, std::move(resources), false);
 
@@ -95,7 +95,7 @@ TEST_F(SwapProcessTest, FullSwapProcess)
 
   std::string proc_name{"proc2"};
   std::string resource_name{"sandbox"};
-  process::Resources resources{1, 128, resource_name};
+  process::Resources resources{"1", "128", resource_name};
 
   _app_create.add_process(backend, poller, proc_name, std::move(resources), false);
 

@@ -44,7 +44,7 @@ TEST_F(TCPServerTest, UpdateMetrics)
 {
   std::string resource_name{"sandbox"};
   std::string process_name{"sandbox"};
-  process::Resources resources{1, 128, resource_name};
+  process::Resources resources{"1", "128", resource_name};
   Application app;
 
   config::TCPServer config;
@@ -89,7 +89,7 @@ TEST_F(TCPServerTest, UpdateMetricsIncorrect)
 {
   std::string resource_name{"sandbox"};
   std::string process_name{"sandbox"};
-  process::Resources resources{1, 128, resource_name};
+  process::Resources resources{"1", "128", resource_name};
   Application app;
 
   config::TCPServer config;

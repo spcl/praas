@@ -74,7 +74,7 @@ TEST_F(TCPServerTest, RegisterProcess)
 {
   std::string resource_name{"sandbox"};
   std::string process_name{"sandbox"};
-  process::Resources resources{1, 128, resource_name};
+  process::Resources resources{"1", "128", resource_name};
   Application app;
 
   config::TCPServer config;
@@ -112,7 +112,7 @@ TEST_F(TCPServerTest, RegisterProcessIncorrect)
 {
   std::string resource_name{"sandbox"};
   std::string process_name{"sandbox"};
-  process::Resources resources{1, 128, resource_name};
+  process::Resources resources{"1", "128", resource_name};
   Application app;
 
   config::TCPServer config;
@@ -145,7 +145,7 @@ TEST_F(TCPServerTest, RegisterProcessPartial)
 {
   std::string resource_name{"sandbox"};
   std::string process_name{"sandbox"};
-  process::Resources resources{1, 128, resource_name};
+  process::Resources resources{"1", "128", resource_name};
   Application app;
 
   config::TCPServer config;
@@ -186,7 +186,7 @@ TEST_F(TCPServerTest, DeregisterProcess)
 {
   std::string resource_name{"sandbox"};
   std::string process_name{"sandbox"};
-  process::Resources resources{1, 128, resource_name};
+  process::Resources resources{"1", "128", resource_name};
   Application app;
 
   config::TCPServer config;
@@ -228,7 +228,7 @@ TEST_F(TCPServerTest, ClosedProcess)
 {
   std::string resource_name{"sandbox"};
   std::string process_name{"sandbox"};
-  process::Resources resources{1, 128, resource_name};
+  process::Resources resources{"1", "128", resource_name};
   Application app;
 
   config::TCPServer config;

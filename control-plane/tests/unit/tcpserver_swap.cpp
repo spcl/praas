@@ -45,7 +45,7 @@ TEST_F(TCPServerTest, SwapProcess)
   std::string resource_name{"sandbox"};
   std::string process_name{"sandbox"};
   std::string swap_loc{"swaps"};
-  process::Resources resources{1, 128, resource_name};
+  process::Resources resources{"1", "128", resource_name};
   deployment::Local deployment{swap_loc};
 
   config::TCPServer config;
@@ -90,7 +90,7 @@ TEST_F(TCPServerTest, SwapProcessAndConfirm)
   std::string process_name{"sandbox"};
   std::string swap_loc{"swaps"};
   int32_t swap_size = 1024;
-  process::Resources resources{1, 128, resource_name};
+  process::Resources resources{"1", "128", resource_name};
   deployment::Local deployment{swap_loc};
 
   config::TCPServer config;

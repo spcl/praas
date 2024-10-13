@@ -43,7 +43,7 @@ TEST_F(DeleteProcessTest, DeleteCorrect)
 
   std::string proc_name{"proc1"};
   std::string resource_name{"sandbox"};
-  process::Resources resources{1, 128, resource_name};
+  process::Resources resources{"1", "128", resource_name};
 
   {
     std::promise<bool> p;
@@ -86,7 +86,7 @@ TEST_F(DeleteProcessTest, DeleteWhileSwapping)
 
   std::string proc_name{"proc2"};
   std::string resource_name{"sandbox"};
-  process::Resources resources{1, 128, resource_name};
+  process::Resources resources{"1", "128", resource_name};
 
   {
     std::promise<bool> p;

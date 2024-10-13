@@ -35,9 +35,14 @@ public:
            void(std::shared_ptr<backend::ProcessInstance>&&, std::optional<std::string>)>&&),
       ()
   );
-  MOCK_METHOD(void, shutdown, (const std::shared_ptr<backend::ProcessInstance>&), ());
-  MOCK_METHOD(int, max_memory, (), (const));
-  MOCK_METHOD(int, max_vcpus, (), (const));
+  MOCK_METHOD(void, shutdown, 
+    (const std::string& name,
+    process::ProcessObserver instance,
+    std::function<void(std::optional<std::string>)>&& callback),
+    ()
+);
+  MOCK_METHOD(double, max_memory, (), (const));
+  MOCK_METHOD(double, max_vcpus, (), (const));
 };
 
 class MockWorkers : public worker::Workers {

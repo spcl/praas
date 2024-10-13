@@ -150,7 +150,7 @@ TEST_F(HttpServerTest, DeleteProcess)
     resources.get_application(app_name, app_acc);
     ASSERT_FALSE(app_acc.empty());
 
-    app_acc.get()->add_process(backend, server, proc_name, process::Resources(1, 2048, ""));
+    app_acc.get()->add_process(backend, server, proc_name, process::Resources("1", "2048", ""));
   }
 
   // Now delete the application - this should fail as the process is not active.
@@ -232,7 +232,7 @@ TEST_F(HttpServerTest, SwapProcess)
     resources.get_application(app_name, app_acc);
     ASSERT_FALSE(app_acc.empty());
 
-    app_acc.get()->add_process(backend, server, proc_name, process::Resources(1, 2048, ""), false);
+    app_acc.get()->add_process(backend, server, proc_name, process::Resources("1", "2048", ""), false);
   }
 
   // Now swap the process - should fail because process is not allocated.
@@ -363,7 +363,7 @@ TEST_F(HttpServerTest, ListProcesses)
     resources.get_application(app_name, app_acc);
     ASSERT_FALSE(app_acc.empty());
 
-    app_acc.get()->add_process(backend, server, proc_name, process::Resources(1, 2048, ""));
+    app_acc.get()->add_process(backend, server, proc_name, process::Resources("1", "2048", ""));
   }
 
   // First case - single process
@@ -394,7 +394,7 @@ TEST_F(HttpServerTest, ListProcesses)
     resources.get_application(app_name, app_acc);
     ASSERT_FALSE(app_acc.empty());
 
-    app_acc.get()->add_process(backend, server, second_proc_name, process::Resources(1, 2048, ""));
+    app_acc.get()->add_process(backend, server, second_proc_name, process::Resources("1", "2048", ""));
   }
 
   // Second case - two processes

@@ -31,7 +31,7 @@ TEST_F(CreateProcessTest, CreateProcess)
   {
     std::string proc_name{"proc1"};
     std::string resource_name{"sandbox"};
-    process::Resources resources{1, 128, resource_name};
+    process::Resources resources{"1", "128", resource_name};
 
     EXPECT_CALL(backend, allocate_process(testing::_, testing::_, testing::_))
         .Times(testing::Exactly(1));
@@ -55,7 +55,7 @@ TEST_F(CreateProcessTest, CreateProcess)
 
     std::string proc_name{"proc1"};
     std::string resource_name{"sandbox"};
-    process::Resources resources{1, 128, resource_name};
+    process::Resources resources{"1", "128", resource_name};
 
     EXPECT_CALL(backend, allocate_process(testing::_, testing::_, testing::_))
         .Times(testing::Exactly(0));
@@ -79,7 +79,7 @@ TEST_F(CreateProcessTest, CreateProcessIncorrectConfig)
     // Empty process name
 
     std::string resource_name{"sandbox"};
-    process::Resources resources{1, 128, resource_name};
+    process::Resources resources{"1", "128", resource_name};
     EXPECT_CALL(backend, allocate_process(testing::_, testing::_, testing::_))
         .Times(testing::Exactly(0));
 
@@ -91,7 +91,7 @@ TEST_F(CreateProcessTest, CreateProcessIncorrectConfig)
     // Incorrect number of vCPUs
 
     std::string proc_name{"proc2"};
-    resources = process::Resources{5, 128, resource_name};
+    resources = process::Resources{"5", "128", resource_name};
     EXPECT_CALL(backend, allocate_process(testing::_, testing::_, testing::_))
         .Times(testing::Exactly(0));
     EXPECT_CALL(backend, max_vcpus()).Times(1);
@@ -104,7 +104,7 @@ TEST_F(CreateProcessTest, CreateProcessIncorrectConfig)
 
     // Incorrect amount of memory
 
-    resources = process::Resources{1, 8192, resource_name};
+    resources = process::Resources{"1", "8192", resource_name};
     EXPECT_CALL(backend, allocate_process(testing::_, testing::_, testing::_))
         .Times(testing::Exactly(0));
     EXPECT_CALL(backend, max_memory()).Times(1);
@@ -122,7 +122,7 @@ TEST_F(CreateProcessTest, CreateProcessFailure)
 
   std::string proc_name{"proc3"};
   std::string resource_name{"sandbox"};
-  process::Resources resources{1, 128, resource_name};
+  process::Resources resources{"1", "128", resource_name};
 
   using callback_t =
       std::function<void(std::shared_ptr<backend::ProcessInstance>&&, std::optional<std::string>)>;
