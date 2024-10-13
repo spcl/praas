@@ -45,22 +45,31 @@ TEST_F(IntegrationLocalInvocation, AllocationInvoke)
 {
   praas::common::http::HTTPClientFactory::initialize(1);
   {
-    praas::sdk::PraaS praas{fmt::format("http://127.0.0.1:{}", 8000)};
+    praas::sdk::PraaS praas{fmt::format("http://127.0.0.1:{}", 9000)};
 
+    std::string app_name("test_alloc_invoc");
     ASSERT_TRUE(
-        praas.create_application("test_alloc_invoc", "spcleth/praas-examples:hello-world-cpp")
+        praas.create_application(app_name, "spcleth/praas-examples:hello-world-cpp")
     );
 
-    auto proc = praas.create_process("test_alloc_invoc", "alloc_invoc_process", 1, 1024);
+    spdlog::info("Create process");
+    auto proc = praas.create_process(app_name, "alloc_invoc_process", "1", "1024");
     ASSERT_TRUE(proc.has_value());
+    spdlog::info("Created process");
 
     ASSERT_TRUE(proc->connect());
+    spdlog::info("Connected");
 
     auto invoc = proc->invoke("hello-world", "invocation-id", nullptr, 0);
+    spdlog::info("Invoked");
 
     // auto invoc = praas.invoke("test_app", "hello-world", "");
 
     ASSERT_EQ(invoc.return_code, 0);
     EXPECT_EQ("Hello, world!", get_output_binary(invoc.payload.get(), invoc.payload_len));
+
+    ASSERT_TRUE(praas.stop_process(proc.value()));
+
+    ASSERT_TRUE(praas.delete_application(app_name));
   }
 }
