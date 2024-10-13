@@ -42,7 +42,7 @@ namespace praas::control_plane::worker {
     template <typename F, typename... Args>
     void add_task(F&& func, Args&&... args)
     {
-      _pool.push_task([this, func, ... args = std::forward<Args>(args)]() mutable {
+      _pool.detach_task([this, func, ... args = std::forward<Args>(args)]() mutable {
         std::invoke(func, *this, std::forward<Args>(args)...);
       });
     }
@@ -50,7 +50,7 @@ namespace praas::control_plane::worker {
     template <typename F>
     void add_task(F&& func)
     {
-      _pool.push_task(std::forward<F>(func));
+      _pool.detach_task(std::forward<F>(func));
     }
 
     void handle_invocation(
@@ -69,6 +69,8 @@ namespace praas::control_plane::worker {
     ////////////////////////////////////////////////////////////////////////////////
     bool create_application(const std::string& app_name, ApplicationResources&& cloud_resources);
 
+    bool delete_application(const std::string& app_name);
+
     ////////////////////////////////////////////////////////////////////////////////
     /// @brief Creates a process within an existing application.
     /// This launches process creation in the background that will be resolved later.
@@ -85,6 +87,21 @@ namespace praas::control_plane::worker {
     bool create_process(
         const std::string& app_name, const std::string& proc_id, process::Resources&& resources,
         std::function<void(process::ProcessPtr, const std::optional<std::string>&)>&& callback
+    );
+
+    ////////////////////////////////////////////////////////////////////////////////
+    /// @brief Stop a process forcefully without a swap out.
+    ///
+    /// This methods requires read-only access to the resources class and write
+    /// access to the application class.
+    ///
+    /// @param[in] app_name application name
+    /// @param[in] proc_id new process name
+    /// @return error message if operation failed; empty optional otherwise
+    ////////////////////////////////////////////////////////////////////////////////
+    void stop_process(
+        const std::string& app_name, const std::string& proc_id,
+        std::function<void(const std::optional<std::string>&)>&& callback
     );
 
     ////////////////////////////////////////////////////////////////////////////////

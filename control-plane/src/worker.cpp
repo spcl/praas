@@ -68,6 +68,17 @@ namespace praas::control_plane::worker {
     return true;
   }
 
+  bool
+  Workers::delete_application(const std::string& app_name)
+  {
+    try {
+      _resources.delete_application(app_name);
+      return true;
+    } catch (common::PraaSException&) {
+      return false;
+    }
+  }
+
   bool Workers::create_process(
       const std::string& app_name, const std::string& proc_id, // NOLINT
       process::Resources&& resources,
@@ -84,6 +95,24 @@ namespace praas::control_plane::worker {
         this->_backend, *this->_server, proc_id, std::move(resources), std::move(callback)
     );
     return true;
+  }
+
+  void Workers::stop_process(
+    const std::string& app_name, const std::string& proc_id,
+    std::function<void(const std::optional<std::string>&)>&& callback
+  )
+  {
+    Resources::RWAccessor acc;
+    _resources.get_application(app_name, acc);
+    if (acc.empty()) {
+      callback("Application does not exist");
+    }
+
+    try {
+      acc.get()->stop_process(proc_id, this->_backend, std::move(callback));
+    } catch (common::ObjectDoesNotExist&) {
+      callback("Process does not exist or is not alive.");
+    }
   }
 
   std::optional<std::string>

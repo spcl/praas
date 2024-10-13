@@ -36,6 +36,7 @@ namespace praas::control_plane::process {
     SWAPPED_OUT,
     SWAPPING_OUT,
     SWAPPING_IN,
+    CLOSING,
     CLOSED,
     FAILURE
 
@@ -146,7 +147,11 @@ namespace praas::control_plane::process {
 
     const backend::ProcessInstance& c_handle() const;
 
+    std::shared_ptr<backend::ProcessInstance>& handle_ptr();
+
     void set_handle(std::shared_ptr<backend::ProcessInstance>&& handle);
+
+    void reset_handle();
 
     Application& application() const;
 

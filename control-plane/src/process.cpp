@@ -38,6 +38,16 @@ namespace praas::control_plane::process {
     return *_handle;
   }
 
+  std::shared_ptr<backend::ProcessInstance>& Process::handle_ptr()
+  {
+    return _handle;
+  }
+
+  void Process::reset_handle()
+  {
+    _handle.reset();
+  }
+
   void Process::set_handle(std::shared_ptr<backend::ProcessInstance>&& handle)
   {
     _handle = std::move(handle);
