@@ -46,8 +46,12 @@ namespace praas::control_plane {
     if (acc.empty()) {
       throw praas::common::ObjectDoesNotExist{application_name};
     }
-    // FIXME: schedule deletion of processes
-    _applications.erase(acc);
+
+    if(acc->second.get_process_count() > 0) {
+      throw praas::common::PraaSException("Application is not empty");
+    } else {
+      _applications.erase(acc);
+    }
   }
 
   const Application* Resources::ROAccessor::get() const

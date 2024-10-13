@@ -125,6 +125,11 @@ namespace praas::control_plane {
     std::tuple<process::Process::read_lock_t, process::Process*> get_process(const std::string& name
     ) const;
 
+    void stop_process(
+      std::string process_name, backend::Backend& backend,
+      std::function<void(const std::optional<std::string>&)>&& callback
+    );
+
     ////////////////////////////////////////////////////////////////////////////////
     /// @brief Acquires read access to a selected swapped process.
     ///
@@ -203,6 +208,8 @@ namespace praas::control_plane {
     std::string name() const;
 
     const ApplicationResources& resources() const;
+
+    int get_process_count() const;
 
   private:
     using lock_t = std::shared_mutex;

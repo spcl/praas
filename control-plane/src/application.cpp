@@ -262,7 +262,7 @@ namespace praas::control_plane {
   {
     auto proc_lock = ptr->write_lock();
 
-    if (ptr->status() != process::Status::SWAPPED_OUT) {
+    if (ptr->status() != process::Status::SWAPPED_OUT && ptr->status() != process::Status::CLOSING) {
 
       spdlog::error("Failure! Closing not-swapped process {}, state {}", _name, ptr->status());
 
@@ -288,6 +288,42 @@ namespace praas::control_plane {
     } else {
       ptr->close_connection();
     }
+  }
+
+  void Application::stop_process(
+    std::string process_name, backend::Backend& backend,
+    std::function<void(const std::optional<std::string>&)>&& callback
+  )
+  {
+    if (process_name.length() == 0) {
+      throw praas::common::InvalidConfigurationError("Process name cannot be empty");
+    }
+
+    write_lock_t application_lock(_active_mutex);
+
+    auto iter = _active_processes.find(process_name);
+    if (iter == _active_processes.end() || (*iter).second->status() != process::Status::ALLOCATED) {
+      throw praas::common::InvalidConfigurationError("Process is not alive!");
+    }
+
+    (*iter).second->set_status(process::Status::CLOSING);
+    backend.shutdown(
+      (*iter).second->name(), (*iter).second,
+      [this, process_name, callback=std::move(callback)](std::optional<std::string> msg) {
+
+        if(!msg) {
+          write_lock_t application_lock(_active_mutex);
+
+          auto iter = _active_processes.find(process_name);
+          if (iter != _active_processes.end()) {
+            _active_processes.erase(iter);
+          }
+        }
+
+        callback(msg);
+      }
+    );
+
   }
 
   void Application::delete_process(std::string process_name, deployment::Deployment& deployment)
@@ -319,6 +355,11 @@ namespace praas::control_plane {
   const ApplicationResources& Application::resources() const
   {
     return this->_resources;
+  }
+
+  int Application::get_process_count() const
+  {
+    return _active_processes.size() + _swapped_processes.size();
   }
 
   void Application::get_processes(std::vector<std::string>& results) const

@@ -89,6 +89,22 @@ namespace praas::control_plane {
     });
   }
 
+  void HttpServer::delete_app(
+      const drogon::HttpRequestPtr& request,
+      std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string& app_name
+  )
+  {
+    _logger->info("Delete application {}", app_name);
+    _workers.add_task([=, callback = std::move(callback), this]() {
+      if (_workers.delete_application(app_name)) {
+        callback(correct_response("Deleted!"));
+      } else {
+        callback(failed_response("Failed to delete."));
+      }
+    });
+
+  }
+
   void HttpServer::create_process(
       const drogon::HttpRequestPtr& request,
       std::function<void(const drogon::HttpResponsePtr&)>&& callback,
@@ -137,6 +153,26 @@ namespace praas::control_plane {
     _workers.add_task(
         &worker::Workers::handle_invocation, request, std::move(callback), app_name, function_name,
         start
+    );
+  }
+
+  void HttpServer::stop_process(
+      const drogon::HttpRequestPtr&, // NOLINT
+      std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string& app_name,
+      const std::string& process_name
+  )
+  {
+    _logger->info("Stop process {}", process_name);
+    _workers.add_task(
+      &worker::Workers::stop_process, app_name, process_name,
+      [process_name, callback = std::move(callback)](const std::optional<std::string>& response) {
+        if (response) {
+          callback(failed_response(response.value(), drogon::HttpStatusCode::k400BadRequest));
+        } else {
+          callback(correct_response(fmt::format("Stopped process {}.", process_name))
+          );
+        }
+      }
     );
   }
 
