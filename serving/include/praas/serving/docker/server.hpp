@@ -41,6 +41,7 @@ namespace praas::serving::docker {
     ADD_METHOD_TO(HttpServer::create, "/create?process={1}", drogon::Post);
     ADD_METHOD_TO(HttpServer::kill, "/kill?process={1}", drogon::Post);
     ADD_METHOD_TO(HttpServer::cache_image, "/cache?image={1}", drogon::Post);
+    ADD_METHOD_TO(HttpServer::list_containers, "/list", drogon::Get);
     METHOD_LIST_END
 
     HttpServer(Options&);
@@ -62,6 +63,11 @@ namespace praas::serving::docker {
     void cache_image(
         const drogon::HttpRequestPtr&,
         std::function<void(const drogon::HttpResponsePtr&)>&& callback, std::string image
+    );
+
+    void list_containers(
+        const drogon::HttpRequestPtr&,
+        std::function<void(const drogon::HttpResponsePtr&)>&& callback
     );
 
   private:

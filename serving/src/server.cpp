@@ -137,6 +137,12 @@ namespace praas::serving::docker {
     Json::Value host_config;
     host_config["PortBindings"] = port_bindings;
     host_config["AutoRemove"] = true;
+    //host_config["NetworkMode"] = "bridge";
+
+    Json::Value extra_hosts;
+    extra_hosts.append("host.docker.internal:host-gateway");
+    //host_config["NetworkMode"] = "bridge";
+    //host_config["ExtraHosts"] = extra_hosts;
     body["HostConfig"] = host_config;
 
     // Docker documentation here is lacking details.
@@ -318,6 +324,29 @@ namespace praas::serving::docker {
           callback(resp);
         }
     );
+  }
+
+  void HttpServer::list_containers(
+      const drogon::HttpRequestPtr&,
+      std::function<void(const drogon::HttpResponsePtr&)>&& callback
+  )
+  {
+    std::vector<Process> processes;
+    _processes.get_all(processes);
+
+    Json::Value containers = Json::arrayValue;
+    for(auto & p : processes) {
+      Json::Value val;
+      val["process"] = p.process_id;
+      val["container"] = p.container_id;
+      containers.append(val);
+    }
+
+    Json::Value resp_json;
+    resp_json["processes"] = containers;
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(resp_json);
+    resp->setStatusCode(drogon::k200OK);
+    callback(resp);
   }
 
 } // namespace praas::serving::docker
