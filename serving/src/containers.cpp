@@ -34,7 +34,7 @@ namespace praas::serving::docker {
   void Processes::get_all(std::vector<Process>& processes)
   {
     for (auto& proc : _processes) {
-      processes.push_back(std::move(proc.second));
+      processes.push_back(proc.second);
     }
   }
 
