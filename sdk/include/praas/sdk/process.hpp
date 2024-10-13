@@ -12,7 +12,7 @@ namespace praas::sdk {
 
     Process() = default;
 
-    Process(const std::string& addr, int port, bool disable_nagle = true);
+    Process(std::string app, std::string pid, const std::string& addr, int port, bool disable_nagle = true);
 
     Process(const Process &) = delete;
     Process(Process &&) = default;
@@ -31,6 +31,10 @@ namespace praas::sdk {
     {
       return _dataplane;
     }
+
+    const std::string app_name;
+
+    const std::string process_id;
 
   private:
 

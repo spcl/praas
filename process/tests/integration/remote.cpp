@@ -180,7 +180,7 @@ TEST_P(ProcessRemoteServer, DataPlaneInvocations)
   controller->set_remote(&server);
   server.poll();
 
-  praas::sdk::Process process{"localhost", DEFAULT_CONTROLLER_PORT};
+  praas::sdk::Process process{"app_name", "id", "localhost", DEFAULT_CONTROLLER_PORT};
 
   ASSERT_TRUE(process.connect());
 

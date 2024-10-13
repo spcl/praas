@@ -228,7 +228,7 @@ TEST_P(ProcessRemoteServers, GetPutCommunication)
 
   std::vector<praas::sdk::Process> processes;
   for (int i = 0; i < PROC_COUNT; ++i) {
-    processes.emplace_back(std::string{"localhost"}, DEFAULT_CONTROLLER_PORT + i);
+    processes.emplace_back("app_name", std::to_string(i), std::string{"localhost"}, DEFAULT_CONTROLLER_PORT + i);
     ASSERT_TRUE(processes.back().connect());
   }
 
@@ -305,7 +305,7 @@ TEST_P(ProcessRemoteServers, SimultaenousMessaging)
 
   std::vector<praas::sdk::Process> processes;
   for (int i = 0; i < PROC_COUNT; ++i) {
-    processes.emplace_back(std::string{"localhost"}, DEFAULT_CONTROLLER_PORT + i);
+    processes.emplace_back("app_name", std::to_string(i), std::string{"localhost"}, DEFAULT_CONTROLLER_PORT + i);
     ASSERT_TRUE(processes.back().connect());
   }
 
@@ -375,7 +375,7 @@ TEST_P(ProcessRemoteServers, RemoteInvocations)
 
   std::vector<praas::sdk::Process> processes;
   for (int i = 0; i < PROC_COUNT; ++i) {
-    processes.emplace_back(std::string{"localhost"}, DEFAULT_CONTROLLER_PORT + i);
+    processes.emplace_back("app_name", std::to_string(i), std::string{"localhost"}, DEFAULT_CONTROLLER_PORT + i);
     ASSERT_TRUE(processes.back().connect());
   }
 
@@ -446,7 +446,7 @@ TEST_P(ProcessRemoteServers, RemoteInvocationsUnknown)
 
   std::vector<praas::sdk::Process> processes;
   for (int i = 0; i < PROC_COUNT; ++i) {
-    processes.emplace_back(std::string{"localhost"}, DEFAULT_CONTROLLER_PORT + i);
+    processes.emplace_back("app_name", std::to_string(i), std::string{"localhost"}, DEFAULT_CONTROLLER_PORT + i);
     ASSERT_TRUE(processes.back().connect());
   }
 

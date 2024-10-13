@@ -8,8 +8,10 @@
 
 namespace praas::sdk {
 
-  Process::Process(const std::string& addr, int port, bool disable_nagle)
-      : _disable_nagle(disable_nagle), _addr(addr, port)
+  Process::Process(
+    std::string app, std::string pid, const std::string& addr, int port, bool disable_nagle
+  )
+    : app_name(std::move(app)), process_id(std::move(pid)), _disable_nagle(disable_nagle), _addr(addr, port)
   {
   }
 

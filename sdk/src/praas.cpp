@@ -4,6 +4,7 @@
 
 #include <drogon/HttpTypes.h>
 #include <spdlog/fmt/fmt.h>
+#include <spdlog/spdlog.h>
 
 namespace praas::sdk {
 
@@ -44,6 +45,28 @@ namespace praas::sdk {
     return p.get_future().get();
   }
 
+  bool PraaS::delete_application(const std::string& application)
+  {
+    auto req = drogon::HttpRequest::newHttpRequest();
+    req->setMethod(drogon::Post);
+    req->setPath(fmt::format("/apps/{}/delete", application));
+
+    std::promise<bool> p;
+
+    _http_client->sendRequest(
+        req,
+        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          if (result == drogon::ReqResult::Ok) {
+            p.set_value(response->getStatusCode() == drogon::k200OK);
+          } else {
+            p.set_value(false);
+          }
+        }
+    );
+    return p.get_future().get();
+
+  }
+
   std::optional<Process> PraaS::create_process(
       const std::string& application, const std::string& process_name, std::string vcpus,
       std::string memory
@@ -60,14 +83,38 @@ namespace praas::sdk {
     _http_client->sendRequest(
         req,
         [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          spdlog::info("Received callback Created process");
           if (result == drogon::ReqResult::Ok && response->getStatusCode() == drogon::k200OK) {
             auto& json_obj = *response->getJsonObject();
             auto ip_addr = json_obj["connection"]["ip-address"].asString();
             auto port = json_obj["connection"]["port"].asInt();
-            p.set_value(Process{ip_addr, port, true});
+            p.set_value(Process{application, process_name, ip_addr, port, true});
           } else {
             std::cerr << *response->getJsonObject() << std::endl;
             p.set_value(std::nullopt);
+          }
+        }
+    );
+    return p.get_future().get();
+  }
+
+  bool PraaS::stop_process(const Process& process)
+  {
+    auto req = drogon::HttpRequest::newHttpRequest();
+    req->setMethod(drogon::Post);
+    req->setPath(fmt::format("/apps/{}/processes/{}/stop", process.app_name, process.process_id));
+
+    std::promise<bool> p;
+
+    _http_client->sendRequest(
+        req,
+        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+
+          if (result == drogon::ReqResult::Ok && response->getStatusCode() == drogon::k200OK) {
+            p.set_value(true);
+          } else {
+            std::cerr << *response->getJsonObject() << std::endl;
+            p.set_value(false);
           }
         }
     );
