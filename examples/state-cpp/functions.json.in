@@ -1,0 +1,26 @@
+{
+  "functions": {
+    "cpp": {
+      "state-put": {
+        "code": {
+          "module": "@FUNCTIONS_DIRECTORY@/libstate.so",
+          "function": "state_put"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      },
+      "state-get": {
+        "code": {
+          "module": "@FUNCTIONS_DIRECTORY@/libstate.so",
+          "function": "state_get"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
+      }
+    }
+  }
+}

@@ -200,6 +200,7 @@ if(PRAAS_WITH_TESTING)
   set(TESTS
     #tests/integration/invocation.cpp
     tests/integration/allocation_invocation.cpp
+    tests/integration/state_swap.cpp
   )
   foreach(test ${TESTS})
 
