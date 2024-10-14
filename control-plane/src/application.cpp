@@ -82,9 +82,9 @@ namespace praas::control_plane {
 
     backend.allocate_process(
         process, resources,
-        [process, &poller, iter, this](
-            std::shared_ptr<backend::ProcessInstance>&& instance,
-            const std::optional<std::string>& error
+        [process, &poller, name, this](
+          std::shared_ptr<backend::ProcessInstance>&& instance,
+          const std::optional<std::string>& error
         ) {
           if (instance != nullptr) {
             process->set_handle(std::move(instance));
@@ -98,8 +98,8 @@ namespace praas::control_plane {
           } else {
 
             write_lock_t lock(_active_mutex);
-            poller.remove_process(*process);
-            _active_processes.erase(iter);
+            poller.remove_process(name);
+            _active_processes.erase(name);
             process->created_callback(error);
           }
         }
@@ -232,6 +232,66 @@ namespace praas::control_plane {
     proc.state().swap = deployment.get_location(_name);
 
     proc.swap(std::move(callback));
+
+  }
+
+  void Application::swapin_process(
+    std::string process_name, backend::Backend& backend, tcpserver::TCPServer& poller,
+    std::function<void(process::ProcessPtr, const std::optional<std::string>&)>&& callback
+  )
+  {
+    read_lock_t application_lock(_swapped_mutex);
+
+    // We cannot extract it immediately because we need to first lock the process
+    auto iter = _swapped_processes.find(process_name);
+
+    if (iter == _swapped_processes.end()) {
+      throw praas::common::ObjectDoesNotExist{process_name};
+    }
+
+    // Lock the process first.
+    process::Process& process = *(*iter).second;
+    auto proc_lock = process.write_lock();
+    process::ProcessPtr proc_ptr = (*iter).second;
+
+    // Remove process from the container
+    auto nh = _swapped_processes.extract(iter);
+    application_lock.unlock();
+
+    // Prepare swapping in
+    process.set_status(process::Status::SWAPPING_IN);
+    process.set_creation_callback(std::move(callback), true);
+    poller.add_process((*iter).second);
+    // Insert into swapped
+
+    write_lock_t lock(_active_mutex);
+    _active_processes.insert(std::move(nh));
+
+    backend.allocate_process(
+      proc_ptr, proc_ptr->_resources,
+      [proc_ptr, &poller, process_name, this](
+        std::shared_ptr<backend::ProcessInstance>&& instance,
+        const std::optional<std::string>& error
+      ) {
+        if (instance != nullptr) {
+
+          proc_ptr->set_handle(std::move(instance));
+
+          // As in createrd process, we avoid a race condition.
+          // Created callback can be called by process connection, or by
+          // the backend returning information.
+          // We wait until both information are provided.
+          proc_ptr->created_callback(std::nullopt);
+
+        } else {
+
+          write_lock_t lock(_active_mutex);
+          poller.remove_process(process_name);
+          _active_processes.erase(process_name);
+          proc_ptr->created_callback(error);
+        }
+      }
+    );
   }
 
   void Application::swapped_process(std::string process_name, size_t size, double time)
@@ -257,6 +317,9 @@ namespace praas::control_plane {
     application_lock.unlock();
 
     proc.set_status(process::Status::SWAPPED_OUT);
+
+    proc.close_connection();
+    proc.set_handle(nullptr);
 
     proc.swapped_callback(size, time, std::nullopt);
 
@@ -293,7 +356,7 @@ namespace praas::control_plane {
       }
 
     } else {
-      ptr->close_connection();
+      ptr->closed_connection();
     }
   }
 

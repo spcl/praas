@@ -31,6 +31,10 @@ namespace praas::sdk {
 
     std::optional<std::string> swap_process(const Process& process);
 
+    std::optional<Process> swapin_process(
+      const std::string& application, const std::string& process_name
+    );
+
     bool delete_process(const Process& process);
 
     bool stop_process(const Process& process);

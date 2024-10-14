@@ -221,6 +221,37 @@ namespace praas::control_plane {
     );
   }
 
+  void HttpServer::swapin_process(
+      const drogon::HttpRequestPtr&,
+      std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string& app_name,
+      const std::string& process_name
+  )
+  {
+    _logger->info("Swapin process {}", process_name);
+    _workers.add_task(
+      &worker::Workers::swapin_process, app_name, process_name,
+      [callback = std::move(callback)](
+        process::ProcessPtr proc, const std::optional<std::string>& response
+      ) {
+        if (proc) {
+
+          Json::Value conn_description;
+          conn_description["type"] = "direct";
+          conn_description["ip-address"] = proc->handle().ip_address;
+          conn_description["port"] = proc->handle().port;
+
+          Json::Value proc_description;
+          proc_description["name"] = proc->name();
+          proc_description["connection"] = conn_description;
+
+          callback(common::http::HTTPClient::correct_response(proc_description));
+        } else {
+          callback(failed_response(response.value()));
+        }
+      }
+    );
+  }
+
   void HttpServer::list_processes(
       const drogon::HttpRequestPtr&, std::function<void(const drogon::HttpResponsePtr&)>&& callback,
       const std::string& app_name

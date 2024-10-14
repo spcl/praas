@@ -7,13 +7,8 @@ namespace praas::serving::docker {
   void Processes::add(const std::string& id, Process&& proc)
   {
     rw_acc_t acc;
-    bool inserted = _processes.insert(acc, id);
-
-    if (inserted) {
-      acc->second = std::move(proc);
-    } else {
-      throw praas::common::ObjectExists{id};
-    }
+    _processes.insert(acc, id);
+    acc->second = std::move(proc);
   }
 
   void Processes::get(const std::string& id, ro_acc_t& acc) const
@@ -26,9 +21,18 @@ namespace praas::serving::docker {
     _processes.find(acc, id);
   }
 
-  bool Processes::erase(const std::string& id)
+  bool Processes::erase(const std::string& id, std::optional<std::string> container_id)
   {
-    return _processes.erase(id);
+    rw_acc_t acc;
+    bool found = _processes.find(acc, id);
+
+    if(found) {
+      if(container_id.has_value() && acc->second.container_id == container_id.value()) {
+        _processes.erase(acc);
+        return true;
+      }
+    }
+    return false;
   }
 
   void Processes::get_all(std::vector<Process>& processes)

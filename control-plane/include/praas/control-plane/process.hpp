@@ -195,6 +195,8 @@ namespace praas::control_plane::process {
 
     void close_connection();
 
+    void closed_connection();
+
     void set_creation_callback(
         std::function<void(std::shared_ptr<Process>, std::optional<std::string>)>&& callback,
         bool wait_for_allocation

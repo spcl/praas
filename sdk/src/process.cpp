@@ -74,7 +74,10 @@ namespace praas::sdk {
     }
 
     praas::common::message::MessageData response;
-    _dataplane.read_n(response.data(), praas::common::message::MessageConfig::BUF_SIZE);
+    auto read_bytes = _dataplane.read_n(response.data(), praas::common::message::MessageConfig::BUF_SIZE);
+    if(read_bytes < praas::common::message::MessageConfig::BUF_SIZE) {
+      return {1, nullptr, 0};
+    }
 
     auto parsed_msg = praas::common::message::MessageParser::parse(response);
     if (!std::holds_alternative<common::message::InvocationResultPtr>(parsed_msg)) {

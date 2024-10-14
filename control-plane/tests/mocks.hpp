@@ -59,7 +59,7 @@ public:
   MockTCPServer(MockWorkers& workers) : tcpserver::TCPServer(config::TCPServer{}, workers) {}
 
   MOCK_METHOD(void, add_process, (const process::ProcessPtr& ptr), (override));
-  MOCK_METHOD(void, remove_process, (const process::Process&), (override));
+  MOCK_METHOD(void, remove_process, (std::string), (override));
 };
 
 void setup_mocks(MockBackend& backend, bool mock_tcp_connection = false)

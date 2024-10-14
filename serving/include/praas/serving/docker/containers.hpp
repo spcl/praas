@@ -3,6 +3,7 @@
 
 #include <praas/common/http.hpp>
 
+#include <optional>
 #include <thread>
 
 #include <tbb/concurrent_hash_map.h>
@@ -45,7 +46,7 @@ namespace praas::serving::docker {
     void get(const std::string& id, ro_acc_t& acc) const;
     void get(const std::string& id, rw_acc_t& acc);
 
-    bool erase(const std::string& id);
+    bool erase(const std::string& id, std::optional<std::string> container_id = std::nullopt);
 
     void get_all(std::vector<Process>& processes);
 

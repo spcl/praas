@@ -152,6 +152,26 @@ namespace praas::control_plane::worker {
     }
   }
 
+  void Workers::swapin_process(
+    const std::string& app_name, const std::string& proc_id,
+    std::function<void(process::ProcessPtr, const std::optional<std::string>&)>&& callback
+  )
+  {
+    Resources::RWAccessor acc;
+    _resources.get_application(app_name, acc);
+    if (acc.empty()) {
+      callback(nullptr, "Application does not exist");
+    }
+
+    try {
+      acc.get()->swapin_process(proc_id, this->_backend, *this->_server, std::move(callback));
+    } catch (common::ObjectDoesNotExist&) {
+      callback(nullptr, "Swapped process does not exist.");
+    } catch (common::InvalidProcessState&) {
+      callback(nullptr, "Swapped process does not exist.");
+    }
+  }
+
   std::optional<std::string> Workers::list_processes(
       const std::string& app_name, std::vector<std::string>& active_processes,
       std::vector<std::string>& swapped_processes

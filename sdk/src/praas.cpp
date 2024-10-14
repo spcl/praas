@@ -187,6 +187,35 @@ namespace praas::sdk {
     return p.get_future().get();
   }
 
+  std::optional<Process> PraaS::swapin_process(
+    const std::string& application, const std::string& process_name
+  )
+  {
+    auto req = drogon::HttpRequest::newHttpRequest();
+    req->setMethod(drogon::Post);
+    req->setPath(fmt::format("/apps/{}/processes/{}/swapin", application, process_name));
+
+    std::promise<std::optional<Process>> p;
+
+    _http_client->sendRequest(
+        req,
+        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+
+          if (result == drogon::ReqResult::Ok && response->getStatusCode() == drogon::k200OK) {
+            auto& json_obj = *response->getJsonObject();
+            auto ip_addr = json_obj["connection"]["ip-address"].asString();
+            auto port = json_obj["connection"]["port"].asInt();
+            p.set_value(Process{application, process_name, ip_addr, port, true});
+          } else {
+            spdlog::error("Failed to swap in process!");
+            std::cerr << *response->getJsonObject() << std::endl;
+            p.set_value(std::nullopt);
+          }
+        }
+    );
+    return p.get_future().get();
+  }
+
   bool PraaS::delete_process(const Process& process)
   {
     auto req = drogon::HttpRequest::newHttpRequest();

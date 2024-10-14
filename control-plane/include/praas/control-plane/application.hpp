@@ -181,6 +181,11 @@ namespace praas::control_plane {
       std::function<void(size_t, double, const std::optional<std::string>&)>&& callback
     );
 
+    void swapin_process(
+      std::string process_name, backend::Backend& backend, tcpserver::TCPServer& poller,
+      std::function<void(process::ProcessPtr, const std::optional<std::string>&)>&& callback
+    );
+
     void swapped_process(std::string process_name, size_t size, double time);
 
     void closed_process(const process::ProcessPtr& ptr);

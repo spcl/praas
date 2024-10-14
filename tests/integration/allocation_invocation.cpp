@@ -63,8 +63,6 @@ TEST_F(IntegrationLocalInvocation, AllocationInvoke)
     auto invoc = proc->invoke("hello-world", "invocation-id", nullptr, 0);
     spdlog::info("Invoked");
 
-    // auto invoc = praas.invoke("test_app", "hello-world", "");
-
     ASSERT_EQ(invoc.return_code, 0);
     EXPECT_EQ("Hello, world!", get_output_binary(invoc.payload.get(), invoc.payload_len));
 

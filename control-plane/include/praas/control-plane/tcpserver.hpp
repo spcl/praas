@@ -51,9 +51,9 @@ namespace praas::control_plane::tcpserver {
      * @param {name} [TODO:description]
      */
 #if defined(PRAAS_WITH_TESTING)
-    virtual void remove_process(const process::Process&);
+    virtual void remove_process(std::string name);
 #else
-    void remove_process(const process::Process&);
+    void remove_process(std::string name);
 #endif
 
     void shutdown();

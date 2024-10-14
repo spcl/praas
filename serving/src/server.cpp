@@ -120,10 +120,12 @@ namespace praas::serving::docker {
             auto client = common::http::HTTPClientFactory::create_client("http://127.0.0.1", opts.docker_port);
             auto req = client.post(
               fmt::format("/containers/{}/wait", container_id), {},
-              [this, proc_name](drogon::ReqResult, const drogon::HttpResponsePtr& response) mutable {
+              [this, container_id, proc_name](drogon::ReqResult, const drogon::HttpResponsePtr& response) mutable {
 
                 spdlog::info("Container for process {} exited!", proc_name);
-                _processes.erase(proc_name);
+                // sanity check - verify the container id agrees
+                // we might have replaced the process with another one
+                _processes.erase(proc_name, container_id);
 
               }
             );
@@ -190,9 +192,9 @@ namespace praas::serving::docker {
       return;
     }
 
-    // TODO: add swap location argument
     auto container_name_obj = (*req_body)["container-name"];
     auto controlplane_addr_obj = (*req_body)["controlplane-address"];
+    auto swapinlocation = (*req_body)["swap-location"];
     if (container_name_obj.isNull() || controlplane_addr_obj.isNull()) {
       callback(common::http::HTTPClient::failed_response("Missing arguments in request body!"));
       return;
@@ -215,14 +217,15 @@ namespace praas::serving::docker {
     env_data.append(fmt::format("CONTROLPLANE_ADDR={}", controlplane_addr));
     env_data.append(fmt::format("PROCESS_ID={}", process));
     env_data.append(fmt::format("SWAPS_LOCATION={}", DEFAULT_SWAP_LOCATION));
+    if(!swapinlocation.isNull()) {
+      env_data.append(fmt::format("SWAPIN_LOCATION={}", swapinlocation.asString()));
+    }
     body["Env"] = env_data;
-
-    // FIXME: volumes
 
     _http_client.post(
         "/containers/create",
         {
-            {"name", process},
+            {"name", fmt::format("{}-{}", process, _process_counter++)},
         },
         std::move(body),
         [callback = std::move(callback), this,

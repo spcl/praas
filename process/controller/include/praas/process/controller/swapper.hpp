@@ -14,6 +14,7 @@ namespace praas::process::swapper {
   {
     virtual ~Swapper() = default;
     virtual size_t swap_out(const std::string& location, std::vector<std::tuple<std::string, message::Message>>& mailbox) = 0;
+    virtual bool swap_in(const std::string& location, message::MessageStore & mailbox) = 0;
 
     static constexpr std::string_view FILES_DIRECTORY = "/state";
   };
@@ -25,6 +26,7 @@ namespace praas::process::swapper {
     DiskSwapper();
     virtual ~DiskSwapper() = default;
 
+    bool swap_in(const std::string& location, message::MessageStore & mailbox);
     size_t swap_out(const std::string& location, std::vector<std::tuple<std::string, message::Message>>& msgs) override;
   };
 

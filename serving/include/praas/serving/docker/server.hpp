@@ -94,6 +94,8 @@ namespace praas::serving::docker {
 
     Processes _processes;
 
+    int _process_counter = 0;
+
     static const std::string DEFAULT_SWAP_LOCATION;
   };
 

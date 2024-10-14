@@ -9,6 +9,7 @@
 #include <praas/common/messages.hpp>
 #include <praas/control-plane/config.hpp>
 
+#include <utility>
 #include <variant>
 
 #include <trantor/net/TcpServer.h>
@@ -35,7 +36,7 @@ namespace praas::control_plane::tcpserver {
         if (!this->_is_running) {
           return;
         }
-        _logger->info("Closing a process at {}", connPtr->peerAddr().toIpPort());
+
         handle_disconnection(connPtr);
       }
     });
@@ -82,11 +83,15 @@ namespace praas::control_plane::tcpserver {
     });
   }
 
-  void TCPServer::remove_process(const process::Process&)
+  void TCPServer::remove_process(std::string name)
   {
-    _logger->error("Not implemented!");
-    // Disable the connection
-    // Insert the removal
+    --_num_registered_processes;
+    _loop_thread.getLoop()->runInLoop([this, name=std::move(name)]() {
+
+      if(_processes.erase(name) == 0) {
+        _pending_processes.erase(name);
+      }
+    });
   }
 
   bool TCPServer::handle_invocation_result(
@@ -280,11 +285,16 @@ namespace praas::control_plane::tcpserver {
   {
     _num_connected_processes--;
 
-    auto process_data = connPtr->getContext<ConnectionData>();
-    if (process_data && process_data->process) {
-      _logger->debug("Closing process connection for {}", process_data->process->name());
-      _num_registered_processes--;
-      process_data->process->application().closed_process(process_data->process);
+    if(connPtr->hasContext()) {
+
+      _logger->info("Closing a process at {}", connPtr->peerAddr().toIpPort());
+      auto process_data = connPtr->getContext<ConnectionData>();
+      if (process_data && process_data->process) {
+        _logger->debug("Closing process connection for {}", process_data->process->name());
+        _num_registered_processes--;
+        process_data->process->application().closed_process(process_data->process);
+      }
+
     }
   }
 

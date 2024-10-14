@@ -60,14 +60,13 @@ TEST_F(IntegrationLocalInvocation, AllocationInvoke)
   {
     praas::sdk::PraaS praas{fmt::format("http://127.0.0.1:{}", 9000)};
 
-    std::string app_name("test_alloc_invoc");
+    std::string app_name("test_swap");
     ASSERT_TRUE(
-        praas.create_application(app_name, "spcleth/praas:proc-local") //spcleth/praas-examples:hello-world-cpp")
+      praas.create_application(app_name, "spcleth/praas:proc-local")
     );
 
     auto proc = praas.create_process(app_name, "alloc_invoc_process", "1", "1024");
     ASSERT_TRUE(proc.has_value());
-    spdlog::info("Created process");
 
     ASSERT_TRUE(proc->connect());
 
@@ -76,17 +75,25 @@ TEST_F(IntegrationLocalInvocation, AllocationInvoke)
     auto res = get_input_binary(msg);
 
     auto invoc = proc->invoke("state-put", "invocation-id", res.data(), res.size());
-    spdlog::info("Invoked");
-
-    // auto invoc = praas.invoke("test_app", "hello-world", "");
-
     ASSERT_EQ(invoc.return_code, 0);
 
     auto swap_res = praas.swap_process(proc.value());
     ASSERT_TRUE(swap_res.has_value());
-    spdlog::info(swap_res.value());
 
-    ASSERT_TRUE(praas.delete_process(proc.value()));
+    auto new_proc = praas.swapin_process(app_name, "alloc_invoc_process");
+    ASSERT_TRUE(new_proc.has_value());
+
+    ASSERT_TRUE(new_proc->connect());
+    invoc = new_proc->invoke("state-get", "invocation-id2", res.data(), res.size());
+    ASSERT_EQ(invoc.return_code, 0);
+
+    auto res2 = get_output_binary(invoc.payload.get(), invoc.payload_len);
+    ASSERT_EQ(msg.msg, res2);
+
+    swap_res = praas.swap_process(new_proc.value());
+    ASSERT_TRUE(swap_res.has_value());
+
+    ASSERT_TRUE(praas.delete_process(new_proc.value()));
 
     ASSERT_TRUE(praas.delete_application(app_name));
   }

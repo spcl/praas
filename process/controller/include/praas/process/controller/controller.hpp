@@ -47,7 +47,9 @@ namespace praas::process {
 
     void shutdown_channels();
 
-    void swap_out(const std::string location);
+    void swap_in(const std::string& location);
+
+    void swap_out(const std::string& location);
 
     // FIXME: this is only required because of the split between message and parsed message
     // There should be one type only!

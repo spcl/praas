@@ -36,6 +36,12 @@ int main(int argc, char** argv)
     server.poll();
   }
 
+  char* swapin_loc = std::getenv("SWAPIN_LOCATION");
+  if(swapin_loc) {
+    // TODO: consider in future lazy loading
+    controller.swap_in(swapin_loc);
+  }
+
   controller.start();
 
   spdlog::info("Process controller is closing down");

@@ -31,6 +31,7 @@ namespace praas::control_plane {
     ADD_METHOD_TO(HttpServer::delete_process, "/apps/{1}/processes/{2}/delete", drogon::Post);
     ADD_METHOD_TO(HttpServer::stop_process, "/apps/{1}/processes/{2}/stop", drogon::Post);
     ADD_METHOD_TO(HttpServer::swap_process, "/apps/{1}/processes/{2}/swap", drogon::Post);
+    ADD_METHOD_TO(HttpServer::swapin_process, "/apps/{1}/processes/{2}/swapin", drogon::Post);
     ADD_METHOD_TO(HttpServer::invoke, "/apps/{1}/invoke/{2}", drogon::Post);
     ADD_METHOD_TO(HttpServer::list_processes, "/apps/{1}/processes", drogon::Get);
     METHOD_LIST_END
@@ -70,6 +71,12 @@ namespace praas::control_plane {
     );
 
     void swap_process(
+        const drogon::HttpRequestPtr&,
+        std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string& app_name,
+        const std::string& process_name
+    );
+
+    void swapin_process(
         const drogon::HttpRequestPtr&,
         std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string& app_name,
         const std::string& process_name

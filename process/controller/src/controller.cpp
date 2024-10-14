@@ -259,7 +259,37 @@ namespace praas::process {
     }
   }
 
-  void Controller::swap_out(std::string location)
+  void Controller::swap_in(const std::string& location)
+  {
+    spdlog::info("Request swapping in!");
+
+    std::unique_ptr<swapper::Swapper> swapper;
+    if(location.starts_with("local://")) {
+
+      auto loc = location.substr(std::string_view{"local://"}.size());
+      loc = std::filesystem::path{loc} / this->process_id();
+
+      swapper = std::make_unique<swapper::DiskSwapper>();
+
+      auto begin = std::chrono::high_resolution_clock::now();
+      auto success = swapper->swap_in(loc, _mailbox);
+      auto end = std::chrono::high_resolution_clock::now();
+
+      if(success) {
+        spdlog::info(
+          "Swapped in finished in {} msec",
+          std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1000.0
+        );
+      } else {
+        spdlog::error("Swapped in failed!");
+      }
+
+    } else {
+      spdlog::error("unimplemented");
+    }
+  }
+
+  void Controller::swap_out(const std::string& location)
   {
     spdlog::info("Request swapping out!");
 

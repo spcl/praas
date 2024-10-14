@@ -136,7 +136,11 @@ namespace praas::control_plane::worker {
       const std::string& app_name, const std::string& proc_id,
       std::function<void(size_t, double, const std::optional<std::string>&)>&& callback
     );
-    // const process::ProcessPtr& ptr, state::SwapLocation& swap_loc);
+
+    void swapin_process(
+      const std::string& app_name, const std::string& proc_id,
+      std::function<void(process::ProcessPtr, const std::optional<std::string>&)>&& callback
+    );
 
     ////////////////////////////////////////////////////////////////////////////////
     /// @brief Return list of active and swapped out processes.

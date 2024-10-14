@@ -85,8 +85,8 @@ namespace praas::control_plane::process {
 
   void Process::connect(const trantor::TcpConnectionPtr& connectionPtr)
   {
-    if (_status != Status::ALLOCATING) {
-      throw praas::common::InvalidProcessState{"Can't register process"};
+    if (_status != Status::ALLOCATING && _status != Status::SWAPPING_IN) {
+      throw praas::common::InvalidProcessState{fmt::format("Can't register process. Wrong status: {}", static_cast<int>(_status))};
     }
 
     _connection = std::move(connectionPtr);
@@ -103,7 +103,19 @@ namespace praas::control_plane::process {
 
   void Process::close_connection()
   {
+    if(_connection) {
+      _connection->shutdown();
+      // Shutting down connection will not prevent the disconnection
+      // trigger from running in trantor.
+      // We need to let it know the connection is gone and trigger is expected.
+      _connection->setContext(nullptr);
+    }
+  }
+
+  void Process::closed_connection()
+  {
     _status = Status::CLOSED;
+    _connection->setContext(nullptr);
     _connection.reset();
   }
 

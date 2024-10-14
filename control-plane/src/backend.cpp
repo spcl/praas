@@ -80,13 +80,17 @@ namespace praas::control_plane::backend {
   }
 
   void DockerBackend::allocate_process(
-      process::ProcessPtr process, const process::Resources& resources,
-      std::function<void(std::shared_ptr<ProcessInstance>&&, std::optional<std::string>)>&& callback
+    process::ProcessPtr process, const process::Resources& resources,
+    std::function<void(std::shared_ptr<ProcessInstance>&&, std::optional<std::string>)>&& callback
   )
   {
     Json::Value body;
     body["container-name"] = process->application().resources().code_resource_name;
     body["controlplane-address"] = fmt::format("{}:{}", _tcp_ip, _tcp_port);
+
+    if(process->state().swap) {
+      body["swap-location"] = process->state().swap->path(process->name());
+    }
 
     _http_client.post(
         "/create",
