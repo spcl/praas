@@ -23,6 +23,7 @@ namespace praas::serving::docker {
     int max_processes;
     int http_port;
     std::string server_ip;
+    std::string swaps_volume;
     int docker_port;
     int process_port;
     int threads;
@@ -92,6 +93,8 @@ namespace praas::serving::docker {
     std::shared_ptr<spdlog::logger> _logger;
 
     Processes _processes;
+
+    static const std::string DEFAULT_SWAP_LOCATION;
   };
 
 } // namespace praas::serving::docker

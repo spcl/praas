@@ -5,15 +5,18 @@
 #include <praas/common/util.hpp>
 #include <praas/process/controller/config.hpp>
 #include <praas/process/controller/remote.hpp>
+#include <praas/process/controller/swapper.hpp>
 #include <praas/process/runtime/internal/buffer.hpp>
 #include <praas/process/runtime/internal/ipc/messages.hpp>
 #include <praas/process/runtime/internal/state.hpp>
 
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <memory>
 
 #include <execinfo.h>
+#include <ratio>
 #include <signal.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
@@ -162,6 +165,7 @@ namespace praas::process {
       );
     }
 
+
     // FIXME: do we want to make it optional?
     // Ensure that IPC mechanisms are released in case of an unhandled exception
     set_terminate(this);
@@ -252,6 +256,40 @@ namespace praas::process {
 
     for (const common::ApplicationUpdate& update : updates) {
       _application.update(update.status, update.process_id);
+    }
+  }
+
+  void Controller::swap_out(std::string location)
+  {
+    spdlog::info("Request swapping out!");
+
+    // Prevent new invocations
+    _work_queue.lock();
+
+    std::vector<std::tuple<std::string, message::Message>> msgs;
+    _mailbox.all_state(msgs);
+
+    std::unique_ptr<swapper::Swapper> swapper;
+    if(location.starts_with("local://")) {
+
+      auto loc = location.substr(std::string_view{"local://"}.size());
+      loc = std::filesystem::path{loc} / this->process_id();
+
+      swapper = std::make_unique<swapper::DiskSwapper>();
+
+      auto begin = std::chrono::high_resolution_clock::now();
+      auto size = swapper->swap_out(loc, msgs);
+      auto end = std::chrono::high_resolution_clock::now();
+
+      _server->swap_confirmation(
+        size, std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1000.0
+      );
+
+      this->shutdown();
+
+    } else {
+      spdlog::error("unimplemented");
+      abort();
     }
   }
 

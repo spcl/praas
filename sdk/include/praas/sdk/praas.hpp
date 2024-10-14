@@ -29,6 +29,10 @@ namespace praas::sdk {
         const std::string& invocation_data
     );
 
+    std::optional<std::string> swap_process(const Process& process);
+
+    bool delete_process(const Process& process);
+
     bool stop_process(const Process& process);
 
     std::string_view last_error() const;

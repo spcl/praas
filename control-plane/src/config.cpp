@@ -165,6 +165,10 @@ namespace praas::control_plane::config {
       this->backend = std::move(ptr);
     }
 
+    std::string deployment_type;
+    archive(cereal::make_nvp("deployment-type", deployment_type));
+    this->deployment_type = deployment::deserialize(deployment_type);
+
     archive(cereal::make_nvp("ip-address", public_ip_address));
     archive(cereal::make_nvp("http-client-io-threads", http_client_io_threads));
 

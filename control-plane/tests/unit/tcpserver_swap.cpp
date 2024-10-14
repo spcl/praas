@@ -44,7 +44,7 @@ TEST_F(TCPServerTest, SwapProcess)
 {
   std::string resource_name{"sandbox"};
   std::string process_name{"sandbox"};
-  std::string swap_loc{"swaps"};
+  std::string swap_loc{"local://app"};
   process::Resources resources{"1", "128", resource_name};
   deployment::Local deployment{swap_loc};
 
@@ -68,7 +68,7 @@ TEST_F(TCPServerTest, SwapProcess)
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
   // Swap
-  app.swap_process(process_name, deployment);
+  app.swap_process(process_name, deployment, nullptr);
 
   //// Now verify it is received
   praas::common::message::MessageData recv_msg;
@@ -88,7 +88,7 @@ TEST_F(TCPServerTest, SwapProcessAndConfirm)
 {
   std::string resource_name{"sandbox"};
   std::string process_name{"sandbox"};
-  std::string swap_loc{"swaps"};
+  std::string swap_loc{"local://app"};
   int32_t swap_size = 1024;
   process::Resources resources{"1", "128", resource_name};
   deployment::Local deployment{swap_loc};
@@ -113,7 +113,7 @@ TEST_F(TCPServerTest, SwapProcessAndConfirm)
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
   // Swap
-  app.swap_process(process_name, deployment);
+  app.swap_process(process_name, deployment, nullptr);
 
   //// Now verify it is received
   praas::common::message::MessageData recv_msg;

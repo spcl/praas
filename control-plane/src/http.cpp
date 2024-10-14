@@ -162,7 +162,7 @@ namespace praas::control_plane {
       const std::string& process_name
   )
   {
-    _logger->info("Stop process {}", process_name);
+    _logger->info("Stop and swap process {}", process_name);
     _workers.add_task(
       &worker::Workers::stop_process, app_name, process_name,
       [process_name, callback = std::move(callback)](const std::optional<std::string>& response) {
@@ -201,14 +201,24 @@ namespace praas::control_plane {
   )
   {
     _logger->info("Swap process {}", process_name);
-    _workers.add_task([=, this, callback = std::move(callback)]() {
-      auto response = _workers.swap_process(app_name, process_name);
-      if (response) {
-        callback(failed_response(response.value(), drogon::HttpStatusCode::k400BadRequest));
-      } else {
-        callback(correct_response(fmt::format("Request swapping of process {}.", process_name)));
+    auto begin = std::chrono::high_resolution_clock::now();
+    _workers.add_task(
+      &worker::Workers::swap_process, app_name, process_name,
+      [begin, callback = std::move(callback)](
+        size_t size, double time, const std::optional<std::string>& response
+      ) {
+
+        auto end = std::chrono::high_resolution_clock::now();
+        auto dur = std::chrono::duration_cast<std::chrono::microseconds>(end-begin).count() / 1000.0;
+        if (response) {
+          callback(failed_response(response.value(), drogon::HttpStatusCode::k400BadRequest));
+        } else {
+          callback(correct_response(
+            fmt::format("Swapped {} bytes, took: {} ms, total time: {} ms.", size, time, dur)
+          ));
+        }
       }
-    });
+    );
   }
 
   void HttpServer::list_processes(
@@ -234,6 +244,8 @@ namespace praas::control_plane {
           active.append(proc_name);
         }
         json["active"] = active;
+      } else {
+        json["active"] = Json::Value{};
       }
 
       if (!swapped_processes.empty()) {
@@ -242,6 +254,8 @@ namespace praas::control_plane {
           swapped.append(proc_name);
         }
         json["swapped"] = swapped;
+      } else {
+        json["swapped"] = Json::Value{};
       }
 
       auto resp = drogon::HttpResponse::newHttpJsonResponse(json);

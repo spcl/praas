@@ -21,7 +21,9 @@ void signal_handler(int) // NOLINT
 
 int main(int argc, char** argv)
 {
-  praas::common::http::HTTPClientFactory::initialize(1);
+  constexpr int MAX_CONTAINERS = 64;
+  // 64 threads for waiting on container status, 16 containers for making other requests.
+  praas::common::http::HTTPClientFactory::initialize(MAX_CONTAINERS + 16);
 
   auto opts = praas::serving::docker::opts(argc, argv);
 

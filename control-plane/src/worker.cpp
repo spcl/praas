@@ -132,23 +132,23 @@ namespace praas::control_plane::worker {
     }
   }
 
-  std::optional<std::string>
-  Workers::swap_process(const std::string& app_name, const std::string& proc_id)
+  void Workers::swap_process(
+    const std::string& app_name, const std::string& proc_id,
+    std::function<void(size_t, double, const std::optional<std::string>&)>&& callback
+  )
   {
-
     Resources::RWAccessor acc;
     _resources.get_application(app_name, acc);
     if (acc.empty()) {
-      return "Application does not exist";
+      callback(0, 0, "Application does not exist");
     }
 
     try {
-      acc.get()->swap_process(proc_id, this->_deployment);
-      return std::nullopt;
+      acc.get()->swap_process(proc_id, this->_deployment, std::move(callback));
     } catch (common::ObjectDoesNotExist&) {
-      return "Process does not exist.";
+      callback(0, 0, "Process does not exist.");
     } catch (common::InvalidProcessState&) {
-      return "Process cannot be swapped out (not allocated, not active).";
+      callback(0, 0, "Process does not exist.");
     }
   }
 

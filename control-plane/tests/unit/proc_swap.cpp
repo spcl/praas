@@ -56,7 +56,7 @@ TEST_F(SwapProcessTest, SwapProcess)
   EXPECT_CALL(deployment, get_location(testing::_)).Times(1);
 
   {
-    _app_create.swap_process(proc_name, deployment);
+    _app_create.swap_process(proc_name, deployment, nullptr);
     auto [lock, proc] = _app_create.get_process(proc_name);
 
     EXPECT_EQ(proc->name(), proc_name);
@@ -67,7 +67,7 @@ TEST_F(SwapProcessTest, SwapProcess)
 
   EXPECT_CALL(deployment, get_location(testing::_)).Times(0);
 
-  EXPECT_THROW(_app_create.swap_process(proc_name, deployment), praas::common::InvalidProcessState);
+  EXPECT_THROW(_app_create.swap_process(proc_name, deployment, nullptr), praas::common::InvalidProcessState);
 }
 
 TEST_F(SwapProcessTest, SwapProcessFail)
@@ -81,13 +81,13 @@ TEST_F(SwapProcessTest, SwapProcessFail)
 
   // Incorrect swap of allocated process
   EXPECT_CALL(deployment, get_location(testing::_)).Times(0);
-  EXPECT_THROW(_app_create.swap_process(proc_name, deployment), praas::common::InvalidProcessState);
+  EXPECT_THROW(_app_create.swap_process(proc_name, deployment, nullptr), praas::common::InvalidProcessState);
 
   // Non-existing process
 
   EXPECT_CALL(deployment, get_location(testing::_)).Times(0);
 
-  EXPECT_THROW(_app_create.swap_process("proc2", deployment), praas::common::ObjectDoesNotExist);
+  EXPECT_THROW(_app_create.swap_process("proc2", deployment, nullptr), praas::common::ObjectDoesNotExist);
 }
 
 TEST_F(SwapProcessTest, FullSwapProcess)
@@ -108,7 +108,7 @@ TEST_F(SwapProcessTest, FullSwapProcess)
   {
     EXPECT_CALL(deployment, get_location(testing::_)).Times(1);
 
-    _app_create.swap_process(proc_name, deployment);
+    _app_create.swap_process(proc_name, deployment, nullptr);
     auto [lock, proc] = _app_create.get_process(proc_name);
 
     EXPECT_EQ(proc->name(), proc_name);
@@ -117,7 +117,7 @@ TEST_F(SwapProcessTest, FullSwapProcess)
 
   {
     // Manually progress swapping and verify it is swapped
-    _app_create.swapped_process(proc_name);
+    _app_create.swapped_process(proc_name, 0, 0);
 
     EXPECT_THROW(_app_create.get_process(proc_name), praas::common::ObjectDoesNotExist);
 
@@ -130,5 +130,5 @@ TEST_F(SwapProcessTest, FullSwapProcess)
 
   EXPECT_CALL(deployment, get_location(testing::_)).Times(0);
 
-  EXPECT_THROW(_app_create.swap_process(proc_name, deployment), praas::common::ObjectDoesNotExist);
+  EXPECT_THROW(_app_create.swap_process(proc_name, deployment, nullptr), praas::common::ObjectDoesNotExist);
 }

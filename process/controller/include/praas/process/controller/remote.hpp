@@ -40,9 +40,14 @@ namespace praas::process::remote {
         std::string_view invocation_id, int return_code,
         runtime::internal::BufferAccessor<const char> payload
     ) = 0;
+
     virtual void put_message(
         std::string_view process_id, std::string_view name,
         runtime::internal::Buffer<char>&& payload
+    ) = 0;
+
+    virtual void swap_confirmation(
+        size_t size_bytes, double time
     ) = 0;
 
     virtual void invocation_request(
@@ -110,6 +115,8 @@ namespace praas::process::remote {
         std::string_view process_id, std::string_view function_name, std::string_view invocation_id,
         runtime::internal::Buffer<char>&& payload
     );
+
+    void swap_confirmation(size_t size_bytes, double time) override;
 
     void shutdown();
 

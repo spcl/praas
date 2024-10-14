@@ -136,4 +136,11 @@ namespace praas::process::message {
     return &(*it).second.data;
   }
 
+  void MessageStore::all_state(std::vector<std::tuple<std::string, Message>> & msgs)
+  {
+    for(auto& [key, msg] : _msgs) {
+      msgs.emplace_back(key, std::move(msg));
+    }
+  }
+
 } // namespace praas::process::message

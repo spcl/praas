@@ -176,9 +176,12 @@ namespace praas::control_plane {
     ////////////////////////////////////////////////////////////////////////////////
     void update_controlplane_process(const std::string& name);
 
-    void swap_process(std::string process_name, deployment::Deployment& deployment);
+    void swap_process(
+      std::string process_name, deployment::Deployment& deployment,
+      std::function<void(size_t, double, const std::optional<std::string>&)>&& callback
+    );
 
-    void swapped_process(std::string process_name);
+    void swapped_process(std::string process_name, size_t size, double time);
 
     void closed_process(const process::ProcessPtr& ptr);
 

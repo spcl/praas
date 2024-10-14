@@ -126,7 +126,14 @@ namespace praas::process {
       return _pending_invocations.empty();
     }
 
+    void lock()
+    {
+      _locked = true;
+    }
+
   private:
+    bool _locked = false;
+
     // FIFO but easy removal in the middle - we skip middle elements.
     std::vector<Invocation*> _pending_invocations;
 

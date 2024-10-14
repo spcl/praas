@@ -16,6 +16,7 @@ namespace praas::serving::docker {
     archive(cereal::make_nvp("process-port", this->process_port));
     archive(cereal::make_nvp("threads", this->threads));
     archive(cereal::make_nvp("max-processes", this->max_processes));
+    archive(cereal::make_nvp("swaps-volume", this->swaps_volume));
   }
 
   std::optional<Options> opts(int argc, char** argv)

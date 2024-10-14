@@ -62,8 +62,8 @@ TEST_F(DeleteProcessTest, DeleteCorrect)
       proc->set_status(process::Status::ALLOCATED);
     }
 
-    _app_create.swap_process(proc_name, deployment);
-    _app_create.swapped_process(proc_name);
+    _app_create.swap_process(proc_name, deployment, nullptr);
+    _app_create.swapped_process(proc_name, 0, 0);
   }
 
   _app_create.delete_process(proc_name, deployment);
@@ -105,7 +105,7 @@ TEST_F(DeleteProcessTest, DeleteWhileSwapping)
       proc->set_status(process::Status::ALLOCATED);
     }
 
-    _app_create.swap_process(proc_name, deployment);
+    _app_create.swap_process(proc_name, deployment, nullptr);
   }
 
   EXPECT_THROW(

@@ -38,8 +38,8 @@ namespace praas::common::message {
   // 34 bytes
 
   // Swap request message
-  // 2 bytes of identiifer
-  // 4 bytes of length of swap path
+  // 2 bytes of identifier
+  // 40 bytes of length of swap path - prefix + app name
   // Message is followed by the swap path
 
   // Swap confirmation
@@ -277,7 +277,7 @@ namespace praas::common::message {
     SwapRequest(Data&& data = Data())
         // NOLINTNEXTLINE
         : Parent(std::forward<Data>(data), MessageType::SWAP_REQUEST),
-          path_len(strnlen(reinterpret_cast<const char*>(this->data()), MessageConfig::NAME_LENGTH))
+          path_len(strnlen(reinterpret_cast<const char*>(this->data()), MessageConfig::NAME_LENGTH + 8))
     {
     }
 
@@ -294,14 +294,15 @@ namespace praas::common::message {
 
     void path(std::string_view path)
     {
-      if (path.length() > MessageConfig::ID_LENGTH) {
+      constexpr int max_size = MessageConfig::NAME_LENGTH + 8;
+      if (path.length() > max_size) {
         throw common::InvalidArgument{fmt::format(
-            "Swap location ID too long: {} > {}", path.length(), MessageConfig::ID_LENGTH
+            "Swap location ID too long: {} > {}", path.length(), max_size 
         )};
       }
       std::strncpy(
           // NOLINTNEXTLINE
-          reinterpret_cast<char*>(data()), path.data(), MessageConfig::ID_LENGTH
+          reinterpret_cast<char*>(data()), path.data(), max_size
       );
       path_len = path.length();
     }
@@ -323,6 +324,18 @@ namespace praas::common::message {
         // NOLINTNEXTLINE
         : Parent(std::forward<Data>(data), MessageType::SWAP_CONFIRMATION)
     {
+    }
+
+    double swap_time() const
+    {
+      // NOLINTNEXTLINE
+      return *reinterpret_cast<const double*>(data() + 4);
+    }
+
+    void swap_time(double time)
+    {
+      // NOLINTNEXTLINE
+      *reinterpret_cast<double*>(data() + 4) = time;
     }
 
     int32_t swap_size() const

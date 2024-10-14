@@ -15,31 +15,31 @@ TEST(DeploymentTest, LocalLocation)
 {
 
   {
-    std::filesystem::path root_path{"/"};
+    std::filesystem::path root_path{"app_name2"};
     std::string proc_name{"proc"};
     deployment::Local deployment{root_path};
 
-    auto loc = deployment.get_location(proc_name);
+    auto loc = deployment.get_location(root_path);
     ASSERT_NE(loc.get(), nullptr);
 
     state::DiskSwapLocation* ptr = dynamic_cast<state::DiskSwapLocation*>(loc.get());
     ASSERT_NE(ptr, nullptr);
-    ASSERT_EQ(ptr->path(proc_name), root_path / "swaps" / proc_name);
-    ASSERT_EQ(ptr->root_path(), root_path);
+    ASSERT_EQ(ptr->path(proc_name), "local://" / root_path);
+    ASSERT_EQ(ptr->root_path(), "/");
   }
 
   {
-    std::filesystem::path root_path{"/path/to/data/nested/"};
+    std::filesystem::path root_path{"app_name"};
     std::string proc_name{"proc2"};
     deployment::Local deployment{root_path};
 
-    auto loc = deployment.get_location(proc_name);
+    auto loc = deployment.get_location(root_path);
     ASSERT_NE(loc.get(), nullptr);
 
     state::DiskSwapLocation* ptr = dynamic_cast<state::DiskSwapLocation*>(loc.get());
     ASSERT_NE(ptr, nullptr);
-    ASSERT_EQ(ptr->path(proc_name), root_path / "swaps" / proc_name);
-    ASSERT_EQ(ptr->root_path(), root_path);
+    ASSERT_EQ(ptr->path(proc_name), "local://" /root_path);
+    ASSERT_EQ(ptr->root_path(), "/");
   }
 
 }

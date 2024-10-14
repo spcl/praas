@@ -175,7 +175,7 @@ namespace praas::control_plane::process {
      */
     write_lock_t write_lock() const;
 
-    void swap();
+    void swap(std::function<void(size_t, double, const std::optional<std::string>&)>&& );
 
     // Modify the map of invocations.
     void add_invocation(
@@ -202,6 +202,8 @@ namespace praas::control_plane::process {
 
     void created_callback(const std::optional<std::string>& error_msg);
 
+    void swapped_callback(size_t size, double time, const std::optional<std::string>& error_msg);
+
   private:
     void _send_invocation(Invocation&);
 
@@ -222,6 +224,8 @@ namespace praas::control_plane::process {
     bool _wait_for_allocation{};
 
     std::function<void(std::shared_ptr<Process>, std::optional<std::string>)> _creation_callback{};
+
+    std::function<void(size_t, double, const std::optional<std::string>&)> _swapping_callback{};
 
     // Application reference does not change throughout process lifetime.
 

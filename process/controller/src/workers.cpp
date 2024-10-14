@@ -66,6 +66,11 @@ namespace praas::process {
 
   Invocation* WorkQueue::next()
   {
+    if(_locked) {
+      spdlog::info("The process is locked, we cannot schedule new invocations.");
+      return nullptr;
+    }
+
     for (auto it = _pending_invocations.begin(); it != _pending_invocations.end(); ++it) {
 
       TriggerChecker visitor{*(*it), *this};

@@ -95,6 +95,8 @@ namespace praas::process::message {
 
     const std::vector<std::tuple<std::string, double>>& state_keys() const;
 
+    void all_state(std::vector<std::tuple<std::string, Message>> & msgs);
+
   private:
     std::unordered_map<std::string, Message> _msgs;
 

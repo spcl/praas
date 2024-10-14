@@ -127,16 +127,20 @@ namespace praas::control_plane::process {
     return _metrics;
   }
 
-  void Process::swap()
+  void Process::swap(std::function<void(size_t, double, const std::optional<std::string>&)>&& callback)
   {
     if (!_connection) {
+      if(callback) {
+        callback(0, 0, "Process is not connected");
+      }
       return;
     }
 
-    std::string_view swap_path = _state.swap->root_path();
+    std::string swap_path = _state.swap->path(_name);
     praas::common::message::SwapRequestData msg;
     msg.path(swap_path);
 
+    _swapping_callback = std::move(callback);
     _connection->send(msg.bytes(), decltype(msg)::BUF_SIZE);
   }
 
@@ -273,6 +277,14 @@ namespace praas::control_plane::process {
         _creation_callback(nullptr, error_msg);
         _creation_callback = nullptr;
       }
+    }
+  }
+
+  void Process::swapped_callback(size_t size, double time, const std::optional<std::string>& error_msg)
+  {
+    if (_swapping_callback) {
+      _swapping_callback(size, time, error_msg);
+      _swapping_callback = nullptr;
     }
   }
 

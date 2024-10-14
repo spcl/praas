@@ -12,6 +12,8 @@
 
 namespace praas::serving::docker {
 
+  const std::string HttpServer::DEFAULT_SWAP_LOCATION = "/swaps";
+
   HttpServer::HttpServer(Options& cfg) : opts(cfg)
   {
     _logger = common::util::create_logger("HttpServer");
@@ -81,13 +83,14 @@ namespace praas::serving::docker {
             auto& port = response_json["NetworkSettings"]["Ports"]
                                       [fmt::format("{}/tcp", opts.process_port)][0]["HostPort"];
 
-            Json::Value response;
-            response["status"] = fmt::format("Container for process {} created.", proc_name);
-            response["container-id"] = container_id;
-            response["process-id"] = proc_name;
-            response["ip-address"] = opts.server_ip;
-            response["port"] = std::stoi(port.asString());
-            callback(common::http::HTTPClient::correct_response(response));
+            Json::Value resp;
+            resp["status"] = fmt::format("Container for process {} created.", proc_name);
+            resp["container-id"] = container_id;
+            resp["process-id"] = proc_name;
+            resp["ip-address"] = opts.server_ip;
+            resp["port"] = std::stoi(port.asString());
+
+            callback(common::http::HTTPClient::correct_response(resp));
           } else {
             callback(common::http::HTTPClient::failed_response(
                 fmt::format("Unknown error! Response: {}", response->getBody())
@@ -112,7 +115,24 @@ namespace praas::serving::docker {
             )));
           } else if (response->getStatusCode() == drogon::HttpStatusCode::k204NoContent) {
 
-            _processes.add(proc_name, Process{proc_name, container_id});
+            // Add waiting request to get response when the container is finished.
+
+            auto client = common::http::HTTPClientFactory::create_client("http://127.0.0.1", opts.docker_port);
+            auto req = client.post(
+              fmt::format("/containers/{}/wait", container_id), {},
+              [this, proc_name](drogon::ReqResult, const drogon::HttpResponsePtr& response) mutable {
+
+                spdlog::info("Container for process {} exited!", proc_name);
+                _processes.erase(proc_name);
+
+              }
+            );
+            Process proc{
+              proc_name, container_id,
+              std::move(client), std::move(req)
+            };
+            _processes.add(proc_name, std::move(proc));
+
             spdlog::debug("Started container {} for process {}.", container_id, proc_name);
             _inspect_container(proc_name, container_id, std::move(callback));
 
@@ -183,11 +203,19 @@ namespace praas::serving::docker {
     Json::Value body;
     body["Image"] = container_name;
 
+    _configure_ports(body);
+
+    // Configure swapping volume
+    std::filesystem::path swaps_path = std::filesystem::absolute(opts.swaps_volume);
+    Json::Value volumes;
+    volumes.append(fmt::format("{}:{}:rw", swaps_path.string(), DEFAULT_SWAP_LOCATION));
+    body["HostConfig"]["Binds"] = volumes;
+
     Json::Value env_data;
     env_data.append(fmt::format("CONTROLPLANE_ADDR={}", controlplane_addr));
     env_data.append(fmt::format("PROCESS_ID={}", process));
+    env_data.append(fmt::format("SWAPS_LOCATION={}", DEFAULT_SWAP_LOCATION));
     body["Env"] = env_data;
-    _configure_ports(body);
 
     // FIXME: volumes
 

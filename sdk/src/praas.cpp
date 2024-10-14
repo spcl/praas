@@ -165,4 +165,48 @@ namespace praas::sdk {
     return res;
   }
 
+  std::optional<std::string> PraaS::swap_process(const Process& process)
+  {
+    auto req = drogon::HttpRequest::newHttpRequest();
+    req->setMethod(drogon::Post);
+    req->setPath(fmt::format("/apps/{}/processes/{}/swap", process.app_name, process.process_id));
+
+    std::promise<std::optional<std::string>> p;
+
+    _http_client->sendRequest(
+        req,
+        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+
+          if (result == drogon::ReqResult::Ok && response->getStatusCode() == drogon::k200OK) {
+            p.set_value(std::make_optional<std::string>(response->getBody()));
+          } else {
+            p.set_value(std::nullopt);
+          }
+        }
+    );
+    return p.get_future().get();
+  }
+
+  bool PraaS::delete_process(const Process& process)
+  {
+    auto req = drogon::HttpRequest::newHttpRequest();
+    req->setMethod(drogon::Post);
+    req->setPath(fmt::format("/apps/{}/processes/{}/delete", process.app_name, process.process_id));
+
+    std::promise<bool> p;
+
+    _http_client->sendRequest(
+        req,
+        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+
+          if (result == drogon::ReqResult::Ok && response->getStatusCode() == drogon::k200OK) {
+            p.set_value(true);
+          } else {
+            p.set_value(false);
+          }
+        }
+    );
+    return p.get_future().get();
+  }
+
 } // namespace praas::sdk

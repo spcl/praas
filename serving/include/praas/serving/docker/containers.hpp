@@ -29,6 +29,10 @@ namespace praas::serving::docker {
     std::string process_id{};
 
     std::string container_id{};
+
+    common::http::HTTPClient client;
+
+    praas::common::http::HTTPClient::request_ptr_t request_wait;
   };
 
   struct Processes {

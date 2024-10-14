@@ -80,7 +80,7 @@ TEST(Messages, SwapRequestMsg)
 
 TEST(Messages, SwapRequestMsgIncorrect)
 {
-  std::string swap_loc(MessageConfig::ID_LENGTH + 1, 't');
+  std::string swap_loc(MessageConfig::NAME_LENGTH + 10, 't');
 
   SwapRequest<MessageData> req;
   EXPECT_THROW(req.path(swap_loc), praas::common::InvalidArgument);

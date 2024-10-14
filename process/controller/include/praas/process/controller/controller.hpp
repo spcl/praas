@@ -33,10 +33,6 @@ namespace praas::process {
       runtime::internal::Buffer<char> payload;
     };
 
-    // State
-
-    // Swapper object
-
     Controller(config::Controller cfg);
 
     ~Controller();
@@ -50,6 +46,8 @@ namespace praas::process {
     void shutdown();
 
     void shutdown_channels();
+
+    void swap_out(const std::string location);
 
     // FIXME: this is only required because of the split between message and parsed message
     // There should be one type only!

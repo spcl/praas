@@ -192,7 +192,11 @@ namespace praas::control_plane {
     }
   }
 
-  void Application::swap_process(std::string process_name, deployment::Deployment& deployment)
+  void Application::swap_process(
+    std::string process_name,
+    deployment::Deployment& deployment,
+    std::function<void(size_t, double, const std::optional<std::string>&)>&& callback
+  )
   {
     if (process_name.length() == 0) {
       throw praas::common::InvalidConfigurationError("Application name cannot be empty");
@@ -225,12 +229,12 @@ namespace praas::control_plane {
     proc.set_status(process::Status::SWAPPING_OUT);
 
     // Swap the process
-    proc.state().swap = deployment.get_location(process_name);
+    proc.state().swap = deployment.get_location(_name);
 
-    proc.swap();
+    proc.swap(std::move(callback));
   }
 
-  void Application::swapped_process(std::string process_name)
+  void Application::swapped_process(std::string process_name, size_t size, double time)
   {
     // Modify internal collections
     write_lock_t application_lock(_active_mutex);
@@ -244,6 +248,7 @@ namespace praas::control_plane {
     auto proc_lock = proc.write_lock();
 
     if (proc.status() != process::Status::SWAPPING_OUT) {
+      proc.swapped_callback(0, 0, "Cannot confirm a swap of non-swapping process");
       throw praas::common::InvalidProcessState("Cannot confirm a swap of non-swapping process");
     }
 
@@ -252,6 +257,8 @@ namespace praas::control_plane {
     application_lock.unlock();
 
     proc.set_status(process::Status::SWAPPED_OUT);
+
+    proc.swapped_callback(size, time, std::nullopt);
 
     // Insert into swapped
     write_lock_t swapped_lock(_swapped_mutex);

@@ -228,6 +228,11 @@ namespace praas::process::remote {
               ) mutable -> bool { return _handle_invocation_result(*conn, invoc, buffer); },
               [this, buffer, conn = conn.get()](common::message::PutMessagePtr& req
               ) mutable -> bool { return _handle_put_message(*conn, req, buffer); },
+              [&, this](common::message::SwapRequestPtr& req) mutable {
+                _controller.swap_out(std::string{req.path()});
+                buffer->retrieve(praas::common::message::MessageConfig::BUF_SIZE);
+                return true;
+              },
               [connectionPtr, this,
                buffer](common::message::ProcessConnectionPtr& msg) mutable -> bool {
                 // Connection always consumed a message
@@ -654,6 +659,16 @@ namespace praas::process::remote {
 
     SPDLOG_LOGGER_DEBUG(_logger, "Establishing connection to {}:{}", conn->ip_address, conn->port);
     conn->client->connect();
+  }
+
+  void TCPServer::swap_confirmation(size_t size_bytes, double time)
+  {
+    _logger->info("Finished swapping in {} ms, stored {} bytes. Notify control plane", time, size_bytes);
+
+    praas::common::message::SwapConfirmationData req;
+    req.swap_size(size_bytes);
+    _control_plane->conn->send(req.bytes(), decltype(req)::BUF_SIZE);
+
   }
 
 } // namespace praas::process::remote

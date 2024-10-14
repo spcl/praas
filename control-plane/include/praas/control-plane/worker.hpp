@@ -132,8 +132,10 @@ namespace praas::control_plane::worker {
     /// @param[in] proc_id new process name
     /// @return error message if operation failed; empty optional otherwise
     ////////////////////////////////////////////////////////////////////////////////
-    std::optional<std::string>
-    swap_process(const std::string& app_name, const std::string& proc_id);
+    void swap_process(
+      const std::string& app_name, const std::string& proc_id,
+      std::function<void(size_t, double, const std::optional<std::string>&)>&& callback
+    );
     // const process::ProcessPtr& ptr, state::SwapLocation& swap_loc);
 
     ////////////////////////////////////////////////////////////////////////////////

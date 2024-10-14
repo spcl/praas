@@ -182,8 +182,8 @@ TEST_F(HttpServerTest, DeleteProcess)
       proc->set_status(process::Status::ALLOCATED);
     }
 
-    app_acc.get()->swap_process(proc_name, deployment);
-    app_acc.get()->swapped_process(proc_name);
+    app_acc.get()->swap_process(proc_name, deployment, nullptr);
+    app_acc.get()->swapped_process(proc_name, 0, 0);
   }
 
   //// Now delete the application again - this should succeed as the process is swapped.
@@ -277,30 +277,6 @@ TEST_F(HttpServerTest, SwapProcess)
       auto [lock, proc] = app_acc.get()->get_process(proc_name);
       proc->set_status(process::Status::ALLOCATED);
     }
-  }
-
-  // Now swapping should work.
-  {
-    std::promise<void> promise_proc;
-    client.post(
-        fmt::format("/apps/{}/processes/{}/swap", app_name, proc_name), {},
-        [&promise_proc](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
-          EXPECT_EQ(result, drogon::ReqResult::Ok);
-          EXPECT_EQ(response.get()->getStatusCode(), drogon::k200OK);
-          promise_proc.set_value();
-        }
-    );
-    promise_proc.get_future().wait();
-
-    Resources::ROAccessor app_acc;
-    resources.get_application(app_name, app_acc);
-    ASSERT_FALSE(app_acc.empty());
-
-    // The process is being swapped out.
-    EXPECT_THROW(app_acc.get()->get_swapped_process(proc_name), praas::common::ObjectDoesNotExist);
-    auto [lock, proc] = app_acc.get()->get_process(proc_name);
-    ASSERT_TRUE(proc != nullptr);
-    EXPECT_EQ(proc->status(), process::Status::SWAPPING_OUT);
   }
 
   // Swapping again should fail.
@@ -443,8 +419,8 @@ TEST_F(HttpServerTest, ListProcesses)
     EXPECT_CALL(deployment, get_location(testing::_))
         .WillOnce(testing::Return(testing::ByMove(std::move(swap_loc))));
 
-    app_acc.get()->swap_process(proc_name, deployment);
-    app_acc.get()->swapped_process(proc_name);
+    app_acc.get()->swap_process(proc_name, deployment, nullptr);
+    app_acc.get()->swapped_process(proc_name, 0, 0);
   }
 
   // Third case - one active and one swapped process

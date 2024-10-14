@@ -4,5 +4,6 @@
   "docker-port": 2376,
   "process-port": 8000,
   "max-processes": 1,
-  "threads": 1
+  "threads": 1,
+  "swaps-volume": "swaps"
 }

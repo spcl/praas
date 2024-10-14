@@ -33,6 +33,10 @@ public:
       (override)
   );
   MOCK_METHOD(
+      void, swap_confirmation, (size_t, double),
+      (override)
+  );
+  MOCK_METHOD(
       void, invocation_result,
       (remote::RemoteType, std::optional<std::string_view>, std::string_view, int,
        runtime::internal::BufferAccessor<const char>),

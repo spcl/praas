@@ -15,6 +15,7 @@ TEST(Config, BasicConfig)
     {
       "verbose": true,
       "backend-type": "docker",
+      "deployment-type": "local",
       "ip-address": "127.0.0.1",
       "http-client-io-threads": 1
     }
@@ -46,6 +47,7 @@ TEST(Config, HTTPConfig)
       {
         "verbose": true,
         "backend-type": "docker",
+        "deployment-type": "local",
         "ip-address": "127.0.0.1",
         "http-client-io-threads": 1,
         "http": {
@@ -69,6 +71,7 @@ TEST(Config, HTTPConfig)
       {
         "verbose": true,
         "backend-type": "docker",
+        "deployment-type": "local",
         "ip-address": "127.0.0.1",
         "http-client-io-threads": 1,
         "http": {
@@ -98,6 +101,7 @@ TEST(Config, HTTPConfig)
       {
         "verbose": true,
         "backend-type": "docker",
+        "deployment-type": "local",
         "ip-address": "127.0.0.1",
         "http-client-io-threads": 1,
         "http": {
@@ -120,6 +124,7 @@ TEST(Config, WorkersConfig)
       {
         "verbose": true,
         "backend-type": "docker",
+        "deployment-type": "local",
         "ip-address": "127.0.0.1",
         "http-client-io-threads": 1,
         "workers": {
@@ -139,6 +144,7 @@ TEST(Config, WorkersConfig)
       {
         "verbose": true,
         "backend-type": "docker",
+        "deployment-type": "local",
         "ip-address": "127.0.0.1",
         "http-client-io-threads": 1,
         "workers": {
@@ -158,6 +164,7 @@ TEST(Config, DownScalerConfig)
       {
         "verbose": true,
         "backend-type": "docker",
+        "deployment-type": "local",
         "ip-address": "127.0.0.1",
         "http-client-io-threads": 1,
         "downscaler": {
@@ -179,6 +186,7 @@ TEST(Config, DownScalerConfig)
       {
         "verbose": true,
         "backend-type": "docker",
+        "deployment-type": "local",
         "ip-address": "127.0.0.1",
         "http-client-io-threads": 1,
         "downscaler": {
@@ -199,6 +207,7 @@ TEST(Config, TCPServerConfig)
       {
         "verbose": true,
         "backend-type": "docker",
+        "deployment-type": "local",
         "ip-address": "127.0.0.1",
         "http-client-io-threads": 1,
         "tcpserver": {
@@ -220,6 +229,7 @@ TEST(Config, TCPServerConfig)
       {
         "verbose": true,
         "backend-type": "docker",
+        "deployment-type": "local",
         "ip-address": "127.0.0.1",
         "http-client-io-threads": 1,
         "tcpserver": {

@@ -93,7 +93,10 @@ namespace praas::control_plane::tcpserver {
 
     // Calls to process to finish and swap.
     // Needs to call the application to handle the change of process state.
-    void handle_swap(const process::ProcessPtr& ptr);
+    void handle_swap(
+      const process::ProcessPtr& process_ptr,
+      const common::message::SwapConfirmationPtr& msg
+    );
 
     // Update data plane metrics of a process
     // Requires write access to this process component.
