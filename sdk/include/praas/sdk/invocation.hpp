@@ -20,6 +20,8 @@ namespace praas::sdk {
 
   struct ControlPlaneInvocationResult {
 
+    std::string process_name;
+
     std::string invocation_id;
 
     int return_code;

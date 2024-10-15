@@ -4,14 +4,16 @@
 #include <praas/sdk/invocation.hpp>
 #include <praas/sdk/process.hpp>
 
+#include <condition_variable>
 #include <drogon/HttpClient.h>
 #include <trantor/net/EventLoopThread.h>
+#include "praas/common/http.hpp"
 
 namespace praas::sdk {
 
   struct PraaS {
 
-    PraaS(const std::string& control_plane_addr);
+    PraaS(const std::string& control_plane_addr, int thread_num = 8);
 
     void disconnect();
 
@@ -28,7 +30,14 @@ namespace praas::sdk {
 
     ControlPlaneInvocationResult invoke(
         const std::string& app_name, const std::string& function_name,
-        const std::string& invocation_data
+        const std::string& invocation_data,
+        std::optional<std::string> process_name = std::nullopt
+    );
+
+    std::future<ControlPlaneInvocationResult> invoke_async(
+        const std::string& app_name, const std::string& function_name,
+        const std::string& invocation_data,
+        std::optional<std::string> process_name = std::nullopt
     );
 
     std::tuple<bool, std::string> swap_process(const Process& process);
@@ -46,9 +55,12 @@ namespace praas::sdk {
   private:
     std::string _last_error;
 
-    trantor::EventLoopThread _loop;
+    std::mutex _clients_mutex;
+    std::condition_variable _cv;
+    std::queue<common::http::HTTPClient> _clients;
 
-    drogon::HttpClientPtr _http_client;
+    praas::common::http::HTTPClient _get_client();
+    void _return_client(praas::common::http::HTTPClient& client);
   };
 
 } // namespace praas::sdk

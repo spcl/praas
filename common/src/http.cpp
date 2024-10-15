@@ -114,6 +114,11 @@ namespace praas::common::http {
     return resp;
   }
 
+  std::shared_ptr<drogon::HttpClient>& HTTPClient::handle()
+  {
+    return _http_client;
+  }
+
   void HTTPClientFactory::initialize(int thread_num)
   {
     HTTPClientFactory::_pool = std::make_unique<trantor::EventLoopThreadPool>(thread_num);

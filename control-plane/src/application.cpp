@@ -118,6 +118,19 @@ namespace praas::control_plane {
       throw praas::common::ObjectDoesNotExist{name};
     }
   }
+ 
+  std::optional<std::tuple<process::Process::write_lock_t, process::Process*>>
+  Application::get_controlplane_process(const std::string& process_name)
+  {
+    read_lock_t lock(_controlplane_mutex);
+
+    auto iter = _controlplane_processes.find(process_name);
+    if(iter != _controlplane_processes.end()) {
+      return std::make_tuple(iter->second->write_lock(), iter->second.get());
+    }
+
+    return std::nullopt;
+  }
 
   void Application::get_controlplane_process(
       backend::Backend& backend, tcpserver::TCPServer& poller, process::Resources&& resources,
@@ -130,7 +143,7 @@ namespace praas::control_plane {
       // FIXME: this needs to be a parameter - store it in the process
       int max_funcs_per_process = 1;
 
-      for (auto& proc : _controlplane_processes) {
+      for (auto& [name, proc] : _controlplane_processes) {
 
         int active_funcs = proc->active_invocations();
         if (active_funcs < max_funcs_per_process) {
@@ -142,7 +155,7 @@ namespace praas::control_plane {
     }
 
     // No process? create
-    std::string name = fmt::format("controlplane-{}", _controlplane_processes.size());
+    std::string name = fmt::format("controlplane-{}", _controlplane_counter++);
     process::ProcessPtr process =
         std::make_shared<process::Process>(name, this, std::move(resources));
     process->set_creation_callback(std::move(callback), true);
@@ -168,7 +181,7 @@ namespace praas::control_plane {
 
             {
               write_lock_t lock(_controlplane_mutex);
-              _controlplane_processes.emplace_back(process);
+              _controlplane_processes[name] = process;
             }
           } else {
 

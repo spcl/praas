@@ -55,7 +55,8 @@ namespace praas::control_plane::worker {
 
     void handle_invocation(
         HttpServer::request_t request, HttpServer::callback_t&& callback, const std::string& app_id,
-        std::string function_name, std::chrono::high_resolution_clock::time_point start
+        std::string function_name, std::chrono::high_resolution_clock::time_point start,
+        std::optional<std::string> process_name
     );
 
     ////////////////////////////////////////////////////////////////////////////////

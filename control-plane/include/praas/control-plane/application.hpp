@@ -153,6 +153,9 @@ namespace praas::control_plane {
         backend::Backend& backend, tcpserver::TCPServer& poller, process::Resources&& resources
     );
 
+    std::optional<std::tuple<process::Process::write_lock_t, process::Process*>>
+    get_controlplane_process(const std::string& process_name);
+
     ////////////////////////////////////////////////////////////////////////////////
     /// @brief Obtain a process that can be used for FaaS invocations.
     /// Finds the first process with a spare capacity. Otherwise, it allocates one.
@@ -236,7 +239,8 @@ namespace praas::control_plane {
     std::unordered_map<std::string, process::ProcessPtr> _swapped_processes;
 
     lock_t _controlplane_mutex;
-    std::vector<process::ProcessPtr> _controlplane_processes;
+    std::unordered_map<std::string, process::ProcessPtr> _controlplane_processes;
+    int _controlplane_counter = 0;
   };
 
 } // namespace praas::control_plane

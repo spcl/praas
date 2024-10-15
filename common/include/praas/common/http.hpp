@@ -53,6 +53,8 @@ namespace praas::common::http {
 
     static response_ptr_t failed_response(const std::string& reason);
 
+    std::shared_ptr<drogon::HttpClient>& handle();
+
   private:
     void request(request_ptr_t& req, parameters_t&& params, callback_t&& callback);
 

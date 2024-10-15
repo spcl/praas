@@ -233,6 +233,7 @@ namespace praas::control_plane::process {
       spdlog::error("Responding to client of invocation {}", invocation_id);
       Json::Value json;
       json["function"] = (*iter).function_name;
+      json["process_name"] = _name;
       json["invocation_id"] = invocation_id;
       json["return_code"] = return_code;
       json["result"] = std::string{buf, len};

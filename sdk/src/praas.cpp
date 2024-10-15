@@ -5,22 +5,47 @@
 #include <drogon/HttpTypes.h>
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
+#include <thread>
+
+#include <praas/common/http.hpp>
 
 namespace praas::sdk {
 
-  PraaS::PraaS(const std::string& control_plane_addr)
+  PraaS::PraaS(const std::string& control_plane_addr, int thread_num)
   {
-    _loop.run();
-    _http_client =
-        drogon::HttpClient::newHttpClient(control_plane_addr, _loop.getLoop(), false, false);
+    praas::common::http::HTTPClientFactory::initialize(thread_num);
+
+
+    for(int i = 0; i < thread_num; ++i) {
+      _clients.emplace(
+        praas::common::http::HTTPClientFactory::create_client(control_plane_addr)
+      );
+    }
+  }
+
+  praas::common::http::HTTPClient PraaS::_get_client()
+  {
+    std::unique_lock<std::mutex> lock{_clients_mutex};
+
+    if(_clients.empty()) {
+      _cv.wait(lock);
+    }
+
+    auto client = std::move(_clients.front());
+    _clients.pop();
+
+    return client;
+  }
+
+  void PraaS::_return_client(praas::common::http::HTTPClient& client)
+  {
+    std::unique_lock<std::mutex> l{_clients_mutex};
+
+    _clients.push(std::move(client));
   }
 
   void PraaS::disconnect()
-  {
-    _http_client.reset();
-    _loop.getLoop()->quit();
-    _loop.wait();
-  }
+  {}
 
   bool
   PraaS::create_application(const std::string& application, const std::string& cloud_resource_name)
@@ -32,7 +57,8 @@ namespace praas::sdk {
 
     std::promise<bool> p;
 
-    _http_client->sendRequest(
+    auto http_client = _get_client();
+    http_client.handle()->sendRequest(
         req,
         [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
           if (result == drogon::ReqResult::Ok) {
@@ -42,6 +68,8 @@ namespace praas::sdk {
           }
         }
     );
+    _return_client(http_client);
+
     return p.get_future().get();
   }
 
@@ -54,7 +82,8 @@ namespace praas::sdk {
 
     std::promise<bool> p;
 
-    _http_client->sendRequest(
+    auto http_client = _get_client();
+    http_client.handle()->sendRequest(
         req,
         [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
           if (result == drogon::ReqResult::Ok) {
@@ -64,6 +93,8 @@ namespace praas::sdk {
           }
         }
     );
+    _return_client(http_client);
+
     return p.get_future().get();
   }
 
@@ -75,7 +106,8 @@ namespace praas::sdk {
 
     std::promise<bool> p;
 
-    _http_client->sendRequest(
+    auto http_client = _get_client();
+    http_client.handle()->sendRequest(
         req,
         [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
           if (result == drogon::ReqResult::Ok) {
@@ -85,8 +117,9 @@ namespace praas::sdk {
           }
         }
     );
-    return p.get_future().get();
+    _return_client(http_client);
 
+    return p.get_future().get();
   }
 
   std::optional<Process> PraaS::create_process(
@@ -102,7 +135,8 @@ namespace praas::sdk {
 
     std::promise<std::optional<Process>> p;
 
-    _http_client->sendRequest(
+    auto http_client = _get_client();
+    http_client.handle()->sendRequest(
         req,
         [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
           spdlog::info("Received callback Created process");
@@ -117,6 +151,8 @@ namespace praas::sdk {
           }
         }
     );
+    _return_client(http_client);
+
     return p.get_future().get();
   }
 
@@ -128,7 +164,8 @@ namespace praas::sdk {
 
     std::promise<bool> p;
 
-    _http_client->sendRequest(
+    auto http_client = _get_client();
+    http_client.handle()->sendRequest(
         req,
         [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
 
@@ -140,37 +177,61 @@ namespace praas::sdk {
           }
         }
     );
+    _return_client(http_client);
+
     return p.get_future().get();
   }
 
   ControlPlaneInvocationResult PraaS::invoke(
       const std::string& app_name, const std::string& function_name,
-      const std::string& invocation_data
+      const std::string& invocation_data, std::optional<std::string> process_name
   )
   {
-    std::promise<void> p;
-    ControlPlaneInvocationResult res;
+    return invoke_async(app_name, function_name, invocation_data, process_name).get();
+  }
+
+  std::future<ControlPlaneInvocationResult> PraaS::invoke_async(
+      const std::string& app_name, const std::string& function_name,
+      const std::string& invocation_data, std::optional<std::string> process_name
+  )
+  {
+    // We need a shared_ptr because we cannot move it to the lambda later
+    // Drogon request requires a std::function which must be CopyConstructible
+    auto p = std::make_shared<std::promise<ControlPlaneInvocationResult>>();
+    auto fut = p->get_future();
 
     auto req = drogon::HttpRequest::newHttpRequest();
     req->setMethod(drogon::Post);
     req->setPath(fmt::format("/apps/{}/invoke/{}", app_name, function_name));
     req->setBody(invocation_data);
+    if(process_name.has_value()) {
+      req->setParameter("process_name", process_name.value());
+    }
     req->setContentTypeCode(drogon::ContentType::CT_APPLICATION_JSON);
 
-    _http_client->sendRequest(
+    auto http_client = _get_client();
+    http_client.handle()->sendRequest(
         req,
-        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+        [&, p = std::move(p)](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
+
+          ControlPlaneInvocationResult res;
           if (result != drogon::ReqResult::Ok || response->getStatusCode() != drogon::k200OK) {
             res.return_code = 1;
-            auto json = response->getJsonObject();
-            res.error_message = (*json)["reason"].asString();
 
-            p.set_value();
+            if(response) {
+              auto json = response->getJsonObject();
+              res.error_message = (*json)["reason"].asString();
+            } else {
+              res.error_message = "request failed";
+            }
+
+            p->set_value(res);
             return;
           }
 
           auto json = response->getJsonObject();
           res.invocation_id = (*json)["invocation_id"].asString();
+          res.process_name = (*json)["process_name"].asString();
 
           res.return_code = (*json)["return_code"].asInt();
           if (res.return_code < 0) {
@@ -179,12 +240,12 @@ namespace praas::sdk {
             res.response = std::move((*json)["result"].asString());
           }
 
-          p.set_value();
+          p->set_value(res);
         }
     );
-    p.get_future().wait();
+    _return_client(http_client);
 
-    return res;
+    return fut;
   }
 
   std::tuple<bool, std::string> PraaS::swap_process(const Process& process)
@@ -195,7 +256,8 @@ namespace praas::sdk {
 
     std::promise<std::tuple<bool, std::string>> p;
 
-    _http_client->sendRequest(
+    auto http_client = _get_client();
+    http_client.handle()->sendRequest(
         req,
         [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
 
@@ -206,6 +268,8 @@ namespace praas::sdk {
           }
         }
     );
+    _return_client(http_client);
+
     return p.get_future().get();
   }
 
@@ -219,7 +283,8 @@ namespace praas::sdk {
 
     std::promise<std::optional<Process>> p;
 
-    _http_client->sendRequest(
+    auto http_client = _get_client();
+    http_client.handle()->sendRequest(
         req,
         [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
 
@@ -235,6 +300,8 @@ namespace praas::sdk {
           }
         }
     );
+    _return_client(http_client);
+
     return p.get_future().get();
   }
 
@@ -246,7 +313,8 @@ namespace praas::sdk {
 
     std::promise<bool> p;
 
-    _http_client->sendRequest(
+    auto http_client = _get_client();
+    http_client.handle()->sendRequest(
         req,
         [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
 
@@ -257,6 +325,8 @@ namespace praas::sdk {
           }
         }
     );
+    _return_client(http_client);
+
     return p.get_future().get();
   }
 

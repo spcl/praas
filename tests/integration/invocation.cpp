@@ -50,9 +50,29 @@ TEST_F(IntegrationLocalInvocation, Invoke)
       ASSERT_TRUE(praas.create_application("test_invoc", "spcleth/praas-examples:hello-world-cpp"));
     }
 
-    auto invoc = praas.invoke("test_invoc", "hello-world", "");
+    auto invoc = praas.invoke_async("test_invoc", "hello-world", "");
+    auto invoc2 = praas.invoke_async("test_invoc", "hello-world", "");
 
-    ASSERT_EQ(invoc.return_code, 0);
-    EXPECT_EQ("Hello, world!", get_output_binary(invoc.response));
+    auto invoc_res = invoc.get();
+    auto invoc2_res = invoc2.get();
+    std::cerr << invoc_res.process_name << std::endl;
+    std::cerr << invoc2_res.process_name << std::endl;
+
+    for(auto & res : {invoc_res, invoc2_res}) {
+      ASSERT_EQ(res.return_code, 0);
+      EXPECT_EQ("Hello, world!", get_output_binary(res.response));
+    }
+
+    invoc = praas.invoke_async("test_invoc", "hello-world", "", invoc_res.process_name);
+    invoc2 = praas.invoke_async("test_invoc", "hello-world", "", invoc2_res.process_name);
+
+    auto new_invoc_res = invoc.get();
+    auto new_invoc2_res = invoc2.get();
+    for(auto & res : {new_invoc_res, new_invoc2_res}) {
+      ASSERT_EQ(res.return_code, 0);
+      EXPECT_EQ("Hello, world!", get_output_binary(res.response));
+    }
+    ASSERT_EQ(invoc_res.process_name, new_invoc_res.process_name);
+    ASSERT_EQ(invoc2_res.process_name, new_invoc2_res.process_name);
   }
 }

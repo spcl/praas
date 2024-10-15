@@ -171,11 +171,13 @@ namespace praas::control_plane {
       const std::string& function_name
   )
   {
+    std::string pid = request->getParameter("process_name");
+
     _logger->info("Push new invocation request of {}", function_name);
     auto start = std::chrono::high_resolution_clock::now();
     _workers.add_task(
         &worker::Workers::handle_invocation, request, std::move(callback), app_name, function_name,
-        start
+        start, !pid.empty() ? std::make_optional<std::string>(pid) : std::nullopt
     );
   }
 

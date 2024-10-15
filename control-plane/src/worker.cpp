@@ -21,7 +21,8 @@ namespace praas::control_plane::worker {
 
   void Workers::handle_invocation(
       HttpServer::request_t request, HttpServer::callback_t&& callback, const std::string& app_id,
-      std::string function_name, std::chrono::high_resolution_clock::time_point start
+      std::string function_name, std::chrono::high_resolution_clock::time_point start,
+      std::optional<std::string> process_name
   )
   {
     Resources::RWAccessor acc;
@@ -34,7 +35,20 @@ namespace praas::control_plane::worker {
 
     common::util::assert_true(_server != nullptr);
 
-    {
+    // Choose sticky process
+    if(process_name.has_value()) {
+      auto val = acc.get()->get_controlplane_process(process_name.value());
+
+      if(val.has_value()) {
+        spdlog::debug("[Workers] Schedule new invocation on proc {}", process_name.value());
+        std::get<1>(val.value())->add_invocation(
+          std::move(request), std::move(callback), function_name, start
+        );
+      } else {
+        callback(HttpServer::failed_response("Process unknown!", drogon::k404NotFound));
+      }
+    } else {
+
       // Get a process or allocate one.
       // FIXME: make resources configurable
       acc.get()->get_controlplane_process(
