@@ -2,6 +2,7 @@
 #define PRAAS_CONTROLL_PLANE_BACKEND_HPP
 
 #include <praas/common/http.hpp>
+#include <praas/control-plane/deployment.hpp>
 #include <praas/control-plane/process.hpp>
 
 #if defined(WITH_FARGATE_BACKEND)
@@ -74,7 +75,10 @@ namespace praas::control_plane::backend {
 
   struct Backend {
 
-    Backend() = default;
+    Backend(deployment::Deployment& deployment):
+      _deployment(deployment)
+    {}
+
     Backend(const Backend&) = default;
     Backend(Backend&&) = delete;
     Backend& operator=(const Backend&) = default;
@@ -89,9 +93,9 @@ namespace praas::control_plane::backend {
      * @param resources [TODO:description]
      */
     virtual void allocate_process(
-        process::ProcessPtr, const process::Resources& resources,
-        std::function<void(std::shared_ptr<ProcessInstance>&&, std::optional<std::string>)>&&
-            callback
+      process::ProcessPtr, const process::Resources& resources,
+      std::function<void(std::shared_ptr<ProcessInstance>&&, std::optional<std::string>)>&&
+          callback
     ) = 0;
 
     virtual void shutdown(
@@ -122,13 +126,20 @@ namespace praas::control_plane::backend {
      * @param {name} initialized backend instance, where instance type is one of Backend's
      * childrens.
      */
-    static std::unique_ptr<Backend> construct(const config::Config&);
+    static std::unique_ptr<Backend> construct(const config::Config&, deployment::Deployment&);
 
     void configure_tcpserver(const std::string& ip, int port);
+
+    const deployment::Deployment& deployment() const
+    {
+      return _deployment;
+    }
 
   protected:
     std::string _tcp_ip;
     int _tcp_port;
+
+    deployment::Deployment& _deployment;
   };
 
   struct DockerBackend : Backend {
@@ -149,8 +160,7 @@ namespace praas::control_plane::backend {
       std::string container_id;
     };
 
-    DockerBackend(const config::BackendDocker& cfg);
-
+    DockerBackend(const config::BackendDocker& cfg, deployment::Deployment& deployment);
     ~DockerBackend() override;
 
     void allocate_process(
@@ -217,7 +227,7 @@ namespace praas::control_plane::backend {
       std::shared_ptr<Aws::EC2::EC2Client> _ec2_client;
     };
 
-    FargateBackend(const config::BackendFargate& cfg);
+    FargateBackend(const config::BackendFargate& cfg, deployment::Deployment& deployment);
 
     ~FargateBackend() override;
 

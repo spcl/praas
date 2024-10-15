@@ -3,6 +3,7 @@
 #include <praas/common/exceptions.hpp>
 #include <praas/common/util.hpp>
 #include <praas/control-plane/backend.hpp>
+#include <praas/control-plane/deployment.hpp>
 
 #include <optional>
 #include <stdexcept>
@@ -101,6 +102,16 @@ namespace praas::control_plane::config {
     fargate_config = "";
   }
 
+  void AWSDeployment::load(cereal::JSONInputArchive& archive)
+  {
+    archive(CEREAL_NVP(s3_bucket));
+  }
+
+  void AWSDeployment::set_defaults()
+  {
+    s3_bucket = "";
+  }
+
   Config Config::deserialize(std::istream& in_stream)
   {
     Config cfg;
@@ -142,6 +153,9 @@ namespace praas::control_plane::config {
     public_ip_address = "127.0.0.1";
     http_client_io_threads = 1;
 
+    deployment_type = deployment::Type::LOCAL;
+    deployment = std::make_unique<LocalDeployment>();
+
     http.set_defaults();
     workers.set_defaults();
     down_scaler.set_defaults();
@@ -168,6 +182,11 @@ namespace praas::control_plane::config {
     std::string deployment_type;
     archive(cereal::make_nvp("deployment-type", deployment_type));
     this->deployment_type = deployment::deserialize(deployment_type);
+    if(this->deployment_type == deployment::Type::AWS) {
+      auto ptr = std::make_unique<AWSDeployment>();
+      common::util::cereal_load_optional(archive, "deployment", *ptr);
+      this->deployment = std::move(ptr);
+    }
 
     archive(cereal::make_nvp("ip-address", public_ip_address));
     archive(cereal::make_nvp("http-client-io-threads", http_client_io_threads));

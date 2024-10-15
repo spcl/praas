@@ -29,7 +29,7 @@ namespace praas::sdk {
         const std::string& invocation_data
     );
 
-    std::optional<std::string> swap_process(const Process& process);
+    std::tuple<bool, std::string> swap_process(const Process& process);
 
     std::optional<Process> swapin_process(
       const std::string& application, const std::string& process_name

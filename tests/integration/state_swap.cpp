@@ -77,8 +77,8 @@ TEST_F(IntegrationLocalInvocation, AllocationInvoke)
     auto invoc = proc->invoke("state-put", "invocation-id", res.data(), res.size());
     ASSERT_EQ(invoc.return_code, 0);
 
-    auto swap_res = praas.swap_process(proc.value());
-    ASSERT_TRUE(swap_res.has_value());
+    auto [swap_res, swap_msg] = praas.swap_process(proc.value());
+    ASSERT_TRUE(swap_res);
 
     auto new_proc = praas.swapin_process(app_name, "alloc_invoc_process");
     ASSERT_TRUE(new_proc.has_value());
@@ -90,10 +90,13 @@ TEST_F(IntegrationLocalInvocation, AllocationInvoke)
     auto res2 = get_output_binary(invoc.payload.get(), invoc.payload_len);
     ASSERT_EQ(msg.msg, res2);
 
-    swap_res = praas.swap_process(new_proc.value());
-    ASSERT_TRUE(swap_res.has_value());
+    std::tie(swap_res, swap_msg) = praas.swap_process(new_proc.value());
+    ASSERT_TRUE(swap_res);
 
     ASSERT_TRUE(praas.delete_process(new_proc.value()));
+
+    auto failed_proc = praas.swapin_process(app_name, "alloc_invoc_process");
+    ASSERT_FALSE(failed_proc.has_value());
 
     ASSERT_TRUE(praas.delete_application(app_name));
   }

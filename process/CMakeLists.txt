@@ -86,6 +86,13 @@ add_executable(process_exe controller/src/cli.cpp)
 set_target_properties(process_exe PROPERTIES RUNTIME_OUTPUT_DIRECTORY bin)
 target_link_libraries(process_exe PRIVATE controller_lib)
 
+if(PRAAS_WITH_DEPLOYMENT_AWS)
+
+  target_include_directories(controller_lib PRIVATE ${AWSSDK_INCLUDE_DIRS})
+  target_link_libraries(controller_lib PRIVATE ${AWSSDK_LIBRARIES})
+
+endif()
+
 ###
 # C++ invoker
 ###

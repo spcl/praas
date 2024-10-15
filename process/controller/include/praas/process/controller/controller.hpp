@@ -47,7 +47,7 @@ namespace praas::process {
 
     void shutdown_channels();
 
-    void swap_in(const std::string& location);
+    bool swap_in(const std::string& location);
 
     void swap_out(const std::string& location);
 

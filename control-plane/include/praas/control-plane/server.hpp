@@ -42,9 +42,9 @@ namespace praas::control_plane {
 
     Resources _resources;
 
-    std::unique_ptr<backend::Backend> _backend;
-
     std::unique_ptr<deployment::Deployment> _deployment;
+
+    std::unique_ptr<backend::Backend> _backend;
 
     worker::Workers _workers;
 

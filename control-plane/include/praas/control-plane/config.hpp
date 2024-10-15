@@ -93,7 +93,20 @@ namespace praas::control_plane::config {
     void set_defaults();
   };
 
-  struct Deployment {};
+  struct Deployment {
+    virtual ~Deployment() = default;
+  };
+
+  struct LocalDeployment : Deployment {
+    void load(cereal::JSONInputArchive& archive) {}
+  };
+
+  struct AWSDeployment : Deployment {
+    std::string s3_bucket;
+
+    void load(cereal::JSONInputArchive& archive);
+    void set_defaults();
+  };
 
   struct Config {
 
@@ -103,6 +116,7 @@ namespace praas::control_plane::config {
     TCPServer tcpserver;
 
     deployment::Type deployment_type;
+    std::unique_ptr<Deployment> deployment;
 
     backend::Type backend_type;
     std::unique_ptr<Backend> backend;

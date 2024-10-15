@@ -28,6 +28,10 @@ public:
 
 class MockBackend : public backend::Backend {
 public:
+  MockDeployment deployment;
+
+  MockBackend() : backend::Backend(deployment) {}
+
   MOCK_METHOD(
       void, allocate_process,
       (process::ProcessPtr, const process::Resources&,
@@ -40,7 +44,7 @@ public:
     process::ProcessObserver instance,
     std::function<void(std::optional<std::string>)>&& callback),
     ()
-);
+  );
   MOCK_METHOD(double, max_memory, (), (const));
   MOCK_METHOD(double, max_vcpus, (), (const));
 };

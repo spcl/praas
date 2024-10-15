@@ -5,6 +5,7 @@
 #include <praas/common/util.hpp>
 #include <praas/control-plane/application.hpp>
 #include <praas/control-plane/config.hpp>
+#include <praas/control-plane/deployment.hpp>
 
 #if defined(WITH_FARGATE_BACKEND)
 #include <aws/core/client/AsyncCallerContext.h>
@@ -43,23 +44,27 @@ namespace praas::control_plane::backend {
     }
   }
 
-  std::unique_ptr<Backend> Backend::construct(const config::Config& cfg)
+  std::unique_ptr<Backend> Backend::construct(const config::Config& cfg, deployment::Deployment& deployment)
   {
     if (cfg.backend_type == Type::DOCKER) {
-      return std::make_unique<DockerBackend>(*dynamic_cast<config::BackendDocker*>(cfg.backend.get()
-      ));
+      return std::make_unique<DockerBackend>(
+          *dynamic_cast<config::BackendDocker*>(cfg.backend.get()),
+          deployment
+      );
     }
 #if defined(WITH_FARGATE_BACKEND)
     if (cfg.backend_type == Type::AWS_FARGATE) {
       return std::make_unique<FargateBackend>(
-          *dynamic_cast<config::BackendFargate*>(cfg.backend.get())
+          *dynamic_cast<config::BackendFargate*>(cfg.backend.get()),
+          deployment
       );
     }
 #endif
     return nullptr;
   }
 
-  DockerBackend::DockerBackend(const config::BackendDocker& cfg)
+  DockerBackend::DockerBackend(const config::BackendDocker& cfg, deployment::Deployment& deployment):
+    Backend(deployment)
   {
     _logger = common::util::create_logger("LocalBackend");
 
@@ -90,6 +95,10 @@ namespace praas::control_plane::backend {
 
     if(process->state().swap) {
       body["swap-location"] = process->state().swap->path(process->name());
+    }
+
+    if(auto * ptr = dynamic_cast<deployment::AWS*>(&_deployment)) {
+      body["s3-swapping-bucket"] = ptr->s3_bucket;
     }
 
     _http_client.post(
@@ -185,7 +194,8 @@ namespace praas::control_plane::backend {
   }
 
 #if defined(WITH_FARGATE_BACKEND)
-  FargateBackend::FargateBackend(const config::BackendFargate& cfg)
+  FargateBackend::FargateBackend(const config::BackendFargate& cfg, deployment::Deployment& deployment):
+    Backend(deployment)
   {
     _logger = common::util::create_logger("FargateBackend");
 
@@ -308,6 +318,7 @@ namespace praas::control_plane::backend {
       std::function<void(std::shared_ptr<ProcessInstance>&&, std::optional<std::string>)>&& callback
   )
   {
+    // FIXME: swap bucket
     std::string cluster_name = _fargate_config["cluster_name"].asString();
 
     Aws::ECS::Model::RunTaskRequest req;

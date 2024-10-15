@@ -28,18 +28,21 @@ int main(int argc, char** argv)
   praas::process::Controller controller{config};
   instance = &controller;
 
+  char* swapin_loc = std::getenv("SWAPIN_LOCATION");
+  if(swapin_loc) {
+    // TODO: consider in future lazy loading
+    if(!controller.swap_in(swapin_loc)) {
+      controller.shutdown();
+      return 1;
+    }
+  }
+
   praas::process::remote::TCPServer server{controller, config};
   controller.set_remote(&server);
   if(config.control_plane_addr.has_value()) {
     server.poll(config.control_plane_addr.value());
   } else {
     server.poll();
-  }
-
-  char* swapin_loc = std::getenv("SWAPIN_LOCATION");
-  if(swapin_loc) {
-    // TODO: consider in future lazy loading
-    controller.swap_in(swapin_loc);
   }
 
   controller.start();

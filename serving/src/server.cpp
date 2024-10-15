@@ -158,7 +158,8 @@ namespace praas::serving::docker {
     port_bindings[fmt::format("{}/tcp", opts.process_port)] = bind_ports;
     Json::Value host_config;
     host_config["PortBindings"] = port_bindings;
-    host_config["AutoRemove"] = true;
+    //host_config["AutoRemove"] = true;
+    host_config["AutoRemove"] = false;
     //host_config["NetworkMode"] = "bridge";
 
     Json::Value extra_hosts;
@@ -195,10 +196,12 @@ namespace praas::serving::docker {
     auto container_name_obj = (*req_body)["container-name"];
     auto controlplane_addr_obj = (*req_body)["controlplane-address"];
     auto swapinlocation = (*req_body)["swap-location"];
+    auto s3_bucket = (*req_body)["s3-swapping-bucket"];
     if (container_name_obj.isNull() || controlplane_addr_obj.isNull()) {
       callback(common::http::HTTPClient::failed_response("Missing arguments in request body!"));
       return;
     }
+
     std::string container_name = container_name_obj.asString();
     std::string controlplane_addr = controlplane_addr_obj.asString();
 
@@ -220,6 +223,17 @@ namespace praas::serving::docker {
     if(!swapinlocation.isNull()) {
       env_data.append(fmt::format("SWAPIN_LOCATION={}", swapinlocation.asString()));
     }
+    if(!s3_bucket.isNull()) {
+      env_data.append(fmt::format("S3_SWAPPING_BUCKET={}", s3_bucket.asString()));
+    }
+
+    char* access_key = std::getenv("AWS_ACCESS_KEY_ID");
+    char* secret_key = std::getenv("AWS_SECRET_ACCESS_KEY");
+    if((access_key != nullptr) && (secret_key != nullptr)) {
+      env_data.append(fmt::format("AWS_ACCESS_KEY_ID={}", access_key));
+      env_data.append(fmt::format("AWS_SECRET_ACCESS_KEY={}", secret_key));
+    }
+
     body["Env"] = env_data;
 
     _http_client.post(

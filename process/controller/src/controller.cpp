@@ -259,7 +259,7 @@ namespace praas::process {
     }
   }
 
-  void Controller::swap_in(const std::string& location)
+  bool Controller::swap_in(const std::string& location)
   {
     spdlog::info("Request swapping in!");
 
@@ -280,12 +280,43 @@ namespace praas::process {
           "Swapped in finished in {} msec",
           std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1000.0
         );
+        return true;
       } else {
         spdlog::error("Swapped in failed!");
+        return false;
+      }
+
+    } else if(location.starts_with("s3://")) {
+
+      auto* ptr = std::getenv("S3_SWAPPING_BUCKET");
+      if(!ptr) {
+        spdlog::error("Request S3 swap, but not configured!");
+        return false;
+      }
+
+      swapper = std::make_unique<swapper::S3Swapper>(ptr);
+
+      auto loc = location.substr(std::string_view{"s3://"}.size());
+      loc = std::filesystem::path{loc} / this->process_id();
+
+      auto begin = std::chrono::high_resolution_clock::now();
+      auto success = swapper->swap_in(loc, _mailbox);
+      auto end = std::chrono::high_resolution_clock::now();
+
+      if(success) {
+        spdlog::info(
+          "Swapped in finished in {} msec",
+          std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1000.0
+        );
+        return true;
+      } else {
+        spdlog::error("Swapped in failed!");
+        return false;
       }
 
     } else {
       spdlog::error("unimplemented");
+      return false;
     }
   }
 
@@ -299,6 +330,9 @@ namespace praas::process {
     std::vector<std::tuple<std::string, message::Message>> msgs;
     _mailbox.all_state(msgs);
 
+    double duration = 0;
+    size_t size;
+
     std::unique_ptr<swapper::Swapper> swapper;
     if(location.starts_with("local://")) {
 
@@ -308,19 +342,46 @@ namespace praas::process {
       swapper = std::make_unique<swapper::DiskSwapper>();
 
       auto begin = std::chrono::high_resolution_clock::now();
-      auto size = swapper->swap_out(loc, msgs);
+      size = swapper->swap_out(loc, msgs);
       auto end = std::chrono::high_resolution_clock::now();
+      duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1000.0;
 
-      _server->swap_confirmation(
-        size, std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1000.0
+    } else if(location.starts_with("s3://")) {
+
+      auto* ptr = std::getenv("S3_SWAPPING_BUCKET");
+      if(!ptr) {
+        spdlog::error("Request S3 swap, but not configured!");
+        _server->swap_confirmation(
+          0, 0
+        );
+        this->shutdown();
+        return;
+      }
+
+      swapper = std::make_unique<swapper::S3Swapper>(ptr);
+
+      auto loc = location.substr(std::string_view{"s3://"}.size());
+      loc = std::filesystem::path{loc} / this->process_id();
+
+      auto begin = std::chrono::high_resolution_clock::now();
+      size = swapper->swap_out(loc, msgs);
+      auto end = std::chrono::high_resolution_clock::now();
+      duration = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1000.0;
+
+      spdlog::debug(
+        "Swapped to S3 finished in {} msec", duration
       );
-
-      this->shutdown();
 
     } else {
       spdlog::error("unimplemented");
       abort();
     }
+
+    _server->swap_confirmation(
+      size, duration
+    );
+
+    this->shutdown();
   }
 
   void Controller::_process_external_message(ExternalMessage& msg)

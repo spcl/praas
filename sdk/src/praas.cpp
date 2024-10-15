@@ -165,22 +165,22 @@ namespace praas::sdk {
     return res;
   }
 
-  std::optional<std::string> PraaS::swap_process(const Process& process)
+  std::tuple<bool, std::string> PraaS::swap_process(const Process& process)
   {
     auto req = drogon::HttpRequest::newHttpRequest();
     req->setMethod(drogon::Post);
     req->setPath(fmt::format("/apps/{}/processes/{}/swap", process.app_name, process.process_id));
 
-    std::promise<std::optional<std::string>> p;
+    std::promise<std::tuple<bool, std::string>> p;
 
     _http_client->sendRequest(
         req,
         [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
 
           if (result == drogon::ReqResult::Ok && response->getStatusCode() == drogon::k200OK) {
-            p.set_value(std::make_optional<std::string>(response->getBody()));
+            p.set_value(std::make_tuple(true, std::string{response->getBody()}));
           } else {
-            p.set_value(std::nullopt);
+            p.set_value(std::make_tuple(false, std::string{response->getBody()}));
           }
         }
     );

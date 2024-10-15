@@ -343,7 +343,12 @@ namespace praas::control_plane {
 
       auto iter = _active_processes.find(ptr->name());
       if (iter != _active_processes.end()) {
+
+        // If process failed during swapping, then notify client.
+        (*iter).second->swapped_callback(0, 0, "Process closed unexpectedly during swapping");
+
         _active_processes.erase(iter);
+
       } else {
 
         // FIXME: check for processes allocated by the control plane
