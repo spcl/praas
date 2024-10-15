@@ -44,9 +44,11 @@ TEST_F(IntegrationLocalInvocation, Invoke)
 {
   praas::common::http::HTTPClientFactory::initialize(1);
   {
-    praas::sdk::PraaS praas{fmt::format("http://127.0.0.1:{}", 8000)};
+    praas::sdk::PraaS praas{fmt::format("http://127.0.0.1:{}", 9000)};
 
-    ASSERT_TRUE(praas.create_application("test_invoc", "spcleth/praas-examples:hello-world-cpp"));
+    if(!praas.get_application("test_invoc")) {
+      ASSERT_TRUE(praas.create_application("test_invoc", "spcleth/praas-examples:hello-world-cpp"));
+    }
 
     auto invoc = praas.invoke("test_invoc", "hello-world", "");
 

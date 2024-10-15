@@ -69,6 +69,15 @@ namespace praas::control_plane::worker {
   }
 
   bool
+  Workers::get_application(const std::string& app_name)
+  {
+    Resources::ROAccessor acc;
+    _resources.get_application(app_name, acc);
+
+    return !acc.empty();
+  }
+
+  bool
   Workers::delete_application(const std::string& app_name)
   {
     try {

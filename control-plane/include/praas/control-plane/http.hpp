@@ -26,6 +26,7 @@ namespace praas::control_plane {
 
     METHOD_LIST_BEGIN
     ADD_METHOD_TO(HttpServer::create_app, "/apps/{1}", drogon::Put);
+    ADD_METHOD_TO(HttpServer::get_app, "/apps/{1}", drogon::Get);
     ADD_METHOD_TO(HttpServer::delete_app, "/apps/{1}/delete", drogon::Post);
     ADD_METHOD_TO(HttpServer::create_process, "/apps/{1}/processes/{2}", drogon::Put);
     ADD_METHOD_TO(HttpServer::delete_process, "/apps/{1}/processes/{2}/delete", drogon::Post);
@@ -43,6 +44,11 @@ namespace praas::control_plane {
     void wait();
 
     void create_app(
+        const drogon::HttpRequestPtr& request,
+        std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string& app_name
+    );
+
+    void get_app(
         const drogon::HttpRequestPtr& request,
         std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string& app_name
     );

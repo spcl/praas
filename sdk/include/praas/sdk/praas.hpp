@@ -17,6 +17,8 @@ namespace praas::sdk {
 
     bool create_application(const std::string& application, const std::string& cloud_resource_name);
 
+    bool get_application(const std::string& application);
+
     bool delete_application(const std::string& application);
 
     std::optional<Process> create_process(

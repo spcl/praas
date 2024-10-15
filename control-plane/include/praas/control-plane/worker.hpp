@@ -69,6 +69,8 @@ namespace praas::control_plane::worker {
     ////////////////////////////////////////////////////////////////////////////////
     bool create_application(const std::string& app_name, ApplicationResources&& cloud_resources);
 
+    bool get_application(const std::string& app_name);
+
     bool delete_application(const std::string& app_name);
 
     ////////////////////////////////////////////////////////////////////////////////

@@ -45,6 +45,28 @@ namespace praas::sdk {
     return p.get_future().get();
   }
 
+  bool
+  PraaS::get_application(const std::string& application)
+  {
+    auto req = drogon::HttpRequest::newHttpRequest();
+    req->setMethod(drogon::Get);
+    req->setPath(fmt::format("/apps/{}", application));
+
+    std::promise<bool> p;
+
+    _http_client->sendRequest(
+        req,
+        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+          if (result == drogon::ReqResult::Ok) {
+            p.set_value(response->getStatusCode() == drogon::k200OK);
+          } else {
+            p.set_value(false);
+          }
+        }
+    );
+    return p.get_future().get();
+  }
+
   bool PraaS::delete_application(const std::string& application)
   {
     auto req = drogon::HttpRequest::newHttpRequest();

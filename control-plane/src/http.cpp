@@ -89,6 +89,29 @@ namespace praas::control_plane {
     });
   }
 
+  void HttpServer::get_app(
+      const drogon::HttpRequestPtr& request,
+      std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string& app_name
+  )
+  {
+
+    _logger->info("Get application {}", app_name);
+    _workers.add_task([=, callback = std::move(callback), this]() {
+
+      auto response = _workers.get_application(app_name);
+      if (!response) {
+        callback(failed_response("Application does not exist!", drogon::HttpStatusCode::k404NotFound));
+      }
+
+      Json::Value json;
+      json["application"] = app_name;
+
+      auto resp = drogon::HttpResponse::newHttpJsonResponse(json);
+      resp->setStatusCode(drogon::HttpStatusCode::k200OK);
+      callback(resp);
+    });
+  }
+
   void HttpServer::delete_app(
       const drogon::HttpRequestPtr& request,
       std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string& app_name
