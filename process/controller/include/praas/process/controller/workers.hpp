@@ -94,8 +94,7 @@ namespace praas::process {
     {
       return std::chrono::duration_cast<std::chrono::microseconds>(
                  invocation_end - invocation_start
-      )
-          .count();
+      ).count();
     }
 
     std::chrono::high_resolution_clock::time_point invocation_start, invocation_end;

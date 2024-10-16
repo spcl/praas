@@ -533,29 +533,29 @@ namespace praas::common::message {
     uint64_t last_invocation_timestamp() const
     {
       // NOLINTNEXTLINE
-      return *reinterpret_cast<const uint64_t*>(data() + 8);
+      return *reinterpret_cast<const uint64_t*>(data() + 12);
     }
 
     void last_invocation_timestamp(uint64_t timestamp)
     {
       // NOLINTNEXTLINE
-      *reinterpret_cast<uint64_t*>(data() + 8) = timestamp;
+      *reinterpret_cast<uint64_t*>(data() + 12) = timestamp;
     }
 
-    int32_t computation_time() const
+    uint64_t computation_time() const
     {
       // NOLINTNEXTLINE
-      return *reinterpret_cast<const int32_t*>(data() + 4);
+      return *reinterpret_cast<const uint64_t*>(data() + 4);
     }
 
-    void computation_time(int32_t time)
+    void computation_time(uint64_t time)
     {
       if (time < 0) {
         throw common::InvalidArgument{fmt::format("Incorrect computation time {}", time)};
       }
 
       // NOLINTNEXTLINE
-      *reinterpret_cast<int32_t*>(data() + 4) = time;
+      *reinterpret_cast<uint64_t*>(data() + 4) = time;
     }
 
     static MessageType type()

@@ -60,10 +60,12 @@ namespace praas::control_plane::config {
   {
     archive(CEREAL_NVP(polling_interval));
     archive(CEREAL_NVP(swapping_threshold));
+    archive(CEREAL_NVP(enabled));
   }
 
   void DownScaler::set_defaults()
   {
+    enabled = false;
     polling_interval = DEFAULT_POLLING_INTERVAL;
     swapping_threshold = DEFAULT_SWAPPING_THRESHOLD;
   }

@@ -40,6 +40,14 @@ namespace praas::control_plane::worker {
     }
 
     template <typename F, typename... Args>
+    void add_other_task(F&& func, Args&&... args)
+    {
+      _pool.detach_task([func, ... args = std::forward<Args>(args)]() mutable {
+        std::invoke(func, std::forward<Args>(args)...);
+      });
+    }
+
+    template <typename F, typename... Args>
     void add_task(F&& func, Args&&... args)
     {
       _pool.detach_task([this, func, ... args = std::forward<Args>(args)]() mutable {
@@ -160,8 +168,8 @@ namespace praas::control_plane::worker {
   private:
     // Looks up the associated invocation in a process and calls the callback.
     // Requires a read access to the list of invocations.
-    static void
-    handle_invocation_result(const process::ProcessPtr& ptr, const praas::common::message::InvocationResultPtr&);
+    //static void
+    //handle_invocation_result(const process::ProcessPtr& ptr, const praas::common::message::InvocationResultPtr&);
 
     // Calls to process to finish and swap.
     // Needs to call the application to handle the change of process state.
@@ -169,8 +177,8 @@ namespace praas::control_plane::worker {
 
     // Update data plane metrics of a process
     // Requires write access to this process component.
-    static void
-    handle_data_metrics(const process::ProcessPtr& ptr, const praas::common::message::DataPlaneMetricsPtr&);
+    //static void
+    //handle_data_metrics(const process::ProcessPtr& ptr, const praas::common::message::DataPlaneMetricsPtr&);
 
     // Close down a process.
     // Requires write access to the application.

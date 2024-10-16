@@ -46,6 +46,11 @@ public:
       (std::string_view, std::string_view, std::string_view, runtime::internal::Buffer<char>&&),
       (override)
   );
+  MOCK_METHOD(
+      void, dataplane_metrics,
+      (uint64_t, int, uint64_t),
+      (override)
+  );
 };
 
 size_t generate_input_binary(int arg1, int arg2, const runtime::internal::Buffer<char>& buf)

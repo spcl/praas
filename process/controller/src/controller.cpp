@@ -129,9 +129,9 @@ namespace praas::process {
     }
   } // namespace
 
-  Controller::Controller(config::Controller cfg)
+  Controller::Controller(config::Controller& cfg)
       : _buffers(DEFAULT_BUFFER_MESSAGES, DEFAULT_BUFFER_SIZE), _workers(cfg),
-        _work_queue(_functions), _process_id(cfg.process_id)
+        _work_queue(_functions), _process_id(cfg.process_id), _cfg(cfg)
   {
 
     auto sink = std::make_shared<spdlog::sinks::stderr_color_sink_st>();
@@ -567,6 +567,8 @@ namespace praas::process {
     std::vector<ExternalMessage> msg;
     std::vector<common::ApplicationUpdate> updates;
 
+    std::chrono::system_clock::time_point last_downscaler_updated = std::chrono::system_clock::now();
+
     std::array<epoll_event, MAX_EPOLL_EVENTS> events;
     while (true) {
 
@@ -649,6 +651,24 @@ namespace praas::process {
 
         // schedule on an idle worker
         _workers.submit(*invoc);
+      }
+
+      if(!_ending && _cfg.downscaler.enabled) {
+
+        auto now = std::chrono::system_clock::now();
+        auto dur = std::chrono::duration_cast<std::chrono::seconds>(
+           now - last_downscaler_updated
+        ).count();
+        if(dur >= _cfg.downscaler.frequency) {
+
+          _server->dataplane_metrics(
+            _metrics.comp_time,
+            _metrics.invocations,
+            std::chrono::duration_cast<std::chrono::milliseconds>(_metrics.last_invoc.time_since_epoch()).count()
+          );
+
+          last_downscaler_updated = now;
+        }
       }
     }
 
@@ -817,7 +837,12 @@ namespace praas::process {
     );
 
     std::optional<Invocation> invoc = _work_queue.finish(std::string{invocation_id});
+
+
     if (invoc.has_value()) {
+
+      _metrics.update(invoc.value());
+
       Invocation& invocation = invoc.value();
       _logger->info("Finished invocation {}, it took {} us", invocation_id, invoc->duration());
       _process_invocation_result(invocation.source, invocation_id, return_code, payload);

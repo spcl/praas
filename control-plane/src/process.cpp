@@ -119,7 +119,7 @@ namespace praas::control_plane::process {
     _connection.reset();
   }
 
-  void Process::update_metrics(int32_t time, int32_t invocations, uint64_t timestamp)
+  void Process::update_metrics(uint64_t time, uint32_t invocations, uint64_t timestamp)
   {
     std::unique_lock<std::mutex> lock{_metrics_mutex};
 
@@ -130,6 +130,7 @@ namespace praas::control_plane::process {
       _metrics.last_invocation = timestamp;
       _metrics.last_report = cur_timestamp;
     }
+
   }
 
   DataPlaneMetrics Process::get_metrics() const

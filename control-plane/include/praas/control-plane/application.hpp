@@ -15,6 +15,12 @@ namespace praas::control_plane::backend {
 
 } // namespace praas::control_plane::backend
 
+namespace praas::control_plane::downscaler{
+
+  struct Downscaler;
+
+} // namespace praas::control_plane::downscaler
+
 namespace praas::control_plane::deployment {
 
   struct Deployment;
@@ -178,6 +184,12 @@ namespace praas::control_plane {
     /// @param[[TODO:direction]] name [TODO:description]
     ////////////////////////////////////////////////////////////////////////////////
     void update_controlplane_process(const std::string& name);
+
+    // FIXME: this overload is provided to support workers that only accept pass-by-copy (no refs)
+    void swap_process(
+      std::string process_name, deployment::Deployment* deployment,
+      std::function<void(size_t, double, const std::optional<std::string>&)>&& callback
+    );
 
     void swap_process(
       std::string process_name, deployment::Deployment& deployment,

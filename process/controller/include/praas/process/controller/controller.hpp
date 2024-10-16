@@ -9,6 +9,7 @@
 #include <praas/process/controller/workers.hpp>
 #include <praas/process/runtime/internal/ipc/ipc.hpp>
 
+#include <chrono>
 #include <memory>
 #include <spdlog/spdlog.h>
 #include <string>
@@ -33,7 +34,7 @@ namespace praas::process {
       runtime::internal::Buffer<char> payload;
     };
 
-    Controller(config::Controller cfg);
+    Controller(config::Controller& cfg);
 
     ~Controller();
 
@@ -134,6 +135,22 @@ namespace praas::process {
     // No deque in tbb
     // https://community.intel.com/t5/Intel-oneAPI-Threading-Building/Is-there-a-concurrent-dequeue/m-p/873829
     // oneapi::tbb::concurrent_queue<ExternalMessage> _external_queue;
+
+    // Downscaler metrics
+    struct Metrics {
+      int invocations = 0;
+      int64_t comp_time = 0;
+      std::chrono::system_clock::time_point last_invoc = std::chrono::system_clock::time_point::min();
+
+      void update(Invocation & invoc)
+      {
+        invocations++;
+        comp_time += invoc.duration();
+        last_invoc = invoc.invocation_end;
+      }
+    };
+    Metrics _metrics;
+    config::Controller& _cfg;
 
     // Current world
     std::mutex _app_lock;

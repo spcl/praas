@@ -14,12 +14,9 @@
 
 #include <spdlog/spdlog.h>
 
-praas::control_plane::Server* instance = nullptr;
-
 void signal_handler(int /*unused*/)
 {
-  assert(instance);
-  instance->shutdown();
+  praas::control_plane::Server::instance().shutdown();
 }
 
 int main(int argc, char** argv)
@@ -42,13 +39,12 @@ int main(int argc, char** argv)
   sigIntHandler.sa_flags = 0;
   sigaction(SIGINT, &sigIntHandler, nullptr);
 
-  praas::control_plane::Server server{cfg};
-  instance = &server;
-  server.run();
+  praas::control_plane::Server::configure(cfg);
+  praas::control_plane::Server::instance().run();
 
-  server.wait();
+  praas::control_plane::Server::instance().wait();
 
-  server.shutdown();
+  //server.shutdown();
 
   spdlog::info("Control plane is closing down");
   return 0;

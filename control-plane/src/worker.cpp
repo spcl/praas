@@ -210,17 +210,18 @@ namespace praas::control_plane::worker {
     return std::nullopt;
   }
 
-  void Workers::
-      handle_invocation_result(const process::ProcessPtr& ptr, const praas::common::message::InvocationResultPtr&)
-  {
-  }
+  //void Workers::
+  //    handle_invocation_result(const process::ProcessPtr& ptr, const praas::common::message::InvocationResultPtr&)
+  //{
+  //}
 
   void Workers::handle_swap(const process::ProcessPtr& ptr) {}
 
-  void Workers::
-      handle_data_metrics(const process::ProcessPtr& ptr, const praas::common::message::DataPlaneMetricsPtr&)
-  {
-  }
+  //void Workers::
+  //    handle_data_metrics(const process::ProcessPtr& ptr, const praas::common::message::DataPlaneMetricsPtr&)
+  //{
+  //  // FIXME: is this even needed?
+  //}
 
   void Workers::handle_closure(const process::ProcessPtr& ptr) {}
 

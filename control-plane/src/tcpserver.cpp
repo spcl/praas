@@ -27,9 +27,10 @@ namespace praas::control_plane::tcpserver {
 
     _server.setConnectionCallback([this](const trantor::TcpConnectionPtr& connPtr) {
       if (connPtr->connected()) {
-        //_logger->debug("Connected new process from {}", connPtr.get()->peerAddr().toIpPort());
-        _logger->info("Connected new process from {}", connPtr.get()->peerAddr().toIpPort());
+        _logger->debug("Connected new process from {}", connPtr.get()->peerAddr().toIpPort());
         _num_connected_processes++;
+
+        connPtr.get()->setTcpNoDelay(true);
       } else if (connPtr->disconnected()) {
 
         // Avoid errors on closure of the server.
@@ -62,11 +63,13 @@ namespace praas::control_plane::tcpserver {
 
   void TCPServer::shutdown()
   {
-    _is_running = false;
+    if (_is_running) {
+      _server.stop();
+      _loop_thread.getLoop()->quit();
+      _loop_thread.wait();
+    }
 
-    _server.stop();
-    _loop_thread.getLoop()->quit();
-    _loop_thread.wait();
+    _is_running = false;
   }
 
   void TCPServer::add_process(const process::ProcessPtr& ptr)
@@ -195,6 +198,7 @@ namespace praas::control_plane::tcpserver {
         common::message::overloaded{
             [this, connectionPtr,
              buffer](const common::message::ProcessClosurePtr&) mutable -> bool {
+              // FIXME: is this path used anymore? don't we just discover a disconnect?
               handle_closure(connectionPtr);
               buffer->retrieve(praas::common::message::MessageConfig::BUF_SIZE);
               return true;
@@ -334,7 +338,7 @@ namespace praas::control_plane::tcpserver {
     if (process_ptr) {
       process_ptr->application().swapped_process(process_ptr->name(), msg.swap_size(), msg.swap_time());
     } else {
-      spdlog::error("Ignoring data plane metrics for an unknown process");
+      spdlog::error("Ignoring swap confirmation for an unknown process");
     }
   }
 

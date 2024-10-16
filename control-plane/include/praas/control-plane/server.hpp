@@ -3,6 +3,7 @@
 
 #include <praas/control-plane/backend.hpp>
 #include <praas/control-plane/deployment.hpp>
+#include <praas/control-plane/downscaler.hpp>
 #include <praas/control-plane/http.hpp>
 #include <praas/control-plane/resources.hpp>
 #include <praas/control-plane/worker.hpp>
@@ -19,13 +20,13 @@ namespace praas::control_plane {
 
   struct Server {
 
-    Server(config::Config& cfg);
-
     void run();
 
     void shutdown();
 
     void wait();
+
+    downscaler::Downscaler& downscaler();
 
     int http_port() const
     {
@@ -37,7 +38,26 @@ namespace praas::control_plane {
       return _tcp_server.port();
     }
 
+    static void configure(config::Config& cfg)
+    {
+      _instance.reset(new Server{cfg});
+    }
+
+    static Server& instance()
+    {
+      if(!_instance) {
+        abort();
+      }
+
+      return *_instance;
+    }
+
   private:
+
+    static std::shared_ptr<Server> _instance;
+
+    Server(config::Config& cfg);
+
     std::shared_ptr<spdlog::logger> _logger;
 
     Resources _resources;
@@ -49,6 +69,8 @@ namespace praas::control_plane {
     worker::Workers _workers;
 
     tcpserver::TCPServer _tcp_server;
+
+    downscaler::Downscaler _downscaler;
 
     // Shared pointer is required by drogon
     std::shared_ptr<HttpServer> _http_server;

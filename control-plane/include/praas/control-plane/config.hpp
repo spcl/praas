@@ -52,6 +52,7 @@ namespace praas::control_plane::config {
     static constexpr int DEFAULT_POLLING_INTERVAL = 60;
     static constexpr int DEFAULT_SWAPPING_THRESHOLD = 360;
 
+    bool enabled;
     int polling_interval;
     int swapping_threshold;
 

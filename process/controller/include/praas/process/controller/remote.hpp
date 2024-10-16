@@ -54,6 +54,10 @@ namespace praas::process::remote {
         std::string_view process_id, std::string_view function_name, std::string_view invocation_id,
         runtime::internal::Buffer<char>&& payload
     ) = 0;
+
+    virtual void dataplane_metrics(
+        uint64_t comp_time, int invocations, uint64_t last_timestamp
+    ) = 0;
   };
 
   struct Connection {
@@ -117,6 +121,8 @@ namespace praas::process::remote {
     );
 
     void swap_confirmation(size_t size_bytes, double time) override;
+
+    void dataplane_metrics(uint64_t comp_time, int invocations, uint64_t last_timestamp) override;
 
     void shutdown();
 

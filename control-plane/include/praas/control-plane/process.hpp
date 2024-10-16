@@ -44,8 +44,8 @@ namespace praas::control_plane::process {
 
   struct DataPlaneMetrics {
 
-    int32_t invocations{};
-    int32_t computation_time{};
+    uint32_t invocations{};
+    uint64_t computation_time{};
     uint64_t last_invocation{};
     std::chrono::time_point<std::chrono::system_clock> last_report;
 
@@ -155,7 +155,7 @@ namespace praas::control_plane::process {
 
     Application& application() const;
 
-    void update_metrics(int32_t time, int32_t invocations, uint64_t timestamp);
+    void update_metrics(uint64_t time, uint32_t invocations, uint64_t timestamp);
 
     DataPlaneMetrics get_metrics() const;
 

@@ -11,6 +11,12 @@
 
 namespace praas::process::config {
 
+  void Downscaler::load(cereal::JSONInputArchive& archive)
+  {
+    archive(cereal::make_nvp("enabled", this->enabled));
+    archive(cereal::make_nvp("frequency", this->frequency));
+  }
+
   void Code::load(cereal::JSONInputArchive& archive)
   {
     archive(cereal::make_nvp("location", this->location));
@@ -57,6 +63,8 @@ namespace praas::process::config {
     archive(cereal::make_nvp("ipc-mode", mode));
     ipc_mode = runtime::internal::ipc::deserialize(mode);
     archive(cereal::make_nvp("ipc-message-size", ipc_message_size));
+
+    archive(CEREAL_NVP(downscaler));
 
     archive(CEREAL_NVP(code));
 

@@ -32,6 +32,13 @@ namespace praas::process::config {
     void load_env();
   };
 
+  struct Downscaler {
+    bool enabled;
+    int frequency;
+
+    void load(cereal::JSONInputArchive& archive);
+  };
+
   struct Controller {
 
     static constexpr int DEFAULT_PORT = 8080;
@@ -49,6 +56,8 @@ namespace praas::process::config {
 
     std::string process_id;
     std::optional<std::string> control_plane_addr{};
+
+    Downscaler downscaler;
 
     Code code;
 

@@ -4,8 +4,10 @@
 #include <praas/common/messages.hpp>
 #include <praas/control-plane/backend.hpp>
 #include <praas/control-plane/deployment.hpp>
+#include <praas/control-plane/downscaler.hpp>
 #include <praas/control-plane/process.hpp>
 #include <praas/control-plane/tcpserver.hpp>
+#include <praas/control-plane/server.hpp>
 
 #include <optional>
 #include <spdlog/fmt/fmt.h>
@@ -89,6 +91,8 @@ namespace praas::control_plane {
           if (instance != nullptr) {
             process->set_handle(std::move(instance));
 
+            Server::instance().downscaler().register_process(process);
+
             // Avoid a race condition.
             // Created callback can be called by process connection, or by
             // the backend returning information.
@@ -154,6 +158,8 @@ namespace praas::control_plane {
       }
     }
 
+    // FIXME: merge with another create function?
+
     // No process? create
     std::string name = fmt::format("controlplane-{}", _controlplane_counter++);
     process::ProcessPtr process =
@@ -172,6 +178,8 @@ namespace praas::control_plane {
 
             spdlog::info("Allocated process {}", name);
             process->set_handle(std::move(instance));
+
+            Server::instance().downscaler().register_process(process);
 
             // Avoid a race condition.
             // Created callback can be called by process connection, or by
@@ -203,6 +211,15 @@ namespace praas::control_plane {
     } else {
       throw praas::common::ObjectDoesNotExist{name};
     }
+  }
+
+  void Application::swap_process(
+    std::string process_name,
+    deployment::Deployment* deployment,
+    std::function<void(size_t, double, const std::optional<std::string>&)>&& callback
+  )
+  {
+    swap_process(process_name, *deployment, std::move(callback));
   }
 
   void Application::swap_process(
@@ -241,6 +258,9 @@ namespace praas::control_plane {
     // No one else will now try to modify this process
     proc.set_status(process::Status::SWAPPING_OUT);
 
+    // Clear from down scaler early, don't wait for confirmation. Avoids double swap calls.
+    Server::instance().downscaler().remove_process((*iter).second);
+
     // Swap the process
     proc.state().swap = deployment.get_location(_name);
 
@@ -275,8 +295,8 @@ namespace praas::control_plane {
     process.set_status(process::Status::SWAPPING_IN);
     process.set_creation_callback(std::move(callback), true);
     poller.add_process((*iter).second);
-    // Insert into swapped
 
+    // Insert into swapped
     write_lock_t lock(_active_mutex);
     _active_processes.insert(std::move(nh));
 
@@ -289,6 +309,8 @@ namespace praas::control_plane {
         if (instance != nullptr) {
 
           proc_ptr->set_handle(std::move(instance));
+
+          Server::instance().downscaler().register_process(proc_ptr);
 
           // As in createrd process, we avoid a race condition.
           // Created callback can be called by process connection, or by
@@ -350,6 +372,7 @@ namespace praas::control_plane {
       spdlog::error("Failure! Closing not-swapped process {}, state {}", _name, ptr->status());
 
       ptr->set_status(process::Status::FAILURE);
+      Server::instance().downscaler().remove_process(ptr);
 
       // Modify internal collections
       write_lock_t application_lock(_active_mutex);
@@ -364,12 +387,18 @@ namespace praas::control_plane {
 
       } else {
 
-        // FIXME: check for processes allocated by the control plane
         auto iter = _swapped_processes.find(ptr->name());
         if (iter != _swapped_processes.end()) {
           _swapped_processes.erase(iter);
         } else {
-          spdlog::error("Unknown process {}", ptr->name());
+
+          auto iter = _controlplane_processes.find(ptr->name());
+          if (iter != _controlplane_processes.end()) {
+            _controlplane_processes.erase(iter);
+          } else {
+            spdlog::error("Unknown process {}", ptr->name());
+          }
+
         }
       }
 
@@ -406,6 +435,8 @@ namespace praas::control_plane {
           if (iter != _active_processes.end()) {
             _active_processes.erase(iter);
           }
+
+          Server::instance().downscaler().remove_process((*iter).second);
         }
 
         callback(msg);

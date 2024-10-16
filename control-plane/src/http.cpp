@@ -27,6 +27,7 @@ namespace praas::control_plane {
 
   void HttpServer::run()
   {
+    drogon::app().disableSigtermHandling();
     drogon::app().registerController(shared_from_this());
     drogon::app().setThreadNum(_threads);
     _server_thread = std::thread{[this]() { drogon::app().addListener("0.0.0.0", _port).run(); }};
@@ -38,15 +39,14 @@ namespace praas::control_plane {
     if (drogon::app().isRunning()) {
       drogon::app().getLoop()->queueInLoop([]() { drogon::app().quit(); });
     }
-    if (_server_thread.joinable()) {
-      _server_thread.join();
-    }
-    _logger->info("Stopped HTTP server");
   }
 
   void HttpServer::wait()
   {
-    _server_thread.join();
+    if (_server_thread.joinable()) {
+      _server_thread.join();
+    }
+    _logger->info("Stopped HTTP server");
   }
 
   drogon::HttpResponsePtr HttpServer::correct_response(const std::string& reason)

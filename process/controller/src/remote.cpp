@@ -18,7 +18,7 @@ namespace praas::process::remote {
         _server(_loop_thread.getLoop(), trantor::InetAddress(cfg.port), "tcpserver")
   {
     // FIXME: do I need to configure this?
-    _server.setIoLoopNum(1);
+    _server.setIoLoopNum(8);
 
     _server.setConnectionCallback([this](const trantor::TcpConnectionPtr& connectionPtr) {
       if (connectionPtr->connected()) {
@@ -229,7 +229,10 @@ namespace praas::process::remote {
               [this, buffer, conn = conn.get()](common::message::PutMessagePtr& req
               ) mutable -> bool { return _handle_put_message(*conn, req, buffer); },
               [&, this](common::message::SwapRequestPtr& req) mutable {
-                _controller.swap_out(std::string{req.path()});
+
+                // TODO: add some nice thread pool? is it even needed?
+                // here it doesn't matter - we're finishing anyway
+                std::thread{&praas::process::Controller::swap_out, &_controller, std::string{req.path()}}.detach();
                 buffer->retrieve(praas::common::message::MessageConfig::BUF_SIZE);
                 return true;
               },
@@ -668,7 +671,16 @@ namespace praas::process::remote {
     praas::common::message::SwapConfirmationData req;
     req.swap_size(size_bytes);
     _control_plane->conn->send(req.bytes(), decltype(req)::BUF_SIZE);
+  }
 
+  void TCPServer::dataplane_metrics(uint64_t comp_time, int invocations, uint64_t last_timestamp)
+  {
+    common::message::DataPlaneMetricsData msg;
+    msg.computation_time(comp_time);
+    msg.invocations(invocations);
+    msg.last_invocation_timestamp(last_timestamp);
+
+    _control_plane->conn->send(msg.bytes(), decltype(msg)::BUF_SIZE);
   }
 
 } // namespace praas::process::remote
