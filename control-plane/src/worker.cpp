@@ -40,10 +40,49 @@ namespace praas::control_plane::worker {
       auto val = acc.get()->get_controlplane_process(process_name.value());
 
       if(val.has_value()) {
-        spdlog::debug("[Workers] Schedule new invocation on proc {}", process_name.value());
-        std::get<1>(val.value())->add_invocation(
-          std::move(request), std::move(callback), function_name, start
-        );
+
+
+        auto proc_ptr = std::get<1>(val.value());
+
+        spdlog::debug("Requesitng new invocation on process, status: {}", proc_ptr->status());
+
+        if(proc_ptr->status() == process::Status::ALLOCATED) {
+
+          spdlog::debug("[Workers] Schedule new invocation on proc {}", process_name.value());
+          std::get<1>(val.value())->add_invocation(
+            std::move(request), std::move(callback), function_name, start
+          );
+
+        } else if(proc_ptr->status() == process::Status::SWAPPED_OUT) {
+
+          std::get<0>(val.value()).unlock();
+
+          // Schedul swap in!
+          using ptr_t = void (Application::*)(
+              std::string process_name,
+              backend::Backend*, tcpserver::TCPServer*,
+              std::function<void(process::ProcessPtr, const std::optional<std::string>&)>&&
+          );
+          add_other_task(
+            (ptr_t) &Application::swapin_process,
+            acc.get(),
+            process_name.value(), &_backend, _server,
+            [
+              request=std::move(request),
+              callback=std::move(callback),
+              function_name,
+              start
+            ](process::ProcessPtr ptr, const std::optional<std::string> &) mutable {
+              ptr->add_invocation(
+                std::move(request), std::move(callback), function_name, start
+              );
+            }
+          );
+
+        } else {
+          callback(HttpServer::failed_response("Invalid process state!", drogon::k500InternalServerError));
+        }
+
       } else {
         callback(HttpServer::failed_response("Process unknown!", drogon::k404NotFound));
       }
@@ -58,6 +97,7 @@ namespace praas::control_plane::worker {
           ) mutable {
             if (proc_ptr) {
               proc_ptr->write_lock();
+              proc_ptr->set_controlplane_process();
               proc_ptr->add_invocation(
                   std::move(request), std::move(callback), function_name, start
               );

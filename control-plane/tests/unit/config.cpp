@@ -168,6 +168,7 @@ TEST(Config, DownScalerConfig)
         "ip-address": "127.0.0.1",
         "http-client-io-threads": 1,
         "downscaler": {
+          "enabled": false,
           "polling_interval": 30,
           "swapping_threshold": 60
         }

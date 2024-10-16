@@ -81,6 +81,7 @@ TEST_F(HttpServerTest, CreateApp)
   }
 
   http_server->shutdown();
+  http_server->wait();
 }
 
 TEST_F(HttpServerTest, CreateProcess)
@@ -127,6 +128,7 @@ TEST_F(HttpServerTest, CreateProcess)
   }
 
   http_server->shutdown();
+  http_server->wait();
 }
 
 TEST_F(HttpServerTest, DeleteProcess)
@@ -208,6 +210,7 @@ TEST_F(HttpServerTest, DeleteProcess)
   }
 
   http_server->shutdown();
+  http_server->wait();
 }
 
 TEST_F(HttpServerTest, SwapProcess)
@@ -294,6 +297,7 @@ TEST_F(HttpServerTest, SwapProcess)
   }
 
   http_server->shutdown();
+  http_server->wait();
 }
 
 TEST_F(HttpServerTest, ListProcesses)
@@ -450,4 +454,5 @@ TEST_F(HttpServerTest, ListProcesses)
   }
 
   http_server->shutdown();
+  http_server->wait();
 }

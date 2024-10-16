@@ -196,6 +196,12 @@ namespace praas::control_plane {
       std::function<void(size_t, double, const std::optional<std::string>&)>&& callback
     );
 
+    // FIXME: this overload is provided to support workers that only accept pass-by-copy (no refs)
+    void swapin_process(
+      std::string process_name, backend::Backend* backend, tcpserver::TCPServer* poller,
+      std::function<void(process::ProcessPtr, const std::optional<std::string>&)>&& callback
+    );
+
     void swapin_process(
       std::string process_name, backend::Backend& backend, tcpserver::TCPServer& poller,
       std::function<void(process::ProcessPtr, const std::optional<std::string>&)>&& callback
@@ -252,6 +258,7 @@ namespace praas::control_plane {
 
     lock_t _controlplane_mutex;
     std::unordered_map<std::string, process::ProcessPtr> _controlplane_processes;
+    //std::vector<process::ProcessPtr> _controlplane_processes;
     int _controlplane_counter = 0;
   };
 

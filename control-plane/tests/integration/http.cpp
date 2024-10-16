@@ -277,4 +277,5 @@ TEST_F(HttpTCPIntegration, Invoke)
   _loop.wait();
 
   http_server->shutdown();
+  http_server->wait();
 }

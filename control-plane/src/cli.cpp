@@ -16,7 +16,7 @@
 
 void signal_handler(int /*unused*/)
 {
-  praas::control_plane::Server::instance().shutdown();
+  praas::control_plane::Server::instance()->shutdown();
 }
 
 int main(int argc, char** argv)
@@ -40,9 +40,9 @@ int main(int argc, char** argv)
   sigaction(SIGINT, &sigIntHandler, nullptr);
 
   praas::control_plane::Server::configure(cfg);
-  praas::control_plane::Server::instance().run();
+  praas::control_plane::Server::instance()->run();
 
-  praas::control_plane::Server::instance().wait();
+  praas::control_plane::Server::instance()->wait();
 
   //server.shutdown();
 

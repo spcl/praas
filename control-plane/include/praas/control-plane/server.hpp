@@ -43,13 +43,9 @@ namespace praas::control_plane {
       _instance.reset(new Server{cfg});
     }
 
-    static Server& instance()
+    static Server* instance()
     {
-      if(!_instance) {
-        abort();
-      }
-
-      return *_instance;
+      return _instance.get();
     }
 
   private:

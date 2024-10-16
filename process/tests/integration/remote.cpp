@@ -202,6 +202,7 @@ TEST_P(ProcessRemoteServer, DataPlaneInvocations)
 
     auto result = process.invoke(function_name, invocation_id[idx], buf.data(), buf.len);
 
+    ASSERT_TRUE(result.return_code == 0);
     ASSERT_TRUE(result.payload_len > 0);
     int res = get_output(result.payload.get(), result.payload_len);
     EXPECT_EQ(res, results[idx]);

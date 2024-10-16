@@ -91,7 +91,11 @@ namespace praas::control_plane {
           if (instance != nullptr) {
             process->set_handle(std::move(instance));
 
-            Server::instance().downscaler().register_process(process);
+            // FIXME: temporary fix to make tests running - dependency on static func
+            auto *ptr = Server::instance();
+            if(ptr != nullptr) {
+              ptr->downscaler().register_process(process);
+            }
 
             // Avoid a race condition.
             // Created callback can be called by process connection, or by
@@ -128,6 +132,10 @@ namespace praas::control_plane {
   {
     read_lock_t lock(_controlplane_mutex);
 
+    //auto iter = _active_processes.find(process_name);
+    //if(iter !=  _active_processes.end()) {
+    //  return std::make_tuple(iter->second->write_lock(), iter->second.get());
+    //}
     auto iter = _controlplane_processes.find(process_name);
     if(iter != _controlplane_processes.end()) {
       return std::make_tuple(iter->second->write_lock(), iter->second.get());
@@ -179,7 +187,11 @@ namespace praas::control_plane {
             spdlog::info("Allocated process {}", name);
             process->set_handle(std::move(instance));
 
-            Server::instance().downscaler().register_process(process);
+            // FIXME: temporary fix to make tests running - dependency on static func
+            auto *ptr = Server::instance();
+            if(ptr != nullptr) {
+              ptr->downscaler().register_process(process);
+            }
 
             // Avoid a race condition.
             // Created callback can be called by process connection, or by
@@ -190,6 +202,10 @@ namespace praas::control_plane {
             {
               write_lock_t lock(_controlplane_mutex);
               _controlplane_processes[name] = process;
+            }
+            {
+              write_lock_t lock(_active_mutex);
+              _active_processes[name] = process;
             }
           } else {
 
@@ -228,6 +244,7 @@ namespace praas::control_plane {
     std::function<void(size_t, double, const std::optional<std::string>&)>&& callback
   )
   {
+    // FIXME: replace exceptions with collbacks.
     if (process_name.length() == 0) {
       throw praas::common::InvalidConfigurationError("Application name cannot be empty");
     }
@@ -259,13 +276,25 @@ namespace praas::control_plane {
     proc.set_status(process::Status::SWAPPING_OUT);
 
     // Clear from down scaler early, don't wait for confirmation. Avoids double swap calls.
-    Server::instance().downscaler().remove_process((*iter).second);
+    // FIXME: temporary fix to make tests running - dependency on static func
+    auto *ptr = Server::instance();
+    if(ptr != nullptr) {
+      ptr->downscaler().remove_process((*iter).second);
+    }
 
     // Swap the process
     proc.state().swap = deployment.get_location(_name);
 
     proc.swap(std::move(callback));
 
+  }
+
+  void Application::swapin_process(
+    std::string process_name, backend::Backend* backend, tcpserver::TCPServer* poller,
+    std::function<void(process::ProcessPtr, const std::optional<std::string>&)>&& callback
+  )
+  {
+    swapin_process(process_name, *backend, *poller, std::move(callback));
   }
 
   void Application::swapin_process(
@@ -310,7 +339,11 @@ namespace praas::control_plane {
 
           proc_ptr->set_handle(std::move(instance));
 
-          Server::instance().downscaler().register_process(proc_ptr);
+          // FIXME: temporary fix to make tests running - dependency on static func
+          auto *ptr = Server::instance();
+          if(ptr != nullptr) {
+            ptr->downscaler().register_process(proc_ptr);
+          }
 
           // As in createrd process, we avoid a race condition.
           // Created callback can be called by process connection, or by
@@ -372,33 +405,58 @@ namespace praas::control_plane {
       spdlog::error("Failure! Closing not-swapped process {}, state {}", _name, ptr->status());
 
       ptr->set_status(process::Status::FAILURE);
-      Server::instance().downscaler().remove_process(ptr);
+      // FIXME: temporary fix to make tests running - dependency on static func
+      auto *server_ptr = Server::instance();
+      if(server_ptr != nullptr) {
+        server_ptr->downscaler().remove_process(ptr);
+      }
 
       // Modify internal collections
-      write_lock_t application_lock(_active_mutex);
+      bool found = false;
+      {
+        write_lock_t application_lock(_active_mutex);
 
-      auto iter = _active_processes.find(ptr->name());
-      if (iter != _active_processes.end()) {
+        auto iter = _active_processes.find(ptr->name());
+        if (iter != _active_processes.end()) {
 
-        // If process failed during swapping, then notify client.
-        (*iter).second->swapped_callback(0, 0, "Process closed unexpectedly during swapping");
+          // If process failed during swapping, then notify client.
+          (*iter).second->swapped_callback(0, 0, "Process closed unexpectedly during swapping");
 
-        _active_processes.erase(iter);
+          if((*iter).second->is_controlplane_process()) {
 
-      } else {
+            application_lock.unlock();
+            _active_processes.erase(iter);
 
+            write_lock_t control_plane_lock(_controlplane_mutex);
+            auto iter = _controlplane_processes.find(ptr->name());
+            if (iter != _controlplane_processes.end()) {
+              _controlplane_processes.erase(iter);
+            } else {
+              spdlog::error("Control plane process {} not present in the collection!", ptr->name());
+            }
+
+          } else {
+            _active_processes.erase(iter);
+          }
+
+          found = true;
+        } 
+      }
+
+      if(!found)  {
         auto iter = _swapped_processes.find(ptr->name());
         if (iter != _swapped_processes.end()) {
           _swapped_processes.erase(iter);
         } else {
 
-          auto iter = _controlplane_processes.find(ptr->name());
-          if (iter != _controlplane_processes.end()) {
-            _controlplane_processes.erase(iter);
-          } else {
-            spdlog::error("Unknown process {}", ptr->name());
-          }
+          //auto iter = _controlplane_processes.find(ptr->name());
+          //if (iter != _controlplane_processes.end()) {
+          //  _controlplane_processes.erase(iter);
+          //} else {
+          //  spdlog::error("Unknown process {}", ptr->name());
+          //}
 
+          spdlog::error("Unknown process {}", ptr->name());
         }
       }
 
@@ -436,7 +494,15 @@ namespace praas::control_plane {
             _active_processes.erase(iter);
           }
 
-          Server::instance().downscaler().remove_process((*iter).second);
+          if((*iter).second->is_controlplane_process()) {
+            _controlplane_processes.erase((*iter).second->name());
+          }
+
+          // FIXME: temporary fix to make tests running - dependency on static func
+          auto *server_ptr = Server::instance();
+          if(server_ptr != nullptr) {
+            server_ptr->downscaler().remove_process((*iter).second);
+          }
         }
 
         callback(msg);

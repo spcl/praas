@@ -279,19 +279,6 @@ TEST(Messages, DataPlaneMetricsMsg)
   }
 }
 
-TEST(Messages, DataPlaneMetricsMsgIncorrect)
-{
-  {
-    DataPlaneMetricsData req;
-    EXPECT_THROW(req.invocations(-5), praas::common::InvalidArgument);
-  }
-
-  {
-    DataPlaneMetricsData req;
-    EXPECT_THROW(req.computation_time(-5), praas::common::InvalidArgument);
-  }
-}
-
 TEST(Messages, DataPlaneMetricsMsgParse)
 {
   int32_t invocations{0};

@@ -121,6 +121,7 @@ namespace praas::control_plane::downscaler {
               deployment::Deployment* deployment,
               std::function<void(size_t, double, const std::optional<std::string>&)>&& callback
           );
+          spdlog::info("[Downscaler] Schedule swap of process {}", proc_name);
           _workers.add_other_task(
             (ptr_t)&Application::swap_process,
             &stats.proc->application(),

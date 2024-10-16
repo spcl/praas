@@ -137,6 +137,16 @@ namespace praas::control_plane::process {
       return *this;
     }
 
+    void set_controlplane_process()
+    {
+      _is_controlplane_proc = true;
+    }
+
+    bool is_controlplane_process() const
+    {
+      return _is_controlplane_proc;
+    }
+
     const std::string& name() const;
 
     Status status() const;
@@ -210,6 +220,7 @@ namespace praas::control_plane::process {
     void _send_invocation(Invocation&);
 
     std::string _name;
+    bool _is_controlplane_proc = false;
 
     common::UUID _uuid_generator;
 
