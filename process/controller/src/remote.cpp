@@ -671,6 +671,10 @@ namespace praas::process::remote {
     praas::common::message::SwapConfirmationData req;
     req.swap_size(size_bytes);
     _control_plane->conn->send(req.bytes(), decltype(req)::BUF_SIZE);
+
+    praas::common::message::ProcessClosureData new_req;
+    _data_plane->conn->send(new_req.bytes(), decltype(new_req)::BUF_SIZE);
+    _data_plane->conn->forceClose();
   }
 
   void TCPServer::dataplane_metrics(uint64_t comp_time, int invocations, uint64_t last_timestamp)
