@@ -1,6 +1,7 @@
 #ifndef PRAAS_SDK_PROCESS_HPP
 #define PRAAS_SDK_PROCESS_HPP
 
+#include <praas/common/messages.hpp>
 #include <praas/sdk/invocation.hpp>
 
 #include <sockpp/stream_socket.h>
@@ -25,6 +26,8 @@ namespace praas::sdk {
 
     void disconnect();
 
+    bool is_alive();
+
     InvocationResult invoke(std::string_view function_name, std::string invocation_id, char* ptr, size_t len);
 
     sockpp::tcp_connector& connection()
@@ -38,7 +41,11 @@ namespace praas::sdk {
 
   private:
 
+    praas::common::message::MessageData _response;
+
     bool _disable_nagle = true;
+
+    bool _disconnected = true;
 
     sockpp::inet_address _addr;
 

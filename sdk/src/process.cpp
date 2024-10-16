@@ -1,10 +1,11 @@
 #include <praas/sdk/process.hpp>
 
+#include <variant>
+
 #include <praas/common/messages.hpp>
 #include <praas/common/sockets.hpp>
 
-#include <variant>
-#include "praas/common/exceptions.hpp"
+#include <spdlog/spdlog.h>
 
 namespace praas::sdk {
 
@@ -23,6 +24,7 @@ namespace praas::sdk {
   void Process::disconnect()
   {
     _dataplane.close();
+    _disconnected = true;
   }
 
   bool Process::connect()
@@ -37,7 +39,7 @@ namespace praas::sdk {
     }
 
     praas::common::message::ProcessConnectionData req;
-    req.process_name("DATAPLANE");
+    req.process_name("DATA_PLANE");
     _dataplane.write_n(req.bytes(), req.BUF_SIZE);
 
     // Now wait for the confirmation;
@@ -54,7 +56,39 @@ namespace praas::sdk {
     }
     auto& result = std::get<common::message::ProcessConnectionPtr>(parsed_msg);
 
+    _disconnected = false;
+
     return result.process_name() == "CORRECT";
+  }
+
+  bool Process::is_alive()
+  {
+    // Not sure this is fully robust but seems to work for our case
+    if(_disconnected) {
+      return false;
+    }
+
+    ssize_t read_bytes = recv(_dataplane.handle(), _response.data(), praas::common::message::MessageConfig::BUF_SIZE, MSG_DONTWAIT);
+
+    if(read_bytes == -1 && errno == EAGAIN) {
+      return true;
+    }
+
+    if(read_bytes == 0) {
+      return false;
+    }
+
+    if(read_bytes != praas::common::message::MessageConfig::BUF_SIZE) {
+      auto parsed_msg = praas::common::message::MessageParser::parse(_response);
+      if (!std::holds_alternative<common::message::ProcessClosurePtr>(parsed_msg)) {
+        spdlog::error("Unknown message received from the process!");
+      } else {
+        _disconnected = true;
+      }
+
+      return false;
+    }
+
   }
 
   InvocationResult
@@ -68,18 +102,24 @@ namespace praas::sdk {
     msg.invocation_id(invocation_id);
     msg.payload_size(len);
 
-    _dataplane.write_n(msg.bytes(), msg.BUF_SIZE);
-    if (len > 0) {
-      _dataplane.write_n(ptr, len);
+    auto written = _dataplane.write_n(msg.bytes(), msg.BUF_SIZE);
+    if(written != msg.BUF_SIZE) {
+      return {1, nullptr, 0};
     }
 
-    praas::common::message::MessageData response;
-    auto read_bytes = _dataplane.read_n(response.data(), praas::common::message::MessageConfig::BUF_SIZE);
+    if (len > 0) {
+      auto written = _dataplane.write_n(ptr, len);
+      if(written != len) {
+        return {1, nullptr, 0};
+      }
+    }
+
+    auto read_bytes = _dataplane.read_n(_response.data(), praas::common::message::MessageConfig::BUF_SIZE);
     if(read_bytes < praas::common::message::MessageConfig::BUF_SIZE) {
       return {1, nullptr, 0};
     }
 
-    auto parsed_msg = praas::common::message::MessageParser::parse(response);
+    auto parsed_msg = praas::common::message::MessageParser::parse(_response);
     if (!std::holds_alternative<common::message::InvocationResultPtr>(parsed_msg)) {
       return {1, nullptr, 0};
     }
