@@ -76,3 +76,60 @@ TEST_F(IntegrationLocalInvocation, Invoke)
     ASSERT_EQ(invoc2_res.process_name, new_invoc2_res.process_name);
   }
 }
+
+TEST_F(IntegrationLocalInvocation, FailedInvoke)
+{
+  praas::common::http::HTTPClientFactory::initialize(1);
+  {
+    praas::sdk::PraaS praas{fmt::format("http://127.0.0.1:{}", 9000)};
+
+    std::string app_name{"test_invoc2"};
+    if(!praas.get_application(app_name)) {
+      ASSERT_TRUE(praas.create_application(app_name, "spcleth/praas-examples:hello-world-cpp"));
+    }
+
+    auto invoc = praas.invoke_async(app_name, "hello-world", "");
+
+    auto invoc_res = invoc.get();
+
+    for(auto & res : {invoc_res}) {
+      ASSERT_EQ(res.return_code, 0);
+      EXPECT_EQ("Hello, world!", get_output_binary(res.response));
+    }
+
+    invoc = praas.invoke_async(app_name, "hello-world", "", "differnet-proc-name");
+
+    auto new_invoc_res = invoc.get();
+    for(auto & res : {new_invoc_res}) {
+      ASSERT_EQ(res.return_code, 1);
+    }
+  }
+}
+
+TEST_F(IntegrationLocalInvocation, InvokeStop)
+{
+  praas::common::http::HTTPClientFactory::initialize(1);
+  {
+    praas::sdk::PraaS praas{fmt::format("http://127.0.0.1:{}", 9000)};
+
+    std::string app_name{"test_invoc3"};
+    if(!praas.get_application(app_name)) {
+      ASSERT_TRUE(praas.create_application(app_name, "spcleth/praas-examples:hello-world-cpp"));
+    }
+
+    auto invoc = praas.invoke_async(app_name, "hello-world", "");
+
+    auto invoc_res = invoc.get();
+
+    for(auto & res : {invoc_res}) {
+      ASSERT_EQ(res.return_code, 0);
+      EXPECT_EQ("Hello, world!", get_output_binary(res.response));
+    }
+
+    ASSERT_TRUE(praas.stop_process(app_name, invoc_res.process_name));
+
+    invoc = praas.invoke_async(app_name, "hello-world", invoc_res.process_name);
+    invoc_res = invoc.get();
+    ASSERT_EQ(invoc_res.return_code, 1);
+  }
+}

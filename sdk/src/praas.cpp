@@ -158,9 +158,14 @@ namespace praas::sdk {
 
   bool PraaS::stop_process(const Process& process)
   {
+    return stop_process(process.app_name, process.process_id);
+  }
+
+  bool PraaS::stop_process(std::string_view app_name, std::string_view process_id)
+  {
     auto req = drogon::HttpRequest::newHttpRequest();
     req->setMethod(drogon::Post);
-    req->setPath(fmt::format("/apps/{}/processes/{}/stop", process.app_name, process.process_id));
+    req->setPath(fmt::format("/apps/{}/processes/{}/stop", app_name, process_id));
 
     std::promise<bool> p;
 
@@ -307,9 +312,14 @@ namespace praas::sdk {
 
   bool PraaS::delete_process(const Process& process)
   {
+    return delete_process(process.app_name, process.process_id);
+  }
+
+  bool PraaS::delete_process(std::string_view app_name, std::string_view process_id)
+  {
     auto req = drogon::HttpRequest::newHttpRequest();
     req->setMethod(drogon::Post);
-    req->setPath(fmt::format("/apps/{}/processes/{}/delete", process.app_name, process.process_id));
+    req->setPath(fmt::format("/apps/{}/processes/{}/delete", app_name, process_id));
 
     std::promise<bool> p;
 

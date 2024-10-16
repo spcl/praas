@@ -48,7 +48,11 @@ namespace praas::sdk {
 
     bool delete_process(const Process& process);
 
+    bool delete_process(std::string_view app_name, std::string_view process_id);
+
     bool stop_process(const Process& process);
+
+    bool stop_process(std::string_view app_name, std::string_view process_id);
 
     std::string_view last_error() const;
 
