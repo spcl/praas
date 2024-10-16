@@ -1,0 +1,24 @@
+{
+  "verbose": true,
+  "backend-type": "docker",
+  "deployment-type": "aws",
+  "deployment": {
+    "s3_bucket": "praas-benchmarks"
+  },
+  "downscaler": {
+    "enabled": true,
+    "polling_interval": 1,
+    "swapping_threshold": 1
+  },
+  "ip-address": "192.168.0.19",
+  "http-client-io-threads": 1,
+  "http": {
+    "threads": 2,
+    "port": 9000,
+    "enable_ssl": false
+  },
+  "tcpserver": {
+    "port": 2000,
+    "io_threads": 5
+  }
+}

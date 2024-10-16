@@ -52,16 +52,12 @@ TEST_F(IntegrationLocalInvocation, AllocationInvoke)
         praas.create_application(app_name, "spcleth/praas-examples:hello-world-cpp")
     );
 
-    spdlog::info("Create process");
     auto proc = praas.create_process(app_name, "alloc_invoc_process", "1", "1024");
     ASSERT_TRUE(proc.has_value());
-    spdlog::info("Created process");
 
     ASSERT_TRUE(proc->connect());
-    spdlog::info("Connected");
 
     auto invoc = proc->invoke("hello-world", "invocation-id", nullptr, 0);
-    spdlog::info("Invoked");
 
     ASSERT_EQ(invoc.return_code, 0);
     EXPECT_EQ("Hello, world!", get_output_binary(invoc.payload.get(), invoc.payload_len));

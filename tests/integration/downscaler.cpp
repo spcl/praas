@@ -69,6 +69,7 @@ TEST_F(IntegrationLocalInvocation, AutomaticSwap)
     ASSERT_TRUE(proc.has_value());
 
     ASSERT_TRUE(proc->connect());
+    ASSERT_TRUE(proc->is_alive());
 
     Result msg;
     msg.msg = "TEST_SWAP";
@@ -76,29 +77,65 @@ TEST_F(IntegrationLocalInvocation, AutomaticSwap)
 
     auto invoc = proc->invoke("state-put", "invocation-id", res.data(), res.size());
     ASSERT_EQ(invoc.return_code, 0);
+    ASSERT_TRUE(proc->is_alive());
 
-    auto [swap_res, swap_msg] = praas.swap_process(proc.value());
-    ASSERT_TRUE(swap_res);
+    invoc = proc->invoke("state-get", "invocation-id", res.data(), res.size());
+    ASSERT_EQ(invoc.return_code, 0);
+    ASSERT_TRUE(proc->is_alive());
+
+    // Wait for the downscaler to do its job.
+    std::this_thread::sleep_for(std::chrono::seconds(5));
+
+    // Will fail at writing
+    auto invoc2 = proc->invoke("state-get", "invocation-id", res.data(), res.size());
+    ASSERT_EQ(invoc2.return_code, 1);
+
+    // Will read closure message
+    ASSERT_FALSE(proc->is_alive());
+
+    ASSERT_FALSE(proc->is_alive());
 
     auto new_proc = praas.swapin_process(app_name, "alloc_invoc_process");
     ASSERT_TRUE(new_proc.has_value());
-
     ASSERT_TRUE(new_proc->connect());
-    invoc = new_proc->invoke("state-get", "invocation-id2", res.data(), res.size());
-    ASSERT_EQ(invoc.return_code, 0);
+    ASSERT_TRUE(new_proc->is_alive());
 
-    auto res2 = get_output_binary(invoc.payload.get(), invoc.payload_len);
-    ASSERT_EQ(msg.msg, res2);
+    auto invoc3 = new_proc->invoke("state-get", "invocation-id", res.data(), res.size());
+    ASSERT_EQ(invoc3.return_code, 0);
 
-    std::tie(swap_res, swap_msg) = praas.swap_process(new_proc.value());
-    ASSERT_TRUE(swap_res);
-
-    ASSERT_TRUE(praas.delete_process(new_proc.value()));
-
-    auto failed_proc = praas.swapin_process(app_name, "alloc_invoc_process");
-    ASSERT_FALSE(failed_proc.has_value());
+    ASSERT_TRUE(praas.stop_process(new_proc.value()));
 
     ASSERT_TRUE(praas.delete_application(app_name));
   }
 }
 
+TEST_F(IntegrationLocalInvocation, ControlPlaneAutomaticSwap)
+{
+  praas::common::http::HTTPClientFactory::initialize(1);
+  {
+    praas::sdk::PraaS praas{fmt::format("http://127.0.0.1:{}", 9000)};
+
+    std::string app_name("test_swap");
+    ASSERT_TRUE(
+      praas.create_application(app_name, "spcleth/praas:proc-local")
+    );
+
+    Result msg;
+    msg.msg = "TEST_SWAP";
+    auto res = get_input_binary(msg);
+
+    auto invoc = praas.invoke_async(app_name, "state-put", res);
+    auto result = invoc.get();
+    ASSERT_EQ(result.return_code, 0);
+
+    // Wait for the downscaler to do its job.
+    std::this_thread::sleep_for(std::chrono::seconds(5));
+
+    // Invoke again, verify swap works
+    invoc = praas.invoke_async(app_name, "state-get", res, result.process_name);
+    auto new_invoc_res = invoc.get();
+
+    ASSERT_EQ(new_invoc_res.return_code, 0);
+    ASSERT_EQ(new_invoc_res.process_name, result.process_name);
+  }
+}

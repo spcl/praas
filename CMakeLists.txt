@@ -201,6 +201,7 @@ if(PRAAS_WITH_TESTING)
     tests/integration/invocation.cpp
     tests/integration/allocation_invocation.cpp
     tests/integration/state_swap.cpp
+    tests/integration/downscaler.cpp
   )
   foreach(test ${TESTS})
 
