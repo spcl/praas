@@ -149,7 +149,7 @@ namespace praas::sdk {
     auto http_client = _get_client();
     http_client.handle()->sendRequest(
         req,
-        [&, p=std::move(p)](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+        [=, p=std::move(p)](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
           spdlog::info("Received callback Created process");
           if (result == drogon::ReqResult::Ok && response->getStatusCode() == drogon::k200OK) {
             auto& json_obj = *response->getJsonObject();
