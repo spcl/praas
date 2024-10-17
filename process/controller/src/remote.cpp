@@ -199,7 +199,7 @@ namespace praas::process::remote {
       // Three types of messages require long payloads:
       // invoke
       // put
-      std::visit(
+      consumed = std::visit(
           common::message::overloaded{
               [this, buffer, conn = conn.get()](common::message::InvocationRequestPtr& invoc
               ) mutable -> bool { return _handle_invocation(*conn, invoc, buffer); },
