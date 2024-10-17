@@ -179,10 +179,11 @@ namespace praas::serving::docker {
 
   void HttpServer::create(
       const drogon::HttpRequestPtr& request,
-      std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string& process
+      std::function<void(const drogon::HttpResponsePtr&)>&& callback,
+      const std::string& app, const std::string& process
   )
   {
-    if (process.empty()) {
+    if (process.empty() || app.empty()) {
       callback(common::http::HTTPClient::failed_response("Missing arguments!"));
       return;
     }
@@ -236,23 +237,26 @@ namespace praas::serving::docker {
 
     body["Env"] = env_data;
 
+    std::string proc_name = Processes::name(app, process);
+
     _http_client.post(
         "/containers/create",
         {
-            {"name", fmt::format("{}-{}", process, _process_counter++)},
+            {"name", fmt::format("{}-{}", proc_name, _process_counter++)},
         },
         std::move(body),
-        [callback = std::move(callback), this,
-         process](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
+        [callback = std::move(callback), this, proc_name](
+          drogon::ReqResult result, const drogon::HttpResponsePtr& response
+        ) mutable {
           if (response->getStatusCode() == drogon::HttpStatusCode::k409Conflict) {
             callback(common::http::HTTPClient::failed_response(
-                fmt::format("Container for process {} already exists", process)
+                fmt::format("Container for process {} already exists", proc_name)
             ));
           } else if (response->getStatusCode() == drogon::HttpStatusCode::k201Created) {
 
             auto container_id = (*response->getJsonObject())["Id"].asString();
-            spdlog::debug("Created container {} for process {}.", container_id, process);
-            _start_container(process, container_id, std::move(callback));
+            spdlog::debug("Created container {} for process {}.", container_id, proc_name);
+            _start_container(proc_name, container_id, std::move(callback));
           } else {
             callback(common::http::HTTPClient::failed_response(
                 fmt::format("Unknown error! Response: {}", response->getBody())
@@ -283,16 +287,17 @@ namespace praas::serving::docker {
 
   void HttpServer::kill(
       const drogon::HttpRequestPtr&, std::function<void(const drogon::HttpResponsePtr&)>&& callback,
-      const std::string& process
+      const std::string& app_name, const std::string& process
   )
   {
+    std::string proc_name = Processes::name(app_name, process);
     std::string container_id;
     {
       Processes::rw_acc_t acc;
-      _processes.get(process, acc);
+      _processes.get(proc_name, acc);
       if (acc.empty()) {
         auto resp = common::http::HTTPClient::failed_response(
-            fmt::format("Container for process {} does not exist!", process)
+            fmt::format("Container for app {} process {} does not exist!", app_name, process)
         );
         resp->setStatusCode(drogon::k404NotFound);
         callback(resp);
@@ -303,18 +308,18 @@ namespace praas::serving::docker {
     _http_client.post(
         fmt::format("/containers/{}/stop", container_id), {{"signal", "SIGINT"}},
         [callback = std::move(callback), container_id, this,
-         process](drogon::ReqResult, const drogon::HttpResponsePtr& response) {
+         proc_name](drogon::ReqResult, const drogon::HttpResponsePtr& response) {
           if (response->getStatusCode() == drogon::HttpStatusCode::k404NotFound) {
 
             callback(common::http::HTTPClient::failed_response(fmt::format(
-                "Failure - container {} for process {} does not exist", container_id, process
+                "Failure - container {} for process {} does not exist", container_id, proc_name
             )));
 
           } else if (response->getStatusCode() == drogon::HttpStatusCode::k204NoContent) {
 
-            _processes.erase(process);
+            _processes.erase(proc_name);
             callback(common::http::HTTPClient::correct_response(
-                fmt::format("Container for process {} removed.", process)
+                fmt::format("Container for process {} removed.", proc_name)
             ));
 
           } else {

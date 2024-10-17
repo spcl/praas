@@ -4,6 +4,7 @@
 #include <praas/common/http.hpp>
 
 #include <optional>
+#include <spdlog/fmt/bundled/core.h>
 #include <thread>
 
 #include <tbb/concurrent_hash_map.h>
@@ -49,6 +50,11 @@ namespace praas::serving::docker {
     bool erase(const std::string& id, std::optional<std::string> container_id = std::nullopt);
 
     void get_all(std::vector<Process>& processes);
+
+    static std::string name(const std::string& app, const std::string& proc)
+    {
+      return fmt::format("{}-{}", app, proc);
+    }
 
   private:
     ConcurrentTable<Process>::table_t _processes;
