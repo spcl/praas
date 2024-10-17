@@ -24,8 +24,13 @@ namespace praas::sdk {
     bool delete_application(const std::string& application);
 
     std::optional<Process> create_process(
-        const std::string& application, const std::string& process_name, std::string vcpus,
-        std::string memory
+      const std::string& application, const std::string& process_name,
+      const std::string& vcpus, const std::string& memory
+    );
+
+    std::future<std::optional<Process>> create_process_async(
+      const std::string& application, const std::string& process_name,
+      const std::string& vcpus, const std::string& memory
     );
 
     ControlPlaneInvocationResult invoke(

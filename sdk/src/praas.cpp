@@ -123,37 +123,48 @@ namespace praas::sdk {
   }
 
   std::optional<Process> PraaS::create_process(
-      const std::string& application, const std::string& process_name, std::string vcpus,
-      std::string memory
+      const std::string& application, const std::string& process_name,
+      const std::string& vcpus, const std::string& memory
   )
   {
+    return create_process_async(application, process_name, vcpus, memory).get();
+  }
+
+  std::future<std::optional<Process>> PraaS::create_process_async(
+      const std::string& application, const std::string& process_name,
+      const std::string& vcpus, const std::string& memory
+  )
+  {
+    // We need a shared_ptr because we cannot move it to the lambda later
+    // Drogon request requires a std::function which must be CopyConstructible
+    auto p = std::make_shared<std::promise<std::optional<Process>>>();
+    auto fut = p->get_future();
+
     auto req = drogon::HttpRequest::newHttpRequest();
     req->setMethod(drogon::Put);
     req->setPath(fmt::format("/apps/{}/processes/{}", application, process_name));
     req->setParameter("vcpus", vcpus);
     req->setParameter("memory", memory);
 
-    std::promise<std::optional<Process>> p;
-
     auto http_client = _get_client();
     http_client.handle()->sendRequest(
         req,
-        [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
+        [&, p=std::move(p)](drogon::ReqResult result, const drogon::HttpResponsePtr& response) {
           spdlog::info("Received callback Created process");
           if (result == drogon::ReqResult::Ok && response->getStatusCode() == drogon::k200OK) {
             auto& json_obj = *response->getJsonObject();
             auto ip_addr = json_obj["connection"]["ip-address"].asString();
             auto port = json_obj["connection"]["port"].asInt();
-            p.set_value(Process{application, process_name, ip_addr, port, true});
+            p->set_value(Process{application, process_name, ip_addr, port, true});
           } else {
             std::cerr << *response->getJsonObject() << std::endl;
-            p.set_value(std::nullopt);
+            p->set_value(std::nullopt);
           }
         }
     );
     _return_client(http_client);
 
-    return p.get_future().get();
+    return fut;
   }
 
   bool PraaS::stop_process(const Process& process)
@@ -192,7 +203,7 @@ namespace praas::sdk {
       const std::string& invocation_data, std::optional<std::string> process_name
   )
   {
-    return invoke_async(app_name, function_name, invocation_data, process_name).get();
+    return invoke_async(app_name, function_name, invocation_data, std::move(process_name)).get();
   }
 
   std::future<ControlPlaneInvocationResult> PraaS::invoke_async(
