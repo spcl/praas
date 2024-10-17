@@ -128,7 +128,7 @@ TEST_F(IntegrationLocalInvocation, InvokeStop)
 
     ASSERT_TRUE(praas.stop_process(app_name, invoc_res.process_name));
 
-    invoc = praas.invoke_async(app_name, "hello-world", invoc_res.process_name);
+    invoc = praas.invoke_async(app_name, "hello-world", "", invoc_res.process_name);
     invoc_res = invoc.get();
     ASSERT_EQ(invoc_res.return_code, 1);
   }
