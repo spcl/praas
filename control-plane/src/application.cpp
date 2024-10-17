@@ -83,7 +83,7 @@ namespace praas::control_plane {
     process->set_creation_callback(std::move(callback), wait_for_allocation);
 
     backend.allocate_process(
-        process, resources,
+        _name, process, resources,
         [process, &poller, name, this](
           std::shared_ptr<backend::ProcessInstance>&& instance,
           const std::optional<std::string>& error
@@ -177,7 +177,7 @@ namespace praas::control_plane {
     spdlog::info("Allocating process for invocation {}", name);
     poller.add_process(process);
     backend.allocate_process(
-        process, resources,
+        _name, process, resources,
         [=, this](
             std::shared_ptr<backend::ProcessInstance>&& instance,
             const std::optional<std::string>& msg
@@ -330,7 +330,7 @@ namespace praas::control_plane {
     _active_processes.insert(std::move(nh));
 
     backend.allocate_process(
-      proc_ptr, proc_ptr->_resources,
+      _name, proc_ptr, proc_ptr->_resources,
       [proc_ptr, &poller, process_name, this](
         std::shared_ptr<backend::ProcessInstance>&& instance,
         const std::optional<std::string>& error
@@ -478,12 +478,14 @@ namespace praas::control_plane {
 
     auto iter = _active_processes.find(process_name);
     if (iter == _active_processes.end() || (*iter).second->status() != process::Status::ALLOCATED) {
-      throw praas::common::InvalidConfigurationError("Process is not alive!");
+      //throw praas::common::InvalidConfigurationError("Process is not alive!");
+      callback("Process is not alive!");
+      return;
     }
 
     (*iter).second->set_status(process::Status::CLOSING);
     backend.shutdown(
-      (*iter).second->name(), (*iter).second,
+      _name, (*iter).second->name(), (*iter).second,
       [this, process_name, callback=std::move(callback)](std::optional<std::string> msg) {
 
         if(!msg) {

@@ -44,7 +44,7 @@ namespace praas::control_plane::worker {
 
         auto proc_ptr = std::get<1>(val.value());
 
-        spdlog::debug("Requesitng new invocation on process, status: {}", proc_ptr->status());
+        spdlog::debug("Requesting new invocation on process, status: {}", proc_ptr->status());
 
         if(proc_ptr->status() == process::Status::ALLOCATED) {
 

@@ -34,13 +34,13 @@ public:
 
   MOCK_METHOD(
       void, allocate_process,
-      (process::ProcessPtr, const process::Resources&,
+      (std::string, process::ProcessPtr, const process::Resources&,
        std::function<
            void(std::shared_ptr<backend::ProcessInstance>&&, std::optional<std::string>)>&&),
       ()
   );
   MOCK_METHOD(void, shutdown, 
-    (const std::string& name,
+    (const std::string&, const std::string& name,
     process::ProcessObserver instance,
     std::function<void(std::optional<std::string>)>&& callback),
     ()
@@ -74,8 +74,8 @@ void setup_mocks(MockBackend& backend, bool mock_tcp_connection = false)
   using callback_t =
       std::function<void(std::shared_ptr<backend::ProcessInstance>&&, std::optional<std::string>)>;
 
-  ON_CALL(backend, allocate_process(testing::_, testing::_, testing::_))
-      .WillByDefault([=](process::ProcessPtr ptr, const auto&, callback_t&& callback) {
+  ON_CALL(backend, allocate_process(testing::_, testing::_, testing::_, testing::_))
+      .WillByDefault([=](std::string, process::ProcessPtr ptr, const auto&, callback_t&& callback) {
         callback(std::make_shared<MockBackendInstance>(), "");
         if (mock_tcp_connection) {
           ptr->set_status(process::Status::ALLOCATED);

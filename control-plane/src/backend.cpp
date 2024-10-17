@@ -85,7 +85,7 @@ namespace praas::control_plane::backend {
   }
 
   void DockerBackend::allocate_process(
-    process::ProcessPtr process, const process::Resources& resources,
+    std::string app, process::ProcessPtr process, const process::Resources& resources,
     std::function<void(std::shared_ptr<ProcessInstance>&&, std::optional<std::string>)>&& callback
   )
   {
@@ -104,6 +104,7 @@ namespace praas::control_plane::backend {
     _http_client.post(
         "/create",
         {
+            {"app", app},
             {"process", process->name()},
         },
         std::move(body),
@@ -138,7 +139,7 @@ namespace praas::control_plane::backend {
   }
 
   void DockerBackend::shutdown(
-    const std::string& name,
+    const std::string& app, const std::string& name,
     process::ProcessObserver instance,
     std::function<void(std::optional<std::string>)>&& callback
   )
@@ -146,6 +147,7 @@ namespace praas::control_plane::backend {
     _http_client.post(
         "/kill",
         {
+            {"app", app},
             {"process", name},
         },
         [callback = std::move(callback), name, instance, this](
@@ -314,7 +316,7 @@ namespace praas::control_plane::backend {
   }
 
   void FargateBackend::allocate_process(
-      process::ProcessPtr process, const process::Resources& resources,
+      std::string app, process::ProcessPtr process, const process::Resources& resources,
       std::function<void(std::shared_ptr<ProcessInstance>&&, std::optional<std::string>)>&& callback
   )
   {
@@ -369,7 +371,7 @@ namespace praas::control_plane::backend {
   }
 
   void FargateBackend::shutdown(
-    const std::string& name,
+    const std::string& app, const std::string& name,
     process::ProcessObserver instance,
     std::function<void(std::optional<std::string>)>&& callback
   )

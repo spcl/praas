@@ -93,13 +93,13 @@ namespace praas::control_plane::backend {
      * @param resources [TODO:description]
      */
     virtual void allocate_process(
-      process::ProcessPtr, const process::Resources& resources,
+      std::string app, process::ProcessPtr, const process::Resources& resources,
       std::function<void(std::shared_ptr<ProcessInstance>&&, std::optional<std::string>)>&&
           callback
     ) = 0;
 
     virtual void shutdown(
-      const std::string& name,
+      const std::string& app, const std::string& name,
       process::ProcessObserver instance,
       std::function<void(std::optional<std::string>)>&& callback
     ) = 0;
@@ -164,13 +164,13 @@ namespace praas::control_plane::backend {
     ~DockerBackend() override;
 
     void allocate_process(
-        process::ProcessPtr, const process::Resources& resources,
+        std::string app, process::ProcessPtr, const process::Resources& resources,
         std::function<void(std::shared_ptr<ProcessInstance>&&, std::optional<std::string>)>&&
             callback
     ) override;
 
     void shutdown(
-      const std::string& name,
+      const std::string& app, const std::string& name,
       process::ProcessObserver instance,
       std::function<void(std::optional<std::string>)>&& callback
     ) override;
@@ -232,13 +232,13 @@ namespace praas::control_plane::backend {
     ~FargateBackend() override;
 
     void allocate_process(
-        process::ProcessPtr, const process::Resources& resources,
+        std::string app, process::ProcessPtr, const process::Resources& resources,
         std::function<void(std::shared_ptr<ProcessInstance>&&, std::optional<std::string>)>&&
             callback
     ) override;
 
     void shutdown(
-      const std::string& name,
+      const std::string& app, const std::string& name,
       process::ProcessObserver instance,
       std::function<void(std::optional<std::string>)>&& callback
     ) override;

@@ -96,9 +96,9 @@ TEST_F(HttpTCPIntegration, Invoke)
     std::string process_name{"controlplane-0"};
 
     std::promise<void> created_process;
-    EXPECT_CALL(backend, allocate_process(testing::_, testing::_, testing::_))
+    EXPECT_CALL(backend, allocate_process(testing::_, testing::_, testing::_, testing::_))
         .Times(testing::Exactly(1))
-        .WillOnce([&](process::ProcessPtr ptr, const process::Resources&, auto&& callback) {
+        .WillOnce([&](auto, process::ProcessPtr ptr, const process::Resources&, auto&& callback) {
           EXPECT_EQ(ptr->name(), process_name);
 
           created_process.set_value();
