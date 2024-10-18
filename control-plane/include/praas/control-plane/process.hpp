@@ -197,7 +197,7 @@ namespace praas::control_plane::process {
 
     Invocation get_invocation();
 
-    void send_invocations();
+    void send_pending_messages();
 
     void finish_invocation(std::string invocation_id, int return_code, const char* buf, size_t len);
 
@@ -215,6 +215,16 @@ namespace praas::control_plane::process {
     void created_callback(const std::optional<std::string>& error_msg);
 
     void swapped_callback(size_t size, double time, const std::optional<std::string>& error_msg);
+
+    int controlplane_id() const
+    {
+      return _controlplane_id;
+    }
+
+    void set_controlplane_id(int id)
+    {
+      _controlplane_id = id;
+    }
 
   private:
     void _send_invocation(Invocation&);
@@ -251,6 +261,8 @@ namespace praas::control_plane::process {
     std::vector<Invocation> _invocations;
 
     mutable lock_t _mutex;
+
+    int _controlplane_id;
 
     mutable std::mutex _metrics_mutex;
   };

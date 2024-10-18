@@ -16,6 +16,7 @@
 
 namespace praas::process {
   struct Controller;
+  struct Workers;
 } // namespace praas::process
 
 namespace praas::process::remote {
@@ -169,6 +170,8 @@ namespace praas::process::remote {
     trantor::TcpServer _server;
 
     runtime::internal::BufferQueue<char> _buffers;
+
+    bool _initialized = false;
 
     // lock
     std::mutex _conn_mutex;

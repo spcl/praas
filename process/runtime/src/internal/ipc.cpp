@@ -114,6 +114,11 @@ namespace praas::process::runtime::internal::ipc {
     return _queue;
   }
 
+  //void POSIXMQChannel::send(const char* ptr, size_t len)
+  //{
+  //  _send(ptr, len);
+  //}
+
   void POSIXMQChannel::send(Message& msg)
   {
     msg.total_length(0);
@@ -202,9 +207,11 @@ namespace praas::process::runtime::internal::ipc {
     // FIXME: avoid a copy here?
     std::copy_n(_msg_buffer.get(), Message::BUF_SIZE, _msg.data.data());
 
+    // FIXME: buffer needs to be at least of size msg length in POSIX
     size_t data_to_read = _msg.total_length();
     if (buf.size < data_to_read) {
-      buf.resize(data_to_read);
+      //buf.resize(data_to_read);
+      buf.resize(std::min(data_to_read, static_cast<size_t>(_msg_size)));
     }
 
     read_data = _recv(buf.data(), data_to_read);
@@ -305,5 +312,12 @@ namespace praas::process::runtime::internal::ipc {
 
     return pos;
   }
+
+  //void POSIXMQChannel::recv(char* ptr, size_t len)
+  //{
+  //  size_t read_data = _recv(_msg_buffer.get(), len);
+
+  //  _recv(ptr, len);
+  //}
 
 } // namespace praas::process::runtime::internal::ipc

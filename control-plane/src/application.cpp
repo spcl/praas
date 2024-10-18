@@ -1,3 +1,4 @@
+#include <praas/common/application.hpp>
 #include <praas/control-plane/application.hpp>
 
 #include <praas/common/exceptions.hpp>
@@ -9,6 +10,7 @@
 #include <praas/control-plane/tcpserver.hpp>
 #include <praas/control-plane/server.hpp>
 
+#include <algorithm>
 #include <optional>
 #include <spdlog/fmt/fmt.h>
 
@@ -89,6 +91,7 @@ namespace praas::control_plane {
           const std::optional<std::string>& error
         ) {
           if (instance != nullptr) {
+
             process->set_handle(std::move(instance));
 
             // FIXME: temporary fix to make tests running - dependency on static func
@@ -112,6 +115,37 @@ namespace praas::control_plane {
           }
         }
     );
+  }
+
+  void Application::notify(const std::string& name, const std::string& addr_ip, int port, bool swapped)
+  {
+    // FIXME: loop allocated processes -> send message
+
+    praas::common::message::ApplicationUpdateData msg;
+    msg.status_change(static_cast<int>(
+      !swapped ? common::Application::Status::ACTIVE : common::Application::Status::SWAPPED
+    ));
+    msg.process_id(name);
+    msg.ip_address(addr_ip);
+    msg.port(port);
+
+    read_lock_t lock(_active_mutex);
+    for(auto & [proc_name, proc] : _active_processes) {
+
+      // Don't notify yourself
+      if(proc_name == name) {
+        continue;
+      }
+
+      auto lock = proc->read_lock();
+
+      if(proc->status() == process::Status::ALLOCATED) {
+        proc->_connection->send(
+          msg.bytes(), decltype(msg)::BUF_SIZE
+        );
+      }
+
+    }
   }
 
   std::tuple<process::Process::read_lock_t, process::Process*>
@@ -380,6 +414,12 @@ namespace praas::control_plane {
       throw praas::common::InvalidProcessState("Cannot confirm a swap of non-swapping process");
     }
 
+    {
+      write_lock_t lock{_app_data_mutex};
+      std::get<1>(_app_data[proc.controlplane_id()]) = static_cast<int8_t>(Application::Status::SWAPPED);
+      // FIXME: notifications
+    }
+
     // Remove process from the container
     auto nh = _active_processes.extract(iter);
     application_lock.unlock();
@@ -399,6 +439,11 @@ namespace praas::control_plane {
   void Application::closed_process(const process::ProcessPtr& ptr)
   {
     auto proc_lock = ptr->write_lock();
+
+    {
+      write_lock_t lock{_app_data_mutex};
+      std::get<1>(_app_data[ptr->controlplane_id()]) = static_cast<int8_t>(Application::Status::NONE);
+    }
 
     if (ptr->status() != process::Status::SWAPPED_OUT && ptr->status() != process::Status::CLOSING) {
 
@@ -565,6 +610,54 @@ namespace praas::control_plane {
     for (const auto& [key, value] : _swapped_processes) {
       results.emplace_back(value->name());
     }
+  }
+
+  // This assumes a read lock over the process!
+  int Application::connected_process(const process::Process& ptr)
+  {
+    write_lock_t lock{_app_data_mutex};
+
+    auto iter = std::find_if(
+      _app_data.begin(), _app_data.end(),
+      [](auto & pos) -> bool {
+        return std::get<1>(pos) == static_cast<int8_t>(Application::Status::NONE);
+      }
+    );
+
+    int64_t size = sizeof(app_data_t) * _app_data.size();
+    ptr._connection->send(&size, sizeof(size));
+    ptr._connection->send(_app_data.data(), sizeof(app_data_t) * _app_data.size());
+
+    int pos = 0;
+    if(iter != _app_data.end()) {
+
+      std::get<1>(*iter) = static_cast<int8_t>(Application::Status::ACTIVE);
+      strncpy(
+        std::get<0>(*iter), ptr.name().data(),
+        common::message::MessageConfig::NAME_LENGTH
+      );
+      pos = std::distance(_app_data.begin(), iter);
+
+    } else {
+      _app_data.emplace_back();
+      std::get<1>(_app_data.back()) = static_cast<int8_t>(Application::Status::ACTIVE);
+      strncpy(
+        std::get<0>(_app_data.back()), ptr.name().data(),
+        common::message::MessageConfig::NAME_LENGTH
+      );
+      pos = _app_data.size() - 1;
+    }
+
+    // FIXME: thread pool
+    std::thread{
+      &Application::notify,
+      this, ptr.name(),
+      ptr.c_handle().ip_address,
+      ptr.c_handle().port,
+      false
+    }.detach();
+
+    return pos;
   }
 
 } // namespace praas::control_plane

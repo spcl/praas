@@ -1,6 +1,7 @@
-#include <praas/control-plane/backend.hpp>
 #include <praas/control-plane/process.hpp>
 
+#include <praas/control-plane/backend.hpp>
+#include <praas/control-plane/application.hpp>
 #include <praas/common/exceptions.hpp>
 #include <praas/common/messages.hpp>
 #include <praas/common/uuid.hpp>
@@ -92,11 +93,14 @@ namespace praas::control_plane::process {
     _connection = std::move(connectionPtr);
     _status = Status::ALLOCATED;
 
+    // We notify everyone else of our presence AND send initial world description
+    application().connected_process(*this);
+
     // Now send pending invocations. Lock prevents adding more invocations,
     // and by the time we are finishing, the direct connection will be already up
     // and invocation can be submitted directly.
     // Thus, no invocation should be lost.
-    send_invocations();
+    send_pending_messages();
 
     this->created_callback(std::nullopt);
   }
@@ -172,7 +176,7 @@ namespace praas::control_plane::process {
     }
   }
 
-  void Process::send_invocations()
+  void Process::send_pending_messages()
   {
     for (auto& invoc : _invocations) {
       if (!invoc.submitted) {
@@ -183,7 +187,6 @@ namespace praas::control_plane::process {
 
   void Process::_send_invocation(Invocation& invoc)
   {
-
     std::string_view payload = invoc.request->getBody();
 
     praas::common::message::InvocationRequestData req;

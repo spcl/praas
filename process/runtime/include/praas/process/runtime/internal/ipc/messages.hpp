@@ -27,6 +27,7 @@ namespace praas::process::runtime::internal::ipc {
   struct StateKeysRequestParsed;
   struct StateKeysResultParsed;
   struct ApplicationUpdateParsed;
+  struct InitialWorldParsed;
 
   struct Message {
 
@@ -39,6 +40,7 @@ namespace praas::process::runtime::internal::ipc {
       APPLICATION_UPDATE,
       STATE_KEYS_REQUEST,
       STATE_KEYS_RESULT,
+      INITIAL_WORLD,
       END_FLAG
     };
 
@@ -68,7 +70,7 @@ namespace praas::process::runtime::internal::ipc {
 
     using MessageVariants = std::variant<
         GetRequestParsed, PutRequestParsed, InvocationRequestParsed, InvocationResultParsed,
-        ApplicationUpdateParsed, StateKeysResultParsed, StateKeysRequestParsed>;
+        ApplicationUpdateParsed, StateKeysResultParsed, StateKeysRequestParsed, InitialWorldParsed>;
 
     MessageVariants parse() const;
 
@@ -319,6 +321,21 @@ namespace praas::process::runtime::internal::ipc {
 
     void process_id(std::string_view id);
     void status_change(int32_t code);
+  };
+
+  struct InitialWorldParsed : GenericRequestParsed {
+
+    InitialWorldParsed(const int8_t* buf) : GenericRequestParsed(buf) {}
+  };
+
+  struct InitialWorld : GenericRequest {
+
+    InitialWorld() : GenericRequest(Type::INITIAL_WORLD) {}
+
+    using GenericRequest::data_len;
+    using GenericRequestParsed::data_len;
+
+    static constexpr Type TYPE = Type::INITIAL_WORLD;
   };
 
 } // namespace praas::process::runtime::internal::ipc

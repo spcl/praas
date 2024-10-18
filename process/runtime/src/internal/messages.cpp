@@ -49,6 +49,10 @@ namespace praas::process::runtime::internal::ipc {
       return MessageVariants{StateKeysRequestParsed(data + HEADER_OFFSET)};
     }
 
+    if (type == Type::INITIAL_WORLD) {
+      return MessageVariants{InitialWorldParsed(data + HEADER_OFFSET)};
+    }
+
     throw common::PraaSException{fmt::format("Unknown message with type number {}", type_val)};
   }
 

@@ -197,6 +197,9 @@ namespace praas::process {
     {
       return _workers;
     }
+
+    void initialize_workers(const char* ptr, size_t len);
+
     bool has_idle_workers() const;
 
     void submit(Invocation& invocation);

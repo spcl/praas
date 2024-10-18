@@ -30,6 +30,7 @@ int main(int argc, char** argv)
 
   char* swapin_loc = std::getenv("SWAPIN_LOCATION");
   if(swapin_loc) {
+    // FIXME: async?
     // TODO: consider in future lazy loading
     if(!controller.swap_in(swapin_loc)) {
       controller.shutdown();

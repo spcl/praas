@@ -4,6 +4,7 @@
 #include <praas/common/util.hpp>
 #include <praas/process/runtime/internal/buffer.hpp>
 #include <praas/process/runtime/internal/functions.hpp>
+#include <praas/process/runtime/internal/ipc/messages.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -314,6 +315,19 @@ namespace praas::process {
     for (FunctionWorker& worker : _workers) {
       worker.ipc_read().shutdown();
       worker.ipc_write().shutdown();
+    }
+  }
+
+  void Workers::initialize_workers(const char* ptr, size_t len)
+  {
+    runtime::internal::ipc::InitialWorld msg;
+    // FIXME: is this necessary?
+    msg.data_len(len);
+
+    for (FunctionWorker& worker : _workers) {
+      // FIXME: this could be improved by writing in round-robin fashion
+      spdlog::error("Write the message!");
+      worker.ipc_write().send(msg, runtime::internal::BufferAccessor{ptr, len});
     }
   }
 

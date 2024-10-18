@@ -6,6 +6,7 @@
 #include <praas/process/controller/controller.hpp>
 #include <praas/process/runtime/internal/buffer.hpp>
 
+#include <cstdint>
 #include <variant>
 
 #include <spdlog/spdlog.h>
@@ -122,8 +123,6 @@ namespace praas::process::remote {
 
             (*iter).second->conn = connectionPtr;
 
-            connected.set_value();
-
           } else {
             _logger->error("Terminated connection to control plane!");
             _control_plane.reset();
@@ -131,10 +130,59 @@ namespace praas::process::remote {
         }
     );
 
+    // Bad design: replacing a callback does not work.
+    // Once we are connected, the old callback stays.
+    // We need to have a callback that runs world pulling for the 
+    // first time, and then it runs the default path..
+
+    int64_t size = -1;
     (*iter).second->client->setMessageCallback(
-        [this](const trantor::TcpConnectionPtr& conn, trantor::MsgBuffer* buffer) -> void {
-          _logger->info("Control plane message");
-          _handle_message(conn, buffer);
+        [&, this](const trantor::TcpConnectionPtr& conn, trantor::MsgBuffer* buffer) -> void {
+
+          if(this->_initialized) {
+            _handle_message(conn, buffer);
+            return;
+          }
+
+          // Read world definition - I absolutely hate this design.
+          // We cannot access the direct socket and there's no `recv` method.
+          // We have to replace callbacks and hope there's no race condition.
+          if(size == -1) {
+
+            if(buffer->readableBytes() < sizeof(size)) {
+               return;
+            }
+
+            size = *reinterpret_cast<const uint64_t*>(buffer->peek());
+            buffer->retrieve(sizeof(size));
+          }
+
+          if(buffer->readableBytes() < size) {
+            return;
+          }
+
+          using app_data_t = std::tuple<char[common::message::MessageConfig::NAME_LENGTH], int8_t>;
+          using app_data_vec_t = std::vector<app_data_t>;
+
+          auto* ptr = reinterpret_cast<const app_data_t*>(buffer->peek());
+          int array_size = size / sizeof(app_data_t);
+          //spdlog::debug("Received world size of {} {}", array_size, size);
+
+          _controller.workers().initialize_workers(reinterpret_cast<const char*>(ptr), size);
+          _controller.initialize_world(ptr, size);
+
+          buffer->retrieve(size);
+
+          this->_initialized = true;
+
+          // Now set the actual callback.
+          //(*iter).second->client->setMessageCallback(
+          //    [this](const trantor::TcpConnectionPtr& conn, trantor::MsgBuffer* buffer) -> void {
+          //      _logger->info("Control plane message correct callback");
+          //      _handle_message(conn, buffer);
+          //    }
+          //);
+          connected.set_value();
         }
     );
 
@@ -686,7 +734,9 @@ namespace praas::process::remote {
     msg.invocations(invocations);
     msg.last_invocation_timestamp(last_timestamp);
 
-    _control_plane->conn->send(msg.bytes(), decltype(msg)::BUF_SIZE);
+    if(_control_plane) {
+      _control_plane->conn->send(msg.bytes(), decltype(msg)::BUF_SIZE);
+    }
   }
 
 } // namespace praas::process::remote

@@ -58,6 +58,8 @@ namespace praas::process::runtime::internal {
       return _app_status;
     }
 
+    //void receive_world_definition();
+
   private:
     // Standard input size = 5 MB
     static constexpr int BUFFER_SIZE = 1024 * 1024 * 5;

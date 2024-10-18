@@ -852,4 +852,18 @@ namespace praas::process {
     _workers.finish(worker);
   }
 
+  void Controller::initialize_world(const app_data_t* data, size_t size)
+  {
+    int array_size = size / sizeof(app_data_t);
+
+    for(int i = 0; i < array_size; ++i) {
+
+      auto status = static_cast<common::Application::Status>(std::get<1>(data[i]));
+      _application.update(
+        status,
+        std::string_view{std::get<0>(data[i])}
+      );
+    }
+  }
+
 } // namespace praas::process

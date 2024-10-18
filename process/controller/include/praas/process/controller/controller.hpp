@@ -72,6 +72,14 @@ namespace praas::process {
       return _process_id;
     }
 
+    using app_data_t = std::tuple<char[common::message::MessageConfig::NAME_LENGTH], int8_t>;
+    void initialize_world(const app_data_t* data, size_t size);
+
+    Workers& workers()
+    {
+      return _workers;
+    }
+
   private:
     void _process_application_updates(const std::vector<common::ApplicationUpdate>& updates);
     void _process_external_message(ExternalMessage& msg);

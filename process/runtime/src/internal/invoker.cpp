@@ -1,6 +1,7 @@
 #include <praas/process/runtime/internal/invoker.hpp>
 
 #include <praas/common/application.hpp>
+#include <praas/common/messages.hpp>
 #include <praas/common/exceptions.hpp>
 #include <praas/common/util.hpp>
 #include <praas/process/runtime/internal/buffer.hpp>
@@ -97,6 +98,30 @@ namespace praas::process::runtime::internal {
                       req.process_id()
                   );
                 },
+                [&](ipc::InitialWorldParsed& req) mutable {
+                  SPDLOG_LOGGER_DEBUG(
+                      _logger, "Received application update - process change for {}",
+                      req.process_id()
+                  );
+                  spdlog::error("Received initial world size, size {}", _input.len);
+
+                  // FIXME: code this definition somewhere, don't repeat
+                  using app_data_t = std::tuple<char[common::message::MessageConfig::NAME_LENGTH], int8_t>;
+                  auto* buf = reinterpret_cast<app_data_t*>(_input.data());
+                  int array_size = _input.len / sizeof(app_data_t);
+                  for(int i = 0; i < array_size; ++i) {
+                    spdlog::error("Updated world definition {} {}", std::string_view{std::get<0>(buf[i]), 32}, std::get<1>(buf[i]));
+                    _app_status.update(
+                      static_cast<common::Application::Status>(std::get<1>(buf[i])),
+                      std::get<0>(buf[i])
+                    );
+                  }
+
+                  //_app_status.update(
+                  //    static_cast<common::Application::Status>(req.status_change()),
+                  //    req.process_id()
+                  //);
+                },
                 [](auto&) { spdlog::error("Received unsupported message!"); }},
             parsed_msg
         );
@@ -167,5 +192,28 @@ namespace praas::process::runtime::internal {
   {
     return Context{_process_id, *this};
   }
+
+  //void Invoker::receive_world_definition()
+  //{
+  //  using app_data_t = std::tuple<char[common::message::MessageConfig::NAME_LENGTH], int8_t>;
+  //  using app_data_vec_t = std::vector<app_data_t>;
+
+  //  int size;
+  //  _ipc_channel_read->recv(reinterpret_cast<char*>(&size), sizeof(size));
+  //  spdlog::error("received size {}", size);
+  //  app_data_t* buf = new app_data_t[size];
+  //  _ipc_channel_read->recv(reinterpret_cast<char*>(buf), size);
+  //  spdlog::error("received data of size {}", size);
+
+  //  int array_size = size / sizeof(app_data_t);
+  //  for(int i = 0; i < array_size; ++i) {
+  //    _app_status.update(
+  //      static_cast<common::Application::Status>(std::get<1>(buf[i])),
+  //      std::get<0>(buf[i])
+  //    );
+  //  }
+
+  //  delete[] buf;
+  //}
 
 } // namespace praas::process::runtime::internal
