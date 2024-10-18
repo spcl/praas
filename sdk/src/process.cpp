@@ -5,9 +5,17 @@
 #include <praas/common/messages.hpp>
 #include <praas/common/sockets.hpp>
 
+#include <BS_thread_pool.hpp>
 #include <spdlog/spdlog.h>
 
 namespace praas::sdk {
+
+  ThreadPool Process::pool;
+
+  void ThreadPool::configure(int num_threads)
+  {
+    pool = std::make_shared<BS::thread_pool>(num_threads);
+  }
 
   Process::Process(
     std::string app, std::string pid, const std::string& addr, int port, bool disable_nagle
@@ -78,7 +86,7 @@ namespace praas::sdk {
       return false;
     }
 
-    if(read_bytes != praas::common::message::MessageConfig::BUF_SIZE) {
+    if(read_bytes == praas::common::message::MessageConfig::BUF_SIZE) {
       auto parsed_msg = praas::common::message::MessageParser::parse(_response);
       if (!std::holds_alternative<common::message::ProcessClosurePtr>(parsed_msg)) {
         spdlog::error("Unknown message received from the process!");
@@ -89,6 +97,7 @@ namespace praas::sdk {
       return false;
     }
 
+    return true;
   }
 
   InvocationResult
@@ -139,6 +148,65 @@ namespace praas::sdk {
     }
 
     return {result.return_code(), std::move(payload), payload_bytes};
+  }
+
+  std::future<InvocationResult>
+  Process::invoke_async(std::string function_name, std::string invocation_id, char* ptr, size_t len)
+  {
+    if (!_dataplane.is_connected()) {
+      throw common::InvalidProcessState("Not connected!");
+    }
+
+    if(!pool.pool) {
+      throw common::PraaSException("Thread pool not configured!");
+    }
+
+    return pool.pool->submit_task(
+      [=]() -> InvocationResult {
+        praas::common::message::InvocationRequestData msg;
+        msg.function_name(function_name);
+        msg.invocation_id(invocation_id);
+        msg.payload_size(len);
+
+        auto written = _dataplane.write_n(msg.bytes(), msg.BUF_SIZE);
+        if(written != msg.BUF_SIZE) {
+          return {1, nullptr, 0};
+        }
+
+        if (len > 0) {
+          auto written = _dataplane.write_n(ptr, len);
+          if(written != len) {
+            return {1, nullptr, 0};
+          }
+        }
+
+        auto read_bytes = _dataplane.read_n(_response.data(), praas::common::message::MessageConfig::BUF_SIZE);
+        if(read_bytes < praas::common::message::MessageConfig::BUF_SIZE) {
+          return {1, nullptr, 0};
+        }
+
+        auto parsed_msg = praas::common::message::MessageParser::parse(_response);
+        if (!std::holds_alternative<common::message::InvocationResultPtr>(parsed_msg)) {
+          return {1, nullptr, 0};
+        }
+
+        auto& result = std::get<common::message::InvocationResultPtr>(parsed_msg);
+
+        size_t payload_bytes = result.total_length();
+        std::unique_ptr<char[]> payload{};
+        if (payload_bytes > 0) {
+          payload.reset(new char[payload_bytes]);
+          _dataplane.read_n(payload.get(), payload_bytes);
+        }
+
+        if (result.return_code() < 0) {
+          // We failed - the payload contains the error message
+          return {result.return_code() * -1, nullptr, 0, std::string{payload.get(), payload_bytes}};
+        }
+
+        return {result.return_code(), std::move(payload), payload_bytes};
+      }
+    );
   }
 
 }; // namespace praas::sdk

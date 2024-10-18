@@ -1,15 +1,30 @@
 #ifndef PRAAS_SDK_PROCESS_HPP
 #define PRAAS_SDK_PROCESS_HPP
 
+#include <future>
+
 #include <praas/common/messages.hpp>
 #include <praas/sdk/invocation.hpp>
 
 #include <sockpp/stream_socket.h>
 #include <sockpp/tcp_connector.h>
 
+namespace BS {
+  struct thread_pool;
+} // namespace BS
+
 namespace praas::sdk {
 
+  struct ThreadPool {
+
+    void configure(int num_threads);
+
+    std::shared_ptr<BS::thread_pool> pool = nullptr;
+  };
+
   struct Process {
+
+    static ThreadPool pool;
 
     Process() = default;
 
@@ -29,6 +44,8 @@ namespace praas::sdk {
     bool is_alive();
 
     InvocationResult invoke(std::string_view function_name, std::string invocation_id, char* ptr, size_t len);
+
+    std::future<InvocationResult> invoke_async(std::string function_name, std::string invocation_id, char* ptr, size_t len);
 
     sockpp::tcp_connector& connection()
     {
