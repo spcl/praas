@@ -136,17 +136,18 @@ extern "C" int world_check(
   praas::process::runtime::Invocation invocation, praas::process::runtime::Context& context
 )
 {
-  std::cerr << invocation.args[0].size << std::endl;
   WorldSize msg;
   invocation.args[0].deserialize(msg);
   std::string other_process_id;
 
   if(msg.active.size() != context.active_processes().size()) {
     std::cerr << "Wrong sizes of active world! " << msg.active.size() << " " << context.active_processes().size() << std::endl;
+    return 1;
   }
 
   if(msg.swapped.size() != context.swapped_processes().size()) {
     std::cerr << "Wrong sizes of swapped world! " << msg.swapped.size() << " " << context.swapped_processes().size() << std::endl;
+    return 1;
   }
 
   for(auto & active : msg.active) {
