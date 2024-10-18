@@ -20,6 +20,16 @@
           "type": "direct",
           "nargs": 1
         }
+      },
+      "world-check": {
+        "code": {
+          "module": "@FUNCTIONS_DIRECTORY@/libstate.so",
+          "function": "world_check"
+        },
+        "trigger": {
+          "type": "direct",
+          "nargs": 1
+        }
       }
     }
   }

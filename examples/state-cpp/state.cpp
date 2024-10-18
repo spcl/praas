@@ -4,6 +4,7 @@
 
 #include <cereal/cereal.hpp>
 #include <cereal/types/string.hpp>
+#include <cereal/types/vector.hpp>
 
 #include <fstream>
 #include <filesystem>
@@ -108,6 +109,63 @@ extern "C" int state_get(
   auto& output_buf = context.get_output_buffer(1024);
   output_buf.serialize(key);
   context.set_output_buffer(output_buf);
+
+  return 0;
+}
+
+struct WorldSize {
+  std::vector<std::string> active;
+  std::vector<std::string> swapped;
+
+  template <typename Ar>
+  void save(Ar& archive) const
+  {
+    archive(CEREAL_NVP(active));
+    archive(CEREAL_NVP(swapped));
+  }
+
+  template <typename Ar>
+  void load(Ar& archive)
+  {
+    archive(CEREAL_NVP(active));
+    archive(CEREAL_NVP(swapped));
+  }
+};
+
+extern "C" int world_check(
+  praas::process::runtime::Invocation invocation, praas::process::runtime::Context& context
+)
+{
+  std::cerr << invocation.args[0].size << std::endl;
+  WorldSize msg;
+  invocation.args[0].deserialize(msg);
+  std::string other_process_id;
+
+  if(msg.active.size() != context.active_processes().size()) {
+    std::cerr << "Wrong sizes of active world! " << msg.active.size() << " " << context.active_processes().size() << std::endl;
+  }
+
+  if(msg.swapped.size() != context.swapped_processes().size()) {
+    std::cerr << "Wrong sizes of swapped world! " << msg.swapped.size() << " " << context.swapped_processes().size() << std::endl;
+  }
+
+  for(auto & active : msg.active) {
+
+    auto it = std::find(context.active_processes().begin(), context.active_processes().end(), active);
+    if(it == context.active_processes().end()) {
+      std::cerr << "Could not find active process " << active << std::endl;
+      return 1;
+    }
+  }
+
+  for(auto & swapped : msg.swapped) {
+
+    auto it = std::find(context.swapped_processes().begin(), context.swapped_processes().end(), swapped);
+    if(it == context.swapped_processes().end()) {
+      std::cerr << "Could not find swapped process " << swapped << std::endl;
+      return 1;
+    }
+  }
 
   return 0;
 }
