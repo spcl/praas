@@ -76,6 +76,7 @@ namespace praas::process::swapper {
     if(ptr  == nullptr) {
       spdlog::error("Disk swapper created but no location specified!");
     }
+    swap_location = std::string{ptr};
   }
 
   template<typename F>
@@ -188,7 +189,7 @@ namespace praas::process::swapper {
         full_path = fs::path{swap_location} / location / "messages" / fmt::format("{}({}", key, message.source);
       }
 
-      spdlog::debug("Swapping out to {}", full_path.string());
+      spdlog::debug("Swapping out disk to {}", full_path.string());
 
       fs::create_directories(full_path.parent_path());
 
@@ -441,7 +442,7 @@ namespace praas::process::swapper {
       } else {
         new_path = full_path / "messages" / fmt::format("{}({}", key, message.source);
       }
-      spdlog::debug("Swapping out to location {}", new_path.string());
+      spdlog::debug("Swapping out S3 to location {}", new_path.string());
 
       std::shared_ptr<Aws::IOStream> input_data = std::make_shared<boost::interprocess::bufferstream>(message.data.data(), message.data.len);
       make_request(new_path, std::move(input_data));
