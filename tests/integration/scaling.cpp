@@ -191,7 +191,6 @@ TEST_F(ScalingApplication, SwappingUpdate)
     {
       spdlog::info("Scenario 1: P0 knows about swapping of P1");
 
-      std::cerr << processes[1].process_id << std::endl;
       auto [swap_res, swap_msg] = praas.swap_process(processes[1]);
       ASSERT_TRUE(swap_res);
 
@@ -249,83 +248,110 @@ TEST_F(ScalingApplication, SwappingUpdate)
         ASSERT_EQ(ret.return_code, 0);
       }
     }
+  }
+}
+
+TEST_F(ScalingApplication, ClosingProcess)
+{
+  praas::common::http::HTTPClientFactory::initialize(1);
+  {
+    praas::sdk::PraaS praas{fmt::format("http://127.0.0.1:{}", 9000)};
+
+    std::string app_name("test_scaling4");
+    ASSERT_TRUE(
+      praas.create_application(app_name, "spcleth/praas:proc-local")
+    );
+
+    int procs = 2;
+    std::vector<praas::sdk::Process> processes;
+    std::vector<std::future<std::optional<praas::sdk::Process>>> futures;
+
+    for(int i = 0; i < procs; ++i) {
+      futures.emplace_back(praas.create_process_async(app_name, std::to_string(i), "1", "1024"));
+    }
+
+    for(auto & fut : futures) {
+      auto val = fut.get();
+      ASSERT_TRUE(val.has_value());
+      processes.push_back(std::move(val.value()));
+      ASSERT_TRUE(processes.back().connect());
+    }
+
+    for(int i = 0; i < procs; ++i) {
+      ASSERT_TRUE(processes[i].connect());
+    }
+
+    praas::sdk::Process::pool.configure(4);
+
+    spdlog::info("Scenario 1: P0 is closed, P1 should know about this.");
+    {
+
+      ASSERT_TRUE(praas.stop_process(processes[0]));
+
+      Result msg_scenario1;
+      msg_scenario1.active.emplace_back(std::to_string(1));
+      auto input_data = get_input_binary(msg_scenario1);
+
+      auto ret = processes[1].invoke("world-check", "invocation-id", input_data.data(), input_data.size());
+      ASSERT_EQ(ret.return_code, 0);
+    }
 
   }
 }
 
-//TEST_F(ScalingApplication, AutomaticSwap)
-//{
-//  praas::common::http::HTTPClientFactory::initialize(1);
-//  {
-//    praas::sdk::PraaS praas{fmt::format("http://127.0.0.1:{}", 9000)};
-//
-//    std::string app_name("test_scaling");
-//    ASSERT_TRUE(
-//      praas.create_application(app_name, "spcleth/praas:proc-local")
-//    );
-//
-//    int procs = 2;
-//    std::vector<praas::sdk::Process> processes;
-//    std::vector<std::future<std::optional<praas::sdk::Process>>> futures;
-//
-//    for(int i = 0; i < procs; ++i) {
-//      futures.emplace_back(praas.create_process_async(app_name, std::to_string(i), "1", "1024"));
-//    }
-//
-//    for(auto & fut : futures) {
-//      auto val = fut.get();
-//      ASSERT_TRUE(val.has_value());
-//      processes.push_back(std::move(val.value()));
-//      ASSERT_TRUE(processes.back().connect());
-//    }
-//
-//    praas::sdk::Process::pool.configure(8);
-//
-//    std::vector<std::future<praas::sdk::InvocationResult>> invoc_futures;
-//    for(int i = 0; i < procs; ++i) {
-//      invoc_futures.push_back(
-//        processes[i].invoke_async("world-check", "invocation-id", nullptr, 0)
-//      );
-//    }
-//
-//    for(auto & fut : invoc_futures) {
-//      auto val = fut.get();
-//      EXPECT_EQ(val.return_code, 0);
-//    }
-//
-//    //for(int i = 0; i < procs; ++i) {
-//    //  ASSERT_TRUE(praas.stop_process(processes[i]));
-//    //}
-//
-//    //Result msg;
-//    //msg.msg = "TEST_SWAP";
-//    //auto res = get_input_binary(msg);
-//
-//    //auto invoc = proc->invoke("state-put", "invocation-id", res.data(), res.size());
-//    //ASSERT_EQ(invoc.return_code, 0);
-//
-//    //auto [swap_res, swap_msg] = praas.swap_process(proc.value());
-//    //ASSERT_TRUE(swap_res);
-//
-//    //auto new_proc = praas.swapin_process(app_name, "alloc_invoc_process");
-//    //ASSERT_TRUE(new_proc.has_value());
-//
-//    //ASSERT_TRUE(new_proc->connect());
-//    //invoc = new_proc->invoke("state-get", "invocation-id2", res.data(), res.size());
-//    //ASSERT_EQ(invoc.return_code, 0);
-//
-//    //auto res2 = get_output_binary(invoc.payload.get(), invoc.payload_len);
-//    //ASSERT_EQ(msg.msg, res2);
-//
-//    //std::tie(swap_res, swap_msg) = praas.swap_process(new_proc.value());
-//    //ASSERT_TRUE(swap_res);
-//
-//    //ASSERT_TRUE(praas.delete_process(new_proc.value()));
-//
-//    //auto failed_proc = praas.swapin_process(app_name, "alloc_invoc_process");
-//    //ASSERT_FALSE(failed_proc.has_value());
-//
-//    //ASSERT_TRUE(praas.delete_application(app_name));
-//  }
-//}
-//
+TEST_F(ScalingApplication, DeletingProcess)
+{
+  praas::common::http::HTTPClientFactory::initialize(1);
+  {
+    praas::sdk::PraaS praas{fmt::format("http://127.0.0.1:{}", 9000)};
+
+    std::string app_name("test_scaling5");
+    ASSERT_TRUE(
+      praas.create_application(app_name, "spcleth/praas:proc-local")
+    );
+
+    int procs = 2;
+    std::vector<praas::sdk::Process> processes;
+    std::vector<std::future<std::optional<praas::sdk::Process>>> futures;
+
+    for(int i = 0; i < procs; ++i) {
+      futures.emplace_back(praas.create_process_async(app_name, std::to_string(i), "1", "1024"));
+    }
+
+    for(auto & fut : futures) {
+      auto val = fut.get();
+      ASSERT_TRUE(val.has_value());
+      processes.push_back(std::move(val.value()));
+      ASSERT_TRUE(processes.back().connect());
+    }
+
+    for(int i = 0; i < procs; ++i) {
+      ASSERT_TRUE(processes[i].connect());
+    }
+
+    praas::sdk::Process::pool.configure(4);
+
+    spdlog::info("Scenario 1: P0 is swapped and delete, P1 should know about both changes.");
+    {
+      auto [swap_res, swap_msg] = praas.swap_process(processes[0]);
+      ASSERT_TRUE(swap_res);
+
+      Result msg_scenario1;
+      msg_scenario1.active.emplace_back(std::to_string(1));
+      msg_scenario1.swapped.emplace_back(std::to_string(0));
+      auto input_data = get_input_binary(msg_scenario1);
+
+      auto ret = processes[1].invoke("world-check", "invocation-id", input_data.data(), input_data.size());
+      ASSERT_EQ(ret.return_code, 0);
+
+      ASSERT_TRUE(praas.delete_process(processes[0]));
+      msg_scenario1.swapped.clear();
+      input_data = get_input_binary(msg_scenario1);
+
+      ret = processes[1].invoke("world-check", "invocation-id", input_data.data(), input_data.size());
+      ASSERT_EQ(ret.return_code, 0);
+    }
+
+  }
+}
+
