@@ -33,7 +33,17 @@ namespace praas::sdk {
     Process(const Process &) = delete;
     Process(Process &&) = default;
     Process& operator=(const Process &) = delete;
-    Process& operator=(Process &&) = default;
+
+    Process& operator=(Process && obj)
+    {
+      _response = obj._response;
+      _disable_nagle = obj._disable_nagle;
+      _disconnected = obj._disconnected;
+      _dataplane = std::move(obj._dataplane);
+      _addr = obj._addr;
+
+      return *this;
+    }
 
     ~Process();
 
