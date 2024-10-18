@@ -168,8 +168,8 @@ namespace praas::process::remote {
           int array_size = size / sizeof(app_data_t);
           //spdlog::debug("Received world size of {} {}", array_size, size);
 
-          _controller.workers().initialize_workers(reinterpret_cast<const char*>(ptr), size);
           _controller.initialize_world(ptr, size);
+          _controller.workers().initialize_workers(reinterpret_cast<const char*>(ptr), size);
 
           buffer->retrieve(size);
 

@@ -33,9 +33,6 @@ namespace praas::process::runtime::internal {
     prctl(PR_SET_PDEATHSIG, SIGHUP);
 
     _logger = common::util::create_logger("Invoker");
-
-    // FIXME: receive full status
-    _app_status.active_processes.emplace_back(_process_id);
   }
 
   std::optional<Invocation> Invoker::poll()

@@ -262,7 +262,7 @@ namespace praas::control_plane::process {
 
     mutable lock_t _mutex;
 
-    int _controlplane_id;
+    int _controlplane_id = -1;
 
     mutable std::mutex _metrics_mutex;
   };

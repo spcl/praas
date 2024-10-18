@@ -3,6 +3,7 @@
 #define PRAAS_CONTROLL_PLANE_APPLICATION_HTTP
 
 #include <praas/control-plane/process.hpp>
+#include <praas/common/application.hpp>
 #include <praas/common/messages.hpp>
 
 #include <memory>
@@ -241,9 +242,9 @@ namespace praas::control_plane {
 
     int get_process_count() const;
 
-    void notify(const std::string& name, const std::string& addr_ip, int port, bool swapped);
+    void notify(const std::string& name, const std::string& addr_ip, int port, common::Application::Status status);
 
-    int connected_process(const process::Process& ptr);
+    int connected_process(process::Process& ptr);
 
   private:
     using lock_t = std::shared_mutex;
@@ -270,12 +271,6 @@ namespace praas::control_plane {
     using app_data_t = std::tuple<char[common::message::MessageConfig::NAME_LENGTH], int8_t>;
     std::vector<app_data_t> _app_data;
 
-    enum class Status : int8_t
-    {
-      NONE = 0,
-      ACTIVE = 1,
-      SWAPPED = 2
-    };
   };
 
 } // namespace praas::control_plane

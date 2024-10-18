@@ -117,14 +117,12 @@ namespace praas::control_plane {
     );
   }
 
-  void Application::notify(const std::string& name, const std::string& addr_ip, int port, bool swapped)
+  void Application::notify(const std::string& name, const std::string& addr_ip, int port, common::Application::Status status)
   {
     // FIXME: loop allocated processes -> send message
 
     praas::common::message::ApplicationUpdateData msg;
-    msg.status_change(static_cast<int>(
-      !swapped ? common::Application::Status::ACTIVE : common::Application::Status::SWAPPED
-    ));
+    msg.status_change(static_cast<int>(status));
     msg.process_id(name);
     msg.ip_address(addr_ip);
     msg.port(port);
@@ -316,6 +314,21 @@ namespace praas::control_plane {
       ptr->downscaler().remove_process((*iter).second);
     }
 
+    // Notify early that the process is swapped out
+    {
+      write_lock_t lock{_app_data_mutex};
+      std::get<1>(_app_data[proc.controlplane_id()]) = static_cast<int8_t>(common::Application::Status::SWAPPED);
+
+      // FIXME: thread pool
+      std::thread{
+        &Application::notify,
+        this, proc.name(),
+        proc.c_handle().ip_address,
+        proc.c_handle().port,
+        common::Application::Status::SWAPPED
+      }.detach();
+    }
+
     // Swap the process
     proc.state().swap = deployment.get_location(_name);
 
@@ -414,12 +427,6 @@ namespace praas::control_plane {
       throw praas::common::InvalidProcessState("Cannot confirm a swap of non-swapping process");
     }
 
-    {
-      write_lock_t lock{_app_data_mutex};
-      std::get<1>(_app_data[proc.controlplane_id()]) = static_cast<int8_t>(Application::Status::SWAPPED);
-      // FIXME: notifications
-    }
-
     // Remove process from the container
     auto nh = _active_processes.extract(iter);
     application_lock.unlock();
@@ -441,8 +448,9 @@ namespace praas::control_plane {
     auto proc_lock = ptr->write_lock();
 
     {
+      //FIXME:
       write_lock_t lock{_app_data_mutex};
-      std::get<1>(_app_data[ptr->controlplane_id()]) = static_cast<int8_t>(Application::Status::NONE);
+      std::get<1>(_app_data[ptr->controlplane_id()]) = static_cast<int8_t>(common::Application::Status::NONE);
     }
 
     if (ptr->status() != process::Status::SWAPPED_OUT && ptr->status() != process::Status::CLOSING) {
@@ -613,39 +621,53 @@ namespace praas::control_plane {
   }
 
   // This assumes a read lock over the process!
-  int Application::connected_process(const process::Process& ptr)
+  int Application::connected_process(process::Process& ptr)
   {
     write_lock_t lock{_app_data_mutex};
 
-    auto iter = std::find_if(
-      _app_data.begin(), _app_data.end(),
-      [](auto & pos) -> bool {
-        return std::get<1>(pos) == static_cast<int8_t>(Application::Status::NONE);
-      }
-    );
+    app_data_t* position = nullptr;
+    if(ptr.controlplane_id() == -1) {
 
-    int64_t size = sizeof(app_data_t) * _app_data.size();
-    ptr._connection->send(&size, sizeof(size));
-    ptr._connection->send(_app_data.data(), sizeof(app_data_t) * _app_data.size());
+      auto iter = std::find_if(
+        _app_data.begin(), _app_data.end(),
+        [](auto & pos) -> bool {
+          return std::get<1>(pos) == static_cast<int8_t>(common::Application::Status::NONE);
+        }
+      );
+      if(iter != _app_data.end()) {
+        position = &*iter;
+      }
+
+    } else {
+      position = &_app_data[ptr.controlplane_id()];
+    }
 
     int pos = 0;
-    if(iter != _app_data.end()) {
+    if(position) {
 
-      std::get<1>(*iter) = static_cast<int8_t>(Application::Status::ACTIVE);
+      std::get<1>(*position) = static_cast<int8_t>(common::Application::Status::ACTIVE);
       strncpy(
-        std::get<0>(*iter), ptr.name().data(),
+        std::get<0>(*position), ptr.name().data(),
         common::message::MessageConfig::NAME_LENGTH
       );
-      pos = std::distance(_app_data.begin(), iter);
+      pos = position - _app_data.data();
 
     } else {
       _app_data.emplace_back();
-      std::get<1>(_app_data.back()) = static_cast<int8_t>(Application::Status::ACTIVE);
+      std::get<1>(_app_data.back()) = static_cast<int8_t>(common::Application::Status::ACTIVE);
       strncpy(
         std::get<0>(_app_data.back()), ptr.name().data(),
         common::message::MessageConfig::NAME_LENGTH
       );
       pos = _app_data.size() - 1;
+    }
+
+    int64_t size = sizeof(app_data_t) * _app_data.size();
+    ptr._connection->send(&size, sizeof(size));
+    ptr._connection->send(_app_data.data(), sizeof(app_data_t) * _app_data.size());
+
+    if(ptr.controlplane_id() == -1) {
+      ptr.set_controlplane_id(pos);
     }
 
     // FIXME: thread pool
@@ -654,7 +676,7 @@ namespace praas::control_plane {
       this, ptr.name(),
       ptr.c_handle().ip_address,
       ptr.c_handle().port,
-      false
+      common::Application::Status::ACTIVE
     }.detach();
 
     return pos;
