@@ -124,6 +124,9 @@ namespace praas::process::swapper {
     fs::path full_path = fs::path{swap_location} / location / "state";
     if(fs::exists(full_path)) {
 
+      // There is at least some info.
+      success = true;
+
       spdlog::debug("Reading state swap data from {}", full_path.string());
       success = _process_swapin_dir(full_path,
         [&mailbox](const std::string& key, runtime::internal::Buffer<char> && data) mutable {
@@ -156,7 +159,9 @@ namespace praas::process::swapper {
           return true;
         }
       );
-
+      if(!success) {
+        return false;
+      }
     }
 
     full_path = fs::path{swap_location} / location / "files";
@@ -179,6 +184,11 @@ namespace praas::process::swapper {
   size_t DiskSwapper::swap_out(const std::string& location, std::vector<std::tuple<std::string, message::Message>>& msgs)
   {
     size_t total_size = 0;
+
+    // Create directory even if nothing present - just to make
+    fs::create_directories(fs::path{swap_location} / location / "state");
+    fs::create_directories(fs::path{swap_location} / location / "messages");
+    fs::create_directories(fs::path{swap_location} / location / "file");
 
     for(const auto& [key, message] : msgs) {
 
