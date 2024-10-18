@@ -448,9 +448,18 @@ namespace praas::control_plane {
     auto proc_lock = ptr->write_lock();
 
     {
-      //FIXME:
       write_lock_t lock{_app_data_mutex};
       std::get<1>(_app_data[ptr->controlplane_id()]) = static_cast<int8_t>(common::Application::Status::NONE);
+
+      // FIXME: thread pool
+      std::thread{
+        &Application::notify,
+        this, ptr->name(),
+        ptr->c_handle().ip_address,
+        ptr->c_handle().port,
+        common::Application::Status::CLOSED
+      }.detach();
+
     }
 
     if (ptr->status() != process::Status::SWAPPED_OUT && ptr->status() != process::Status::CLOSING) {
@@ -572,19 +581,39 @@ namespace praas::control_plane {
       throw praas::common::InvalidConfigurationError("Process name cannot be empty");
     }
 
-    write_lock_t application_lock(_swapped_mutex);
+    process::ProcessPtr ptr;
+    {
+      write_lock_t application_lock(_swapped_mutex);
 
-    // We cannot close it immediately because we need to first lock the process
-    auto iter = _swapped_processes.find(process_name);
-    if (iter == _swapped_processes.end()) {
-      throw praas::common::ObjectDoesNotExist{process_name};
+      // We cannot close it immediately because we need to first lock the process
+      auto iter = _swapped_processes.find(process_name);
+      if (iter == _swapped_processes.end()) {
+        throw praas::common::ObjectDoesNotExist{process_name};
+      }
+
+      ptr = std::move((*iter).second);
+      _swapped_processes.erase(iter);
     }
 
-    process::Process& proc = *(*iter).second;
+    process::Process& proc = *ptr.get();
 
     deployment.delete_swap(*proc.state().swap);
 
-    _swapped_processes.erase(iter);
+    {
+      write_lock_t lock{_app_data_mutex};
+      std::get<1>(_app_data[ptr->controlplane_id()]) = static_cast<int8_t>(common::Application::Status::NONE);
+
+      // FIXME: thread pool
+      // Handle is empty after deletion - no IP addr/port
+      std::thread{
+        &Application::notify,
+        this, ptr->name(),
+        "", 0,
+        common::Application::Status::DELETED
+      }.detach();
+
+    }
+
   }
 
   std::string Application::name() const
