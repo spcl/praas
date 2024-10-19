@@ -1,0 +1,23 @@
+FROM spcleth/praas:process-deps AS deps
+FROM spcleth/praas:process-deps-aws AS deps-aws
+FROM spcleth/praas:cpp-builder AS builder
+
+COPY --from=deps /opt /opt
+COPY --from=deps-aws /opt /opt
+
+RUN apt-get update && apt-get install -y --no-install-recommends libhiredis-dev libcurl4 pkg-config python3-pip && pip install pybind11
+
+WORKDIR /praas
+ADD . /source/
+RUN pybind11_DIR=/usr/local/lib/python3.10/dist-packages/pybind11 cmake -DCMAKE_MODULE_PATH="/opt/lib/cmake;/opt/lib/cmake/Drogon;/opt/lib/cmake/Trantor;/opt/lib/cmake/cereal" -DCMAKE_BUILD_TYPE=Release -DPRAAS_DEPLOYMENTS="aws" -DPRAAS_COMPONENTS="benchmarks;process;sdk" /source
+RUN cmake --build . -j4
+
+FROM ubuntu:22.04
+
+COPY --from=builder /opt /opt
+COPY --from=builder /praas /praas
+
+RUN apt-get update && apt-get install -y --no-install-recommends libcurl4 ca-certificates hiredis0.14
+
+ENTRYPOINT ["/praas/process/bin/process_exe", "-c", "/praas/benchmarks/swapper/config.json"]
+
