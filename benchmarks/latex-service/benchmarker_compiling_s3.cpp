@@ -51,18 +51,39 @@ struct Config {
 struct CompileRequest {
   std::string file;
   bool clean;
+  bool full_clean;
 
   template <typename Ar>
   void save(Ar& archive) const
   {
     archive(CEREAL_NVP(file));
     archive(CEREAL_NVP(clean));
+    archive(CEREAL_NVP(full_clean));
   }
 
   template <typename Ar>
   void load(Ar& archive)
   {
+    archive(CEREAL_NVP(file));
     archive(CEREAL_NVP(clean));
+    archive(CEREAL_NVP(full_clean));
+  }
+};
+
+struct FileRequest {
+
+  std::string file;
+
+  template <typename Ar>
+  void save(Ar& archive) const
+  {
+    archive(CEREAL_NVP(file));
+  }
+
+  template <typename Ar>
+  void load(Ar& archive)
+  {
+    archive(CEREAL_NVP(file));
   }
 };
 
@@ -148,6 +169,19 @@ struct ResultPDF {
   }
 };
 
+std::string generate_input_json(FileRequest& file)
+{
+  std::stringstream output;
+  {
+    cereal::JSONOutputArchive archive_out{output};
+    file.save(archive_out);
+    if(!output.good()) {
+      abort();
+    }
+  }
+  return output.str();
+}
+
 std::string generate_input_json(File& file)
 {
   std::stringstream output;
@@ -205,8 +239,6 @@ std::tuple<std::string, double> make_request(std::string url, const std::string&
     list = curl_slist_append(list, "Content-Type: application/json");
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
     curl_easy_setopt(curl, CURLOPT_POST, 1);
-    // curl_easy_setopt(curl, CURLOPT_USERPWD,
-    // "23bc46b1-71f6-4ed5-8c54-816aa4f8c502:123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP");
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
@@ -217,6 +249,7 @@ std::tuple<std::string, double> make_request(std::string url, const std::string&
     auto end = std::chrono::high_resolution_clock::now();
     curl_slist_free_all(list);
     if (res != CURLE_OK) {
+      std::cerr << "Lambda request failed!" << std::endl;
       abort();
     }
 
@@ -224,6 +257,7 @@ std::tuple<std::string, double> make_request(std::string url, const std::string&
         readBuffer, std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()
     );
   }
+  return std::make_tuple("", 0);
 }
 
 std::string upload_file(std::string file, Config& cfg, bool read_data = true)
@@ -283,50 +317,25 @@ int main(int argc, char** argv)
   // Scenario 1 - full recompilation
   for (int i = 0; i < cfg.repetitions + 1; ++i) {
 
+    spdlog::info("Begin rep {}", i);
+
     for (const auto& file : files) {
       auto data = upload_file(file, cfg);
 
       auto [length, duration] = make_request(cfg.lambda_url_update_file, data);
-      // std::promise<int> p;
-      // client.post(
-      //     data,
-      //     [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
-      //       if (result != drogon::ReqResult::Ok && response->getStatusCode() != drogon::k200OK)
-      //         abort();
-      //       p.set_value(response->getJsonObject()->size());
-      //     }
-      //);
-      // int val = p.get_future().get();
     }
 
-    if (i % 10 == 0)
-      spdlog::info("Begin rep {}", i);
-    CompileRequest req{"sample-sigconf.tex", true};
+    CompileRequest req{"sample-sigconf.tex", true, false};
     auto data = generate_input_compile(req);
-    // auto begin = std::chrono::high_resolution_clock::now();
-    // std::promise<int> p;
-    // client_compile.post(
-    //     data,
-    //     [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
-    //       std::cerr << result << " " << response->getStatusCode() << std::endl;
-    //       // if (result != drogon::ReqResult::Ok && response->getStatusCode() != drogon::k200OK)
-    //       //   abort();
-    //       p.set_value(1);
-    //     }
-    //);
-    // int size = p.get_future().get();
-    // auto end = std::chrono::high_resolution_clock::now();
-    // size = 0; // val.toStyledString().length();
     auto [result, duration] = make_request(cfg.lambda_url_compile, data);
 
-    // std::cerr << "done" << std::endl;
     Json::Value root;
     Json::Reader reader;
     bool parsingSuccessful = reader.parse(result, root);
     if (!parsingSuccessful) {
       std::cout << "Error parsing the string" << std::endl;
+      abort();
     }
-    // std::cerr << "parsed" << std::endl;
 
     if (i > 0) {
       Json::Value val;
@@ -334,6 +343,40 @@ int main(int argc, char** argv)
           "compile", "full", i, data.length(), result.length(), duration,
           root["time_data"].asDouble(), root["time_compile"].asDouble()
       );
+    }
+    {
+      std::ofstream output{fmt::format("output_compiling_1_lambda_{}.txt", i)};
+      //output << res.output;
+      output << result << std::endl;
+    }
+  }
+
+
+
+  for (int i = 0; i < cfg.repetitions + 1; ++i) {
+
+    spdlog::info("Begin rep {}", i);
+    FileRequest req{"sample-sigconf"};
+    auto data = generate_input_json(req);
+    auto [result, duration] = make_request(cfg.lambda_url_get_pdf, data);
+
+    // std::cerr << "done" << std::endl;
+    Json::Value root;
+    Json::Reader reader;
+    bool parsingSuccessful = reader.parse(result, root);
+    if (!parsingSuccessful) {
+      std::cout << "Error parsing the string" << std::endl;
+      abort();
+    }
+
+    if (i > 0) {
+      measurements.emplace_back(
+          "get-pdf", "default", i, data.length(), result.length(), duration, 0, 0
+      );
+    }
+    {
+      std::ofstream output{fmt::format("output_get_pdf_lambda_{}", i)};
+      output << result << std::endl;
     }
   }
 
@@ -349,7 +392,7 @@ int main(int argc, char** argv)
       auto [length, duration] = make_request(cfg.lambda_url_update_file, data);
     }
 
-    CompileRequest req{"sample-sigconf.tex", false};
+    CompileRequest req{"sample-sigconf.tex", false, false};
     auto data = generate_input_compile(req);
     auto [result, duration] = make_request(cfg.lambda_url_compile, data);
 
@@ -359,6 +402,7 @@ int main(int argc, char** argv)
     bool parsingSuccessful = reader.parse(result, root);
     if (!parsingSuccessful) {
       std::cout << "Error parsing the string" << std::endl;
+      abort();
     }
     // std::cerr << "parsed" << std::endl;
 
@@ -369,6 +413,10 @@ int main(int argc, char** argv)
           root["time_data"].asDouble(), root["time_compile"].asDouble()
       );
     }
+    {
+      std::ofstream output{fmt::format("output_compiling_2_lambda_{}.txt", i)};
+      output << result << std::endl;
+    }
   }
 
   update_files = {
@@ -378,13 +426,19 @@ int main(int argc, char** argv)
 
     spdlog::info("Begin rep {}", i);
 
+    std::string file_data;
     for (const auto& file : update_files) {
-      auto data = upload_file(file, cfg, false);
 
-      auto [length, duration] = make_request(cfg.lambda_url_update_file, data);
+      if(file == "acmart.cls") {
+        file_data = upload_file(file, cfg, false);
+      } else {
+        file_data = upload_file(file, cfg, true);
+      }
+
+      auto [length, duration] = make_request(cfg.lambda_url_update_file, file_data);
     }
 
-    CompileRequest req{"sample-sigconf.tex", false};
+    CompileRequest req{"sample-sigconf.tex", false, true};
     auto data = generate_input_compile(req);
     auto [result, duration] = make_request(cfg.lambda_url_compile, data);
 
@@ -394,6 +448,7 @@ int main(int argc, char** argv)
     bool parsingSuccessful = reader.parse(result, root);
     if (!parsingSuccessful) {
       std::cout << "Error parsing the string" << std::endl;
+      abort();
     }
     // std::cerr << "parsed" << std::endl;
 
@@ -404,31 +459,11 @@ int main(int argc, char** argv)
           root["time_data"].asDouble(), root["time_compile"].asDouble()
       );
     }
-  }
-
-  auto client_get = praas::common::http::HTTPClientFactory::create_client(cfg.lambda_url_get_pdf);
-  for (int i = 0; i < cfg.repetitions + 1; ++i) {
-
-    spdlog::info("Begin rep {}", i);
-    CompileRequest req{"sample-sigconf", false};
-    auto data = generate_input_compile(req);
-    auto [result, duration] = make_request(cfg.lambda_url_compile, data);
-
-    // std::cerr << "done" << std::endl;
-    Json::Value root;
-    Json::Reader reader;
-    bool parsingSuccessful = reader.parse(result, root);
-    if (!parsingSuccessful) {
-      std::cout << "Error parsing the string" << std::endl;
-    }
-
-    if (i > 0) {
-      measurements.emplace_back(
-          "get-pdf", "default", i, data.length(), result.length(), duration, 0, 0
-      );
+    {
+      std::ofstream output{fmt::format("output_compiling_3_lambda_{}.txt", i)};
+      output << result << std::endl;
     }
   }
-
   std::cerr << measurements.size() << std::endl;
 
   std::ofstream out_file{cfg.output_file, std::ios::out};
