@@ -167,7 +167,7 @@ int main(int argc, char** argv)
       }
       {
         std::ofstream output{fmt::format("output_update_file_{}_praas_{}", j, i)};
-        output << invoc.payload;
+        output << std::string_view{invoc.payload.get(), invoc.payload_len};
       }
     }
 
@@ -202,7 +202,7 @@ int main(int argc, char** argv)
       }
       {
         std::ofstream output{fmt::format("output_get_file_{}_praas_{}", j, i)};
-        output << invoc.payload;
+        output << std::string_view{invoc.payload.get(), invoc.payload_len};
       }
     }
 
