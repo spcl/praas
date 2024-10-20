@@ -152,7 +152,9 @@ std::string generate_input_json(File& file)
   {
     cereal::JSONOutputArchive archive_out{output};
     file.save(archive_out);
-    assert(stream.good());
+    if(!output.good()) {
+      abort();
+    }
   }
   return output.str();
 }
@@ -163,7 +165,9 @@ std::string generate_input_compile(CompileRequest& req)
   {
     cereal::JSONOutputArchive archive_out{output};
     req.save(archive_out);
-    assert(stream.good());
+    if(!output.good()) {
+      abort();
+    }
   }
   return output.str();
 }
@@ -271,10 +275,15 @@ int main(int argc, char** argv)
           res.time_compile
       );
     }
+
+    {
+      std::ofstream output{fmt::format("output_compiling_1_praas_{}", i)};
+      output << res.output;
+    }
   }
 
   std::vector<std::string> update_files{"secs/acks.tex"};
-  // Scenario 1 - small update
+  // Scenario 1 - small update, no recompilation
   for (int i = 0; i < cfg.repetitions + 1; ++i) {
 
     spdlog::info("Begin rep {}", i);
@@ -305,17 +314,27 @@ int main(int argc, char** argv)
           res.time_compile
       );
     }
+    {
+      std::ofstream output{fmt::format("output_compiling_2_praas_{}", i)};
+      output << res.output;
+    }
   }
 
   update_files = {
       "acmart.cls", "sampleteaser.pdf", "secs/core.tex", "secs/figure.tex", "secs/multi.tex"};
-  // Scenario 1 - large update
+  // Scenario 1 - large update that leads to a failure.
   for (int i = 0; i < cfg.repetitions + 1; ++i) {
 
     spdlog::info("Begin rep {}", i);
 
+    std::string data;
     for (const auto& file : update_files) {
-      auto data = upload_file(file, cfg, false);
+
+      if(file == "acmart.cls") {
+        data = upload_file(file, cfg, false);
+      } else {
+        data = upload_file(file, cfg, true);
+      }
 
       auto invoc = proc->invoke("update-file", "invocation-id", data.data(), data.size());
       if (invoc.return_code != 0) {
@@ -340,6 +359,10 @@ int main(int argc, char** argv)
           res.time_compile
       );
     }
+    {
+      std::ofstream output{fmt::format("output_compiling_3_praas_{}", i)};
+      output << res.output;
+    }
   }
 
   for (int i = 0; i < cfg.repetitions + 1; ++i) {
@@ -360,6 +383,10 @@ int main(int argc, char** argv)
           "get-pdf", "default", i, data.length(), invoc.payload_len,
           std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count(), 0, 0
       );
+    }
+    {
+      std::ofstream output{fmt::format("output_get_pdf_praas_{}", i)};
+      output << res.data;
     }
   }
 

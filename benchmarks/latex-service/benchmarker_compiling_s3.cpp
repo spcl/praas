@@ -154,7 +154,9 @@ std::string generate_input_json(File& file)
   {
     cereal::JSONOutputArchive archive_out{output};
     file.save(archive_out);
-    assert(stream.good());
+    if(!output.good()) {
+      abort();
+    }
   }
   return output.str();
 }
@@ -165,7 +167,9 @@ std::string generate_input_compile(CompileRequest& req)
   {
     cereal::JSONOutputArchive archive_out{output};
     req.save(archive_out);
-    assert(stream.good());
+    if(!output.good()) {
+      abort();
+    }
   }
   return output.str();
 }
