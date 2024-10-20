@@ -23,6 +23,8 @@ namespace praas::control_plane {
   {
     _logger = common::util::create_logger("HttpServer");
     drogon::app().setClientMaxBodySize(cfg.max_payload_size);
+    // FIXME: make it configuragle
+    drogon::app().setIdleConnectionTimeout(120);
   }
 
   void HttpServer::run()
@@ -108,6 +110,7 @@ namespace praas::control_plane {
         [callback =
              std::move(callback)](process::ProcessPtr proc, std::optional<std::string> error_msg) {
           if (proc) {
+
 
             Json::Value conn_description;
             conn_description["type"] = "direct";
