@@ -8,7 +8,6 @@
   ],
   "resources_cpu": "1",
   "resources_memory": "1024",
-  "resources_memory": "1024",
   "repetitions": 5,
   "output_file": "latex_editing.csv",
   "lambda_url_update": "",

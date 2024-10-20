@@ -13,6 +13,7 @@ import subprocess
 class CompileRequest:
     file: str
     clean: bool
+    full_clean: bool
 
 @dataclass_json
 @dataclass
@@ -47,6 +48,7 @@ def compile(event, context):
     input = CompileRequest.from_dict(event)
 
     start_update = datetime.now()
+    updated_files = []
     files = s3_client.list_objects_v2(Bucket='praas-benchmarks')['Contents']
     for file in files:
 
@@ -61,6 +63,11 @@ def compile(event, context):
             updated = True
 
         if updated:
+
+            if path.startswith('pdfs/'):
+                continue
+
+            updated_files.append(path)
             data = get_state(path)
 
             #print("update", path, file_path)
@@ -80,31 +87,40 @@ def compile(event, context):
     cmd = ['latexmk', '-pdf', '--output-directory=pdfs', input.file]
     if input.clean:
         cmd.append('-gg')
-    #with open('/tmp/output', 'w') as out_file:
+    ret2 = None
+    if input.full_clean:
+        ret2 = subprocess.run(
+            ["latexmk", "-C", '--output-directory=pdfs'],
+            stderr=subprocess.STDOUT, stdout=subprocess.PIPE,
+            cwd=MAIN_DIR,
+        )
     ret = subprocess.run(
         cmd,
-        #capture_output=True,
-        #stderr=subprocess.STDOUT, stdout=out_file,
         stderr=subprocess.STDOUT, stdout=subprocess.PIPE,
-        #stderr=subprocess.STDOUT, stdout=subprocess.STDOUT,
         cwd=MAIN_DIR,
     )
     end_compile = datetime.now()
 
     return_data = {}
 
-    pre, ext = os.path.splitext(input.file)
-    path = os.path.join('pdfs', f"{pre}.pdf")
-    s3_client.upload_file(os.path.join(MAIN_DIR, path), "praas-benchmarks", path)
     #with open('/tmp/output', 'r') as in_f:
     #    logs = in_f.read()
     #    print('logs', len(logs))
 
     if ret.returncode == 0:
+        pre, ext = os.path.splitext(input.file)
+        path = os.path.join('pdfs', f"{pre}.pdf")
+        s3_client.upload_file(os.path.join(MAIN_DIR, path), "praas-benchmarks", path)
+
         return_data['status'] = 'succcess'
     else:
         return_data['status'] = 'failure'
     return_data['output'] = base64.b64encode(ret.stdout).decode()
+    return_data['updated_files'] = updated_files
+    return_data['command'] = cmd
+    return_data['full_clean'] = input.full_clean
+    if ret2 is not None:
+        return_data['full_clean_output'] = ret2.stdout.decode()
     return_data['time_data'] = (end_update - start_update)/timedelta(seconds=1)
     return_data['time_compile'] = (end_compile - start_compile)/timedelta(seconds=1)
 
@@ -131,4 +147,5 @@ def get_pdf(event, context):
     return result
 
 if __name__ == "__main__":
-    print(get_pdf({'file': 'sample-sigconf'}, {}))
+    #print(get_pdf({'file': 'sample-sigconf'}, {}))
+    print(compile({'file': 'sample-sigconf', 'clean': False}, {}))

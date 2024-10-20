@@ -49,18 +49,22 @@ struct Config {
 struct CompileRequest {
   std::string file;
   bool clean;
+  bool full_clean;
 
   template <typename Ar>
   void save(Ar& archive) const
   {
     archive(CEREAL_NVP(file));
     archive(CEREAL_NVP(clean));
+    archive(CEREAL_NVP(full_clean));
   }
 
   template <typename Ar>
   void load(Ar& archive)
   {
+    archive(CEREAL_NVP(file));
     archive(CEREAL_NVP(clean));
+    archive(CEREAL_NVP(full_clean));
   }
 };
 
@@ -114,6 +118,7 @@ struct CompilationResult {
 struct Result {
   std::string message;
 
+
   template <typename Ar>
   void save(Ar& archive) const
   {
@@ -152,7 +157,9 @@ std::string generate_input_json(File& file)
   {
     cereal::JSONOutputArchive archive_out{output};
     file.save(archive_out);
-    assert(stream.good());
+    if(!output.good()) {
+      abort();
+    }
   }
   return output.str();
 }
@@ -163,7 +170,9 @@ std::string generate_input_compile(CompileRequest& req)
   {
     cereal::JSONOutputArchive archive_out{output};
     req.save(archive_out);
-    assert(stream.good());
+    if(!output.good()) {
+      abort();
+    }
   }
   return output.str();
 }
@@ -227,6 +236,7 @@ int main(int argc, char** argv)
   );
 
   if (!proc.has_value() || !proc->connect()) {
+	std::cerr << "Couldn't connect! " << proc.has_value() << std::endl;
     abort();
   }
 
@@ -250,16 +260,21 @@ int main(int argc, char** argv)
 
       auto invoc = proc->invoke("update-file", "invocation-id", data.data(), data.size());
       if (invoc.return_code != 0) {
+	std::cerr << "Failed invocation of upload_file!" << std::endl;
+	std::cerr << invoc.payload_len << std::endl;
+	std::cerr << invoc.payload << std::endl;
         abort();
       }
     }
 
-    CompileRequest req{"sample-sigconf.tex", true};
+    CompileRequest req{"sample-sigconf.tex", true, false };
     auto data = generate_input_compile(req);
     auto begin = std::chrono::high_resolution_clock::now();
     auto invoc = proc->invoke("compile", "invocation-id", data.data(), data.size());
     auto end = std::chrono::high_resolution_clock::now();
     if (invoc.return_code != 0) {
+	std::cerr << "Failed invocation of compile!" << std::endl;
+	std::cerr << invoc.payload << std::endl;
       abort();
     }
     auto res = get_output<CompilationResult>(invoc.payload.get(), invoc.payload_len);
@@ -271,10 +286,46 @@ int main(int argc, char** argv)
           res.time_compile
       );
     }
+
+    {
+      std::ofstream output{fmt::format("output_compiling_1_praas_{}.txt", i)};
+      //output << res.output;
+      output << std::string_view{invoc.payload.get(), invoc.payload_len} << std::endl;
+    }
+  }
+
+  for (int i = 0; i < cfg.repetitions + 1; ++i) {
+
+    spdlog::info("Begin rep {}", i);
+    CompileRequest req{"sample-sigconf", false};
+    auto data = generate_input_compile(req);
+    auto begin = std::chrono::high_resolution_clock::now();
+    auto invoc = proc->invoke("get-pdf", "invocation-id", data.data(), data.size());
+    auto end = std::chrono::high_resolution_clock::now();
+    if (invoc.return_code != 0) {
+      std::cerr << "Failed invocation!" << std::endl;
+      abort();
+    }
+    if(invoc.payload_len == 0) {
+      std::cerr << "Failed invocation!" << std::endl;
+      abort();
+    }
+    auto res = get_output<ResultPDF>(invoc.payload.get(), invoc.payload_len);
+
+    if (i > 0) {
+      measurements.emplace_back(
+          "get-pdf", "default", i, data.length(), invoc.payload_len,
+          std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count(), 0, 0
+      );
+    }
+    {
+      std::ofstream output{fmt::format("output_get_pdf_praas_{}", i)};
+      output << res.data;
+    }
   }
 
   std::vector<std::string> update_files{"secs/acks.tex"};
-  // Scenario 1 - small update
+  // Scenario 1 - small update, no recompilation
   for (int i = 0; i < cfg.repetitions + 1; ++i) {
 
     spdlog::info("Begin rep {}", i);
@@ -288,7 +339,7 @@ int main(int argc, char** argv)
       }
     }
 
-    CompileRequest req{"sample-sigconf.tex", false};
+    CompileRequest req{"sample-sigconf.tex", false, false};
     auto data = generate_input_compile(req);
     auto begin = std::chrono::high_resolution_clock::now();
     auto invoc = proc->invoke("compile", "invocation-id", data.data(), data.size());
@@ -305,25 +356,35 @@ int main(int argc, char** argv)
           res.time_compile
       );
     }
+    {
+      std::ofstream output{fmt::format("output_compiling_2_praas_{}.txt", i)};
+      output << std::string_view{invoc.payload.get(), invoc.payload_len} << std::endl;
+    }
   }
 
   update_files = {
       "acmart.cls", "sampleteaser.pdf", "secs/core.tex", "secs/figure.tex", "secs/multi.tex"};
-  // Scenario 1 - large update
+  // Scenario 1 - large update that leads to a failure.
   for (int i = 0; i < cfg.repetitions + 1; ++i) {
 
     spdlog::info("Begin rep {}", i);
 
+    std::string file_data;
     for (const auto& file : update_files) {
-      auto data = upload_file(file, cfg, false);
 
-      auto invoc = proc->invoke("update-file", "invocation-id", data.data(), data.size());
+      if(file == "acmart.cls") {
+        file_data = upload_file(file, cfg, false);
+      } else {
+        file_data = upload_file(file, cfg, true);
+      }
+
+      auto invoc = proc->invoke("update-file", "invocation-id", file_data.data(), file_data.size());
       if (invoc.return_code != 0) {
         abort();
       }
     }
 
-    CompileRequest req{"sample-sigconf.tex", false};
+    CompileRequest req{"sample-sigconf.tex", false, true};
     auto data = generate_input_compile(req);
     auto begin = std::chrono::high_resolution_clock::now();
     auto invoc = proc->invoke("compile", "invocation-id", data.data(), data.size());
@@ -340,28 +401,12 @@ int main(int argc, char** argv)
           res.time_compile
       );
     }
-  }
-
-  for (int i = 0; i < cfg.repetitions + 1; ++i) {
-
-    spdlog::info("Begin rep {}", i);
-    CompileRequest req{"sample-sigconf", false};
-    auto data = generate_input_compile(req);
-    auto begin = std::chrono::high_resolution_clock::now();
-    auto invoc = proc->invoke("get-pdf", "invocation-id", data.data(), data.size());
-    auto end = std::chrono::high_resolution_clock::now();
-    if (invoc.return_code != 0) {
-      abort();
-    }
-    auto res = get_output<ResultPDF>(invoc.payload.get(), invoc.payload_len);
-
-    if (i > 0) {
-      measurements.emplace_back(
-          "get-pdf", "default", i, data.length(), invoc.payload_len,
-          std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count(), 0, 0
-      );
+    {
+      std::ofstream output{fmt::format("output_compiling_3_praas_{}.txt", i)};
+      output << std::string_view{invoc.payload.get(), invoc.payload_len} << std::endl;
     }
   }
+
 
   std::cerr << measurements.size() << std::endl;
 
