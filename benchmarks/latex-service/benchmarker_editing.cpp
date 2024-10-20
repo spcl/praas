@@ -91,7 +91,9 @@ std::string generate_input_json(File& file)
   {
     cereal::JSONOutputArchive archive_out{output};
     file.save(archive_out);
-    assert(stream.good());
+    if(!output.good()) {
+      abort();
+    }
   }
   return output.str();
 }
@@ -125,6 +127,7 @@ int main(int argc, char** argv)
 
   std::vector<std::tuple<std::string, std::string, int, int, int, long>> measurements;
 
+  int j = 0;
   for (std::string file : cfg.input_files) {
 
     spdlog::info("Begin file {}", file);
@@ -134,6 +137,10 @@ int main(int argc, char** argv)
     input_file.path = std::filesystem::path{file}.parent_path();
 
     std::ifstream input{std::filesystem::path{cfg.inputs_directory} / file};
+    if(input.fail()) {
+      spdlog::error("Failed to open the file!");
+      abort();
+    }
     std::stringstream buffer;
     buffer << input.rdbuf();
     input_file.data = buffer.str();
@@ -158,9 +165,16 @@ int main(int argc, char** argv)
             std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()
         );
       }
+      {
+        std::ofstream output{fmt::format("output_update_file_{}_praas_{}", j, i)};
+        output << std::string_view{invoc.payload.get(), invoc.payload_len};
+      }
     }
+
+    ++j;
   }
 
+  j = 0;
   for (std::string file : cfg.input_files) {
 
     spdlog::info("Begin file {}", file);
@@ -186,9 +200,15 @@ int main(int argc, char** argv)
             std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()
         );
       }
+      {
+        std::ofstream output{fmt::format("output_get_file_{}_praas_{}", j, i)};
+        output << std::string_view{invoc.payload.get(), invoc.payload_len};
+      }
     }
+
+    ++j;
   }
-  std::cerr << measurements.size() << std::endl;
+  //std::cerr << measurements.size() << std::endl;
 
   std::ofstream out_file{cfg.output_file, std::ios::out};
   out_file << "type,input,repetition,input-size,output-size,time" << '\n';

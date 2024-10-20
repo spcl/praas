@@ -93,7 +93,9 @@ std::string generate_input_json(File& file)
   {
     cereal::JSONOutputArchive archive_out{output};
     file.save(archive_out);
-    assert(stream.good());
+    if(!output.good()) {
+      abort();
+    }
   }
   return output.str();
 }
@@ -105,7 +107,7 @@ static size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* use
   return size * nmemb;
 }
 
-std::tuple<int, double> make_request(std::string url, const std::string& data)
+std::tuple<std::string, double> make_request(std::string url, const std::string& data)
 {
   std::string header[] = {"Content-Type: application/json"};
   if (curl) {
@@ -117,8 +119,6 @@ std::tuple<int, double> make_request(std::string url, const std::string& data)
     list = curl_slist_append(list, "Content-Type: application/json");
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
     curl_easy_setopt(curl, CURLOPT_POST, 1);
-    // curl_easy_setopt(curl, CURLOPT_USERPWD,
-    // "23bc46b1-71f6-4ed5-8c54-816aa4f8c502:123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP");
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
@@ -133,10 +133,11 @@ std::tuple<int, double> make_request(std::string url, const std::string& data)
     }
 
     return std::make_tuple(
-        readBuffer.length(),
+        readBuffer,
         std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()
     );
   }
+  return std::make_tuple("", 0);
 }
 
 int main(int argc, char** argv)
@@ -161,6 +162,7 @@ int main(int argc, char** argv)
 
   std::vector<std::tuple<std::string, std::string, int, int, int, long>> measurements;
 
+  int j =0;
   for (std::string file : cfg.input_files) {
 
     spdlog::info("Begin file {}", file);
@@ -179,35 +181,23 @@ int main(int argc, char** argv)
       input_file.data = macaron::Base64::Encode(input_file.data);
     }
     auto data = generate_input_json(input_file);
-    std::cerr << data << std::endl;
 
     for (int i = 0; i < cfg.repetitions + 1; ++i) {
 
       std::promise<int> p;
-      auto [length, duration] = make_request(cfg.lambda_url_update, data);
-      // auto begin = std::chrono::high_resolution_clock::now();
-      // client.post(
-      //     data,
-      //     [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
-      //       // std::cerr << result << std::endl;
-      //       // std::cerr << response->getStatusCode() << std::endl;
-      //       // if (response->getJsonObject())
-      //       //   std::cerr << *response->getJsonObject() << std::endl;
-      //       if (result != drogon::ReqResult::Ok && response->getStatusCode() != drogon::k200OK)
-      //         abort();
-      //       p.set_value(response->getJsonObject()->size());
-      //     }
-      //);
-      // int val = p.get_future().get();
-      // auto end = std::chrono::high_resolution_clock::now();
+      auto [result, duration] = make_request(cfg.lambda_url_update, data);
       if (i > 0) {
-        measurements.emplace_back("update-file", file, i, data.length(), length, duration);
+        measurements.emplace_back("update-file", file, i, data.length(), result.length(), duration);
+      }
+      {
+        std::ofstream output{fmt::format("output_update_file_{}_lambda_{}", j, i)};
+        output << result << std::endl;
       }
     }
+    ++j;
   }
 
-  client = praas::common::http::HTTPClientFactory::create_client(cfg.lambda_url_get);
-
+  j = 0;
   for (std::string file : cfg.input_files) {
 
     spdlog::info("Begin file {}", file);
@@ -220,31 +210,19 @@ int main(int argc, char** argv)
 
     for (int i = 0; i < cfg.repetitions + 1; ++i) {
 
-      // std::promise<int> p;
-      auto [length, duration] = make_request(cfg.lambda_url_get, data);
-      // auto begin = std::chrono::high_resolution_clock::now();
-      // client.post(
-      //     data,
-      //     [&](drogon::ReqResult result, const drogon::HttpResponsePtr& response) mutable {
-      //       // std::cerr << result << std::endl;
-      //       // std::cerr << response->getStatusCode() << std::endl;
-      //       // if (response->getJsonObject())
-      //       //   std::cerr << *response->getJsonObject() << std::endl;
-      //       if (result != drogon::ReqResult::Ok && response->getStatusCode() != drogon::k200OK)
-      //         abort();
-      //       p.set_value(response->getJsonObject()->size());
-      //     }
-      //);
-      // int val = p.get_future().get();
-      // auto end = std::chrono::high_resolution_clock::now();
+      auto [result, duration] = make_request(cfg.lambda_url_get, data);
       if (i > 0) {
         measurements.emplace_back(
-            "get-file", file, i, data.length(), length, duration
-            // val,
-            // std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count()
+            "get-file", file, i, data.length(), result.length(), duration
         );
       }
+      {
+        std::ofstream output{fmt::format("output_get_file_{}_lambda_{}", j, i)};
+        output << result << std::endl;
+      }
     }
+
+    ++j;
   }
   std::cerr << measurements.size() << std::endl;
 

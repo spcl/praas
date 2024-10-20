@@ -1,0 +1,12 @@
+FROM ubuntu:24.04
+
+# this file will be unpacked by Docker
+ADD install-tl-unx.tar.gz .
+ADD texlive.profile .
+RUN apt update && apt install -y --no-install-recommends zip curl perl
+RUN cd install-tl-* \
+    && ./install-tl --profile ../texlive.profile -repository ftp://tug.org/historic/systems/texlive/2023/tlnet-final
+ENV PATH=/var/task/texlive/2017/bin/x86_64-linux/:$PATH
+RUN tlmgr install latexmk xkeyval xstring microtype etoolbox booktabs totpages environ textcase hyperxmp ifmtarg xcolor ncctools cmap caption float comment preprint cm-super
+RUN tlmgr install pdfmanagement-testphase tagpdf inconsolata libertine newtx
+RUN tlmgr install upquote
