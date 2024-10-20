@@ -15,6 +15,7 @@ import pypraas
 class CompileRequest:
     file: str
     clean: bool
+    full_clean: bool
 
 @dataclass_json
 @dataclass
@@ -27,7 +28,7 @@ class EnhancedJSONEncoder(json.JSONEncoder):
             return dataclasses.asdict(o)
         return super().default(o)
 
-MAIN_DIR='/tmp/project'
+MAIN_DIR='/tmp/state/project'
 if not os.path.exists(MAIN_DIR):
     os.makedirs(MAIN_DIR)
 
@@ -38,6 +39,7 @@ def compile(invocation, context):
     files = context.state_keys()
 
     start_update = datetime.now()
+    updated_files = []
     for path, timestamp in files:
 
         file_path = os.path.join(MAIN_DIR, path)
@@ -49,6 +51,12 @@ def compile(invocation, context):
             updated = True
 
         if updated:
+
+            if path.startswith('pdfs/'):
+                continue
+
+            updated_files.append(path)
+
             data = context.state(path)
 
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -65,6 +73,13 @@ def compile(invocation, context):
     cmd = ['latexmk', '-pdf', '--output-directory=pdfs', input.file]
     if input.clean:
         cmd.append('-gg')
+    ret2 = None
+    if input.full_clean:
+        ret2 = subprocess.run(
+            ["latexmk", "-C", '--output-directory=pdfs'],
+            stderr=subprocess.STDOUT, stdout=subprocess.PIPE,
+            cwd=MAIN_DIR,
+        )
     ret = subprocess.run(
         cmd,
         stderr=subprocess.STDOUT, stdout=subprocess.PIPE,
@@ -80,6 +95,11 @@ def compile(invocation, context):
     else:
         return_data['status'] = 'failure'
     return_data['output'] = ret.stdout.decode()
+    return_data['updated_files'] = updated_files
+    return_data['command'] = cmd
+    return_data['full_clean'] = input.full_clean
+    if ret2 is not None:
+        return_data['full_clean_output'] = ret2.stdout.decode()
     return_data['time_data'] = (end_update - start_update)/timedelta(seconds=1)
     return_data['time_compile'] = (end_compile - start_compile)/timedelta(seconds=1)
 

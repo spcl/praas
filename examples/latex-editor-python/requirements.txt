@@ -1,1 +1,2 @@
 dataclasses_json
+boto3
