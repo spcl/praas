@@ -76,7 +76,7 @@ namespace praas::control_plane::downscaler {
 
             auto lock = ptr->read_lock();
             auto name = ptr->name();
-            _process_list[name] = ProcessStats{std::move(ptr), now_timestamp};
+            _process_list[name] = ProcessStats{std::move(ptr), static_cast<uint64_t>(now_timestamp)};
 
           } else {
             auto lock = ptr->read_lock();

@@ -22,7 +22,9 @@ namespace praas::control_plane::worker {
   void Workers::handle_invocation(
       HttpServer::request_t request, HttpServer::callback_t&& callback, const std::string& app_id,
       std::string function_name, std::chrono::high_resolution_clock::time_point start,
-      std::optional<std::string> process_name
+      std::optional<std::string> process_name,
+      std::optional<std::string> vcpus,
+      std::optional<std::string> memory
   )
   {
     Resources::RWAccessor acc;
@@ -91,7 +93,12 @@ namespace praas::control_plane::worker {
       // Get a process or allocate one.
       // FIXME: make resources configurable
       acc.get()->get_controlplane_process(
-          _backend, *_server, process::Resources{"1", "2048", ""},
+          _backend, *_server,
+          process::Resources{
+            !vcpus.has_value() ? "1024" : vcpus.value(),
+            !memory.has_value() ? "2048" : memory.value(),
+            ""
+          },
           [start, function_name, request = std::move(request), callback = std::move(callback)](
               process::ProcessPtr proc_ptr, const std::optional<std::string>& error_msg
           ) mutable {

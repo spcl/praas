@@ -175,12 +175,17 @@ namespace praas::control_plane {
   )
   {
     std::string pid = request->getParameter("process_name");
+    std::string vcpus_str = request->getParameter("vcpus");
+    std::string memory_str = request->getParameter("memory");
 
-    _logger->info("Push new invocation request of {}", function_name);
+    _logger->info("Push new invocation request of {}, vcpus {}, memory {}", function_name, vcpus_str, memory_str);
     auto start = std::chrono::high_resolution_clock::now();
     _workers.add_task(
         &worker::Workers::handle_invocation, request, std::move(callback), app_name, function_name,
-        start, !pid.empty() ? std::make_optional<std::string>(pid) : std::nullopt
+        start,
+	!pid.empty() ? std::make_optional<std::string>(pid) : std::nullopt,
+	!vcpus_str.empty() ? std::make_optional<std::string>(vcpus_str) : std::nullopt,
+	!memory_str.empty() ? std::make_optional<std::string>(memory_str) : std::nullopt
     );
   }
 
