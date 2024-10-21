@@ -200,15 +200,22 @@ namespace praas::sdk {
 
   ControlPlaneInvocationResult PraaS::invoke(
       const std::string& app_name, const std::string& function_name,
-      const std::string& invocation_data, std::optional<std::string> process_name
+      const std::string& invocation_data, std::optional<std::string> process_name,
+      std::optional<std::string> vcpus, std::optional<std::string> memory
   )
   {
-    return invoke_async(app_name, function_name, invocation_data, std::move(process_name)).get();
+    return invoke_async(
+	app_name, function_name, invocation_data,
+	std::move(process_name),
+	std::move(vcpus),
+	std::move(memory)
+    ).get();
   }
 
   std::future<ControlPlaneInvocationResult> PraaS::invoke_async(
       const std::string& app_name, const std::string& function_name,
-      const std::string& invocation_data, std::optional<std::string> process_name
+      const std::string& invocation_data, std::optional<std::string> process_name,
+      std::optional<std::string> vcpus, std::optional<std::string> memory
   )
   {
     // We need a shared_ptr because we cannot move it to the lambda later
@@ -222,6 +229,12 @@ namespace praas::sdk {
     req->setBody(invocation_data);
     if(process_name.has_value()) {
       req->setParameter("process_name", process_name.value());
+    }
+    if(vcpus.has_value()) {
+      req->setParameter("vcpus", vcpus.value());
+    }
+    if(memory.has_value()) {
+      req->setParameter("memory", memory.value());
     }
     req->setContentTypeCode(drogon::ContentType::CT_APPLICATION_JSON);
 

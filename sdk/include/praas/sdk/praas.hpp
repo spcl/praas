@@ -36,13 +36,17 @@ namespace praas::sdk {
     ControlPlaneInvocationResult invoke(
         const std::string& app_name, const std::string& function_name,
         const std::string& invocation_data,
-        std::optional<std::string> process_name = std::nullopt
+        std::optional<std::string> process_name = std::nullopt,
+        std::optional<std::string> vcpus = std::nullopt,
+        std::optional<std::string> memory = std::nullopt
     );
 
     std::future<ControlPlaneInvocationResult> invoke_async(
         const std::string& app_name, const std::string& function_name,
         const std::string& invocation_data,
-        std::optional<std::string> process_name = std::nullopt
+        std::optional<std::string> process_name = std::nullopt,
+        std::optional<std::string> vcpus = std::nullopt,
+        std::optional<std::string> memory = std::nullopt
     );
 
     std::tuple<bool, std::string> swap_process(const Process& process);
