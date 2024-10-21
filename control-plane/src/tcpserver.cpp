@@ -161,9 +161,6 @@ namespace praas::control_plane::tcpserver {
 
     // Waiting for data
 
-    _logger->info(
-        "There are {} bytes to read, {} expected", buffer->readableBytes(), conn_data->bytes_to_read
-    );
     if (conn_data->bytes_to_read > 0) {
 
       auto msg = praas::common::message::MessageParser::parse(conn_data->cur_msg);
@@ -181,9 +178,6 @@ namespace praas::control_plane::tcpserver {
       consumed = handle_message(connectionPtr, buffer, *conn_data, msg);
     }
 
-    _logger->info(
-        "Consumed message? {} There are {} bytes remaining", consumed, buffer->readableBytes()
-    );
     if (consumed && buffer->readableBytes() > 0) {
       handle_message(connectionPtr, buffer);
     }
