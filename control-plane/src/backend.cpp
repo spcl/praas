@@ -265,11 +265,11 @@ namespace praas::control_plane::backend {
     req.SetNetworkInterfaceIds({eni_interface});
 
     _ec2_client->DescribeNetworkInterfacesAsync(
+        req,
         [this](auto* ptr, auto res, auto outcome, auto& context) mutable {
           _callback_describe_eni(ptr, res, outcome, context);
         },
-        nullptr,
-        req
+        nullptr
     );
   }
 
