@@ -8,6 +8,8 @@ import os
 
 import pypraas
 
+import boto3
+
 @dataclass_json
 @dataclass
 class File:
@@ -15,12 +17,20 @@ class File:
     file: str
     data: str = ""
 
+s3_client = boto3.client('s3')
 
 class EnhancedJSONEncoder(json.JSONEncoder):
     def default(self, o):
         if dataclasses.is_dataclass(o):
             return dataclasses.asdict(o)
         return super().default(o)
+
+def s3_state(path, data):
+
+    if isinstance(data, bytes):
+        s3_client.put_object(Body=data, Bucket='praas-benchmarks', Key=path)
+    else:
+        s3_client.put_object(Body=data.encode(), Bucket='praas-benchmarks', Key=path)
 
 def update_file(invocation, context):
 
@@ -30,9 +40,10 @@ def update_file(invocation, context):
 
     path = os.path.join(input.path, input.file)
     context.state(path, input.data)
+    s3_state(path, input.data)
 
     out_buf = context.get_output_buffer()
-    json.dump({'message': f"Saved file to {path}"}, pypraas.BufferStringWriter(out_buf))
+    json.dump({'message': f"Saved file {input.file} to {path} and S3"}, pypraas.BufferStringWriter(out_buf))
     context.set_output_buffer(out_buf)
 
     return 0
