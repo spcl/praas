@@ -7,6 +7,12 @@ target_link_libraries(benchmarker_latex_editing PUBLIC cereal::cereal)
 target_link_libraries(benchmarker_latex_editing PRIVATE praas_sdk)
 set_target_properties(benchmarker_latex_editing PROPERTIES RUNTIME_OUTPUT_DIRECTORY latex-service)
 
+add_executable(benchmarker_latex_editing_sticky latex-service/benchmarker_editing_sticky.cpp)
+target_link_libraries(benchmarker_latex_editing_sticky PUBLIC spdlog::spdlog)
+target_link_libraries(benchmarker_latex_editing_sticky PUBLIC cereal::cereal)
+target_link_libraries(benchmarker_latex_editing_sticky PRIVATE praas_sdk)
+set_target_properties(benchmarker_latex_editing_sticky PROPERTIES RUNTIME_OUTPUT_DIRECTORY latex-service)
+
 add_executable(benchmarker_latex_compiling latex-service/benchmarker_compiling.cpp)
 target_link_libraries(benchmarker_latex_compiling PUBLIC spdlog::spdlog)
 target_link_libraries(benchmarker_latex_compiling PUBLIC cereal::cereal)
