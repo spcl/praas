@@ -28,10 +28,8 @@ s3_client = boto3.client('s3')
 def state(path, data):
 
     if isinstance(data, bytes):
-        print(len(data))
         s3_client.put_object(Body=data, Bucket='praas-benchmarks', Key=path)
     else:
-        print(len(data.encode()))
         s3_client.put_object(Body=data.encode(), Bucket='praas-benchmarks', Key=path)
 
 def get_state(path):
@@ -48,7 +46,6 @@ def update_file(event, context):
         input.data = base64.b64decode(input.data)
 
     path = os.path.join(input.path, input.file)
-    print(path, len(input.data))
     state(path, input.data)
 
     return {'message': f"Saved file to {path}"}
